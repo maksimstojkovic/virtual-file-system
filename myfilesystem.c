@@ -345,9 +345,10 @@ int delete_file(char * filename, void * helper) {
 	// Update filesystem variables
 	fs->used -= f->length;
 	fs->index[f->index] = 0;
-	
-	arr_remove_s(f, fs->o_list);
-	arr_remove_s(f, fs->n_list);
+
+	// Remove from arrays using indices to handle zero size files
+	arr_remove(f->o_index, fs->o_list);
+	arr_remove(f->n_index, fs->n_list);
 	
 	// printf("delete_file removed \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);

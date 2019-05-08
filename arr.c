@@ -17,12 +17,13 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 			// Check if file_t* b refers to a zero size file
 			// Zero size files have an offset that exceeds the bounds
 			// of file_data and are stored at the end of the array
+			// (zero size files should be found by name, not offset)
 			if (b->offset < arr->fs->len[0]) {
 				return 0;
 			} else {
+				// Redirect search to lower indices if zero size file found
 				return -1;
 			}
-			return 0;
 		}
 	} else {
 		// NOTE: Only compares first 63 characters
@@ -231,27 +232,19 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
 	return f;
 }
 
-// TODO: EDGE CASE WITH FILE AT OFFSET fs->len[0] with size 0, should succeed?
 // Remove file_t* with relevant key from array(file_t* success, NULL file not found)
 file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	if (key == NULL || arr == NULL) {
 		perror("arr_remove_s: Invalid arguments");
 		exit(1);
 	}
-	if ((arr->type == OFFSET && (key->offset < 0 || key->offset > arr->fs->len[0])) ||
+
+	// Zero length files will fail the offset check
+	if ((arr->type == OFFSET && (key->offset < 0 || key->offset >= arr->fs->len[0])) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
 		perror("arr_remove_s: Invalid key");
 		exit(1);
 	}
-	
-	// If key contains index of file_t* in arr, remove directly
-	if (key->o_index >= 0 || key->n_index >= 0) {
-		if (arr->type == OFFSET) {
-			return arr_remove(key->o_index, arr);
-		} else {
-			return arr_remove(key->n_index, arr);
-		}
-	} 
 	
 	// Find insertion index (return NULL if file not found)
 	file_t* f = arr_get_s(key, arr);
@@ -295,7 +288,7 @@ file_t* arr_get_s(file_t* file, arr_t* arr) {
 	return arr_get(index, arr);
 }
 
-// Print array contents in sorted order
+// Print array contents in sorted order (used for debugging)
 void arr_print(arr_t* arr) {
 	for (int32_t i = 0; i < arr->size; i++) {
 		file_t* f = arr_get(i, arr);

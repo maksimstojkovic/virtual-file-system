@@ -73,19 +73,21 @@ int test_array_empty() {
 int test_array_get() {
 	gen_blank_files();
 	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
-	file_t* f[4];
+	file_t* f[5];
 	f[0] = new_file_t("test3.txt", 5, 10, 0);
-	f[1] = new_file_t("zero.txt", new_file_offset(0, fs), 0, 3);
-	f[2] = new_file_t("test2.txt", 0, 5, 2);
-	f[3] = new_file_t("test1.txt", 15, 10, 1);
+	f[1] = new_file_t("zero1.txt", new_file_offset(0, fs), 0, 3);
+	f[2] = new_file_t("zero2.txt", new_file_offset(0, fs), 0, 4);
+	f[3] = new_file_t("test2.txt", 0, 5, 2);
+	f[4] = new_file_t("test1.txt", 15, 10, 1);
 
 	file_t key[4];
 	update_file_offset(5, &key[0]);
-	update_file_name("zero.txt", &key[1]);
+	update_file_name("zero1.txt", &key[1]);
 	update_file_offset(20, &key[2]);
 	update_file_name("nothing", &key[3]);
 
-	for (int i = 0; i < 4; i++) {
+	// Insert elements into arrays
+	for (int i = 0; i < 5; i++) {
 		arr_insert_s(f[i], fs->o_list);
 		arr_insert_s(f[i], fs->n_list);
 	}
@@ -122,11 +124,13 @@ int test_array_insert() {
 	file_t* o_expect[4] = {f[2], f[0], f[3], f[1]};
 	file_t* n_expect[4] = {f[3], f[2], f[0], f[1]};
 
+	// Insert elements into arrays
 	for (int i = 0; i < 4; i++) {
 		arr_insert_s(f[i], fs->o_list);
 		arr_insert_s(f[i], fs->n_list);
 	}
 
+	// Try inserting duplicate
 	if (arr_insert_s(f[3], fs->o_list) != -1 ||
 		arr_insert_s(f[3], fs->n_list) != -1) {
 		perror("array_insert: Duplicate insertion should fail");
@@ -146,6 +150,75 @@ int test_array_insert() {
 		}
 	}
 
+	close_fs(fs);
+	return 0;
+}
+
+// Test sorted removal and left element shifting with normal
+// and zero size files
+int test_array_remove() {
+	gen_blank_files();
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	file_t* f[5];
+	f[0] = new_file_t("test3.txt", 5, 10, 0);
+	f[1] = new_file_t("zero2.txt", new_file_offset(0, fs), 0, 3);
+	f[2] = new_file_t("zero1.txt", new_file_offset(0, fs), 0, 4);
+	f[3] = new_file_t("test2.txt", 0, 5, 2);
+	f[4] = new_file_t("test1.txt", 15, 10, 1);
+
+	file_t key[4];
+	update_file_offset(5, &key[0]);
+	update_file_name("zero1.txt", &key[1]);
+	update_file_offset(20, &key[2]);
+	update_file_name("nothing", &key[3]);
+
+	file_t* o_expect[3] = {f[3], f[4], f[1]};
+	file_t* n_expect[3] = {f[4], f[3], f[1]};
+
+	// Insert elements into arrays
+	for (int i = 0; i < 5; i++) {
+		arr_insert_s(f[i], fs->o_list);
+		arr_insert_s(f[i], fs->n_list);
+	}
+
+	// Remove files with valid keys
+	// Zero size files can only be found by name
+	file_t* test_f = arr_remove_s(&key[0], fs->o_list);
+	file_t* zero_f = arr_remove_s(&key[1], fs->n_list);
+	if (test_f != f[0] || zero_f != f[2]) {
+		perror("array_remove: Removed incorrect files");
+		return 1;
+	}
+
+	// Remove corresponding entry in opposing list
+	if (arr_remove(test_f->n_index, fs->n_list) != test_f ||
+		arr_remove(zero_f->o_index, fs->o_list) != zero_f) {
+		perror("array_remove: Failed to remove opposing list entry");
+		return 2;
+	}
+
+	// Attempt to remove files with invalid keys
+	if (arr_remove_s(&key[2], fs->o_list) != NULL ||
+		arr_remove_s(&key[3], fs->n_list) != NULL) {
+		perror("array_remove: Invalid keys should fail");
+		return 3;
+	}
+
+	// Compare offset and name lists with expected
+	for (int i = 0; i < 3; i++) {
+		if (fs->o_list->list[i] != o_expect[i]) {
+			perror("array_remove: Incorrect offset order after removal");
+			return 4;
+		}
+
+		if (fs->n_list->list[i] != n_expect[i]) {
+			perror("array_remove: Incorrect name order after removal");
+			return 5;
+		}
+	}
+
+	free(test_f);
+	free(zero_f);
 	close_fs(fs);
 	return 0;
 }
@@ -242,6 +315,7 @@ int main(int argc, char * argv[]) {
 	TEST(test_array_empty);
 	TEST(test_array_get);
 	TEST(test_array_insert);
+	TEST(test_array_remove);
 
 	// Basic filesystem test
 	TEST(test_no_operation);
