@@ -132,7 +132,7 @@ static int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
 	}
 	
 	// Append zero size_files to end of offset array
-	if (arr->type == OFFSET && file->length == 0) {
+	if (insert && arr->type == OFFSET && file->length == 0) {
 		return arr->size;
 	}
 	

@@ -17,7 +17,7 @@ int l_end();
 uint32_t utole(uint64_t in);
 
 // Create new dynamically allocated file_t struct
-file_t* new_file_t(char* name, uint32_t offset, uint32_t length, int32_t index);
+file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index);
 
 // Update file_t struct name
 void update_file_name(char* name, file_t* file);

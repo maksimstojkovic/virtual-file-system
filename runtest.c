@@ -12,6 +12,7 @@
 
 #include "structs.h"
 #include "helper.h"
+#include "arr.h"
 #include "myfilesystem.h"
 
 #define TEST(x) test(x, #x)
@@ -31,12 +32,14 @@ int hash;
 /****************************/
 /* Helper function */
 void test(int (*test_function) (), char * function_name) {
-    int ret = test_function();
-    if (ret == 0) {
-        printf("Passed %s\n", function_name);
-    } else {
-        printf("Failed %s returned %d\n", function_name, ret);
-    }
+	static long test_count = 1;
+	int ret = test_function();
+	if (ret == 0) {
+		printf("%3ld. Passed %s\n", test_count, function_name);
+	} else {
+		printf("%3ld. Failed %s returned %d\n", test_count, function_name, ret);
+	}
+	test_count++;
 }
 
 // Write blank data files for use with testing
@@ -55,32 +58,118 @@ int failure() {
     return 1;
 }
 
-// TODO: Write test
-int array_empty() {
+// Test initialising and freeing array for memory leaks
+int test_array_empty() {
+	filesys_t* fs = malloc(sizeof(*fs));
+	arr_t* o_list = arr_init(LEN_F2/META_LENGTH, OFFSET, fs);
+	arr_t* n_list = arr_init(LEN_F2/META_LENGTH, NAME, fs);
+	free_arr(o_list);
+	free_arr(n_list);
+	free(fs);
+	return 0;
+}
 
+// Test get from array
+int test_array_get() {
+	gen_blank_files();
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	file_t* f[4];
+	f[0] = new_file_t("test3.txt", 5, 10, 0);
+	f[1] = new_file_t("zero.txt", new_file_offset(0, fs), 0, 3);
+	f[2] = new_file_t("test2.txt", 0, 5, 2);
+	f[3] = new_file_t("test1.txt", 15, 10, 1);
+
+	file_t key[4];
+	update_file_offset(5, &key[0]);
+	update_file_name("zero.txt", &key[1]);
+	update_file_offset(20, &key[2]);
+	update_file_name("nothing", &key[3]);
+
+	for (int i = 0; i < 4; i++) {
+		arr_insert_s(f[i], fs->o_list);
+		arr_insert_s(f[i], fs->n_list);
+	}
+
+	// Compare successful get operations
+	if (arr_get_s(&key[0], fs->o_list) != f[0] ||
+		arr_get_s(&key[1], fs->n_list) != f[1]) {
+		perror("array_get: Incorrect file_t* retrieved");
+		return 1;
+	}
+
+	// Compare file not found operations
+	if (arr_get_s(&key[2], fs->o_list) != NULL ||
+		arr_get_s(&key[3], fs->n_list) != NULL) {
+		perror("array_get: File should not be found");
+		return 2;
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
+// Test sorted index insertion and right element shifting with normal
+// and zero size files
+int test_array_insert() {
+	gen_blank_files();
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	file_t* f[4];
+	f[0] = new_file_t("test3.txt", 5, 10, 0);
+	f[1] = new_file_t("zero.txt", new_file_offset(0, fs), 0, 3);
+	f[2] = new_file_t("test2.txt", 0, 5, 2);
+	f[3] = new_file_t("test1.txt", 15, 10, 1);
+
+	file_t* o_expect[4] = {f[2], f[0], f[3], f[1]};
+	file_t* n_expect[4] = {f[3], f[2], f[0], f[1]};
+
+	for (int i = 0; i < 4; i++) {
+		arr_insert_s(f[i], fs->o_list);
+		arr_insert_s(f[i], fs->n_list);
+	}
+
+	if (arr_insert_s(f[3], fs->o_list) != -1 ||
+		arr_insert_s(f[3], fs->n_list) != -1) {
+		perror("array_insert: Duplicate insertion should fail");
+		return 1;
+	}
+
+	// Compare offset and name lists with expected
+	for (int i = 0; i < 4; i++) {
+		if (fs->o_list->list[i] != o_expect[i]) {
+			perror("array_insert: Incorrect offset insertion order");
+			return 2;
+		}
+
+		if (fs->n_list->list[i] != n_expect[i]) {
+			perror("array_insert: Incorrect name insertion order");
+			return 3;
+		}
+	}
+
+	close_fs(fs);
 	return 0;
 }
 
 // Test initialising and closing filesystem for memory leaks
 int test_no_operation() {
 	gen_blank_files();
-	filesys_t* helper = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
-	close_fs(helper);
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	close_fs(fs);
 	return 0;
 }
 
 // Test create_file with a single insertion
 int test_create_file_success() {
 	gen_blank_files();
-	filesys_t* helper = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
-	if (create_file("test1.txt", 50, helper) ||
-		create_file("test2.txt", 100, helper) ||
-		create_file("test3.txt", 150, helper)) {
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	if (create_file("test1.txt", 50, fs) ||
+		create_file("test2.txt", 100, fs) ||
+		create_file("test3.txt", 150, fs)) {
 		perror ("create_file_success: Create failed");
 		return 1;
 	}
 
-	close_fs(helper);
+	close_fs(fs);
 	return 0;
 }
 
@@ -88,48 +177,48 @@ int test_create_file_success() {
 // Also test init_fs reading in existing files from filesystem
 int test_create_file_exists() {
 	gen_blank_files();
-	filesys_t* helper = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
-	if (create_file("document.txt", 50, helper)) {
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	if (create_file("document.txt", 50, fs)) {
 		perror ("create_file_exists: Create 1 failed");
 		return 1;
 	}
 
-	if (create_file("document.txt", 20, helper) != 1) {
+	if (create_file("document.txt", 20, fs) != 1) {
 		perror ("create_file_exists: Create 2 should fail");
 		return 1;
 	}
-	close_fs(helper);
+	close_fs(fs);
 
-	helper = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
-	if (create_file("document.txt", 20, helper) != 1) {
+	fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	if (create_file("document.txt", 20, fs) != 1) {
 		perror ("create_file_exists: Create 3 should fail");
 		return 1;
 	}
 
-	close_fs(helper);
+	close_fs(fs);
 	return 0;
 }
 
 // Test create_file with insufficient filesystem space
 int test_create_file_no_space() {
 	gen_blank_files();
-	filesys_t* helper = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
-	if (create_file("test1.txt", 50, helper)) {
+	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	if (create_file("test1.txt", 50, fs)) {
 		perror ("create_file_no_space: Create 1 failed");
 		return 1;
 	}
 
-	if (create_file("test2.txt", 975, helper) != 2) {
+	if (create_file("test2.txt", 975, fs) != 2) {
 		perror ("create_file_no_space: Create 2 should fail");
 		return 1;
 	}
 
-	if (create_file("test3.txt", 974, helper)) {
+	if (create_file("test3.txt", 974, fs)) {
 		perror ("create_file_no_space: Create 3 failed");
 		return 1;
 	}
 
-	close_fs(helper);
+	close_fs(fs);
 	return 0;
 }
 
@@ -150,12 +239,14 @@ int main(int argc, char * argv[]) {
     TEST(failure);
 
     // Array data structure tests
-	TEST(array_empty);
+	TEST(test_array_empty);
+	TEST(test_array_get);
+	TEST(test_array_insert);
 
 	// Basic filesystem test
 	TEST(test_no_operation);
 
-	//
+	// create_file tests
 	TEST(test_create_file_success);
 	TEST(test_create_file_exists);
 	TEST(test_create_file_no_space);

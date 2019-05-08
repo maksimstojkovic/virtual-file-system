@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#define MAX_NUM_BLOCKS 16777216
+#define BLOCK_LENGTH 256
 #define MAX_NUM_FILES 65536
 #define NAME_LENGTH 64
 #define OFFSET_LENGTH 4

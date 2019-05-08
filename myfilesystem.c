@@ -119,16 +119,18 @@ static int32_t new_file_index(filesys_t* fs) {
 }
 
 // Find offset in file_data for insertion (offset success)
-// Files with zero length are assigned offset = length of file_data
-int64_t new_file_offset(size_t length, filesys_t* fs) {
+// Files with zero length are assigned offset = max length of file_data
+// (this value overflows to 0 when casting to uint32_t, but improves for more
+//  efficient insertion into a sorted offset list)
+uint64_t new_file_offset(size_t length, filesys_t* fs) {
 	if (length < 0 || fs == NULL) {
 		perror("new_file_offset: Invalid arguments");
 		exit(1);
 	}
 	
-	// Assign zero size files with offset = length of file_data
+	// Assign zero size files with offset = max length of file_data
 	if (length == 0) {
-		return fs->len[0];
+		return (uint64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH;
 	}
 
 	file_t** o_list = fs->o_list->list;
@@ -177,7 +179,7 @@ int create_file(char * filename, size_t length, void * helper) {
 
 	// Find available index in dir_table and space (suitable offset) in file_data
 	int32_t index = new_file_index(fs);
-	uint32_t offset = new_file_offset(length, fs);
+	uint64_t offset = new_file_offset(length, fs);
 
 	// Create new file_t struct and insert into both sorted lists
 	file_t* f = new_file_t(filename, offset, length, index);
