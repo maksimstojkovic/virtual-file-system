@@ -250,7 +250,7 @@ int test_create_file_success() {
 // Also test init_fs reading in existing files from filesystem
 int test_create_file_exists() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	if (create_file("document.txt", 50, fs)) {
 		perror ("create_file_exists: Create 1 failed");
 		return 1;

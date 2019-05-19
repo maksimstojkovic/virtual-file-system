@@ -45,9 +45,9 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 
 	// Store file lengths in filesystem
 	struct stat s[3];
-	if (fstat(fs->dir_fd, &s[0]) != 0 ||
+	if (fstat(fs->file_fd, &s[0]) != 0 ||
 	   	fstat(fs->dir_fd, &s[1]) != 0 ||
-	   	fstat(fs->dir_fd, &s[2]) != 0) {
+	   	fstat(fs->hash_fd, &s[2]) != 0) {
 		perror("init_fs: Failed to get file length");
 		exit(1);
 	}
@@ -57,8 +57,8 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	
 	// Map files to memory using mmap
 	fs->file = mmap(NULL, s[0].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
-	fs->file = mmap(NULL, s[1].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
-	fs->file = mmap(NULL, s[2].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
+	fs->dir = mmap(NULL, s[1].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
+	fs->hash = mmap(NULL, s[2].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
 	if (fs->file == MAP_FAILED || fs->dir == MAP_FAILED || fs->hash == MAP_FAILED ||
 	   	fs->file == NULL || fs->dir == NULL || fs->hash == NULL) {
 		perror("init_fs: Failed to map files to memory");
@@ -81,7 +81,6 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	uint32_t length;
 
 	for (int32_t i = 0; i < fs->index_len; i++) {
-		printf("%d\n", i);
 		memcpy(&name, fs->dir + i * META_LENGTH, NAME_LENGTH-1);
 		// pread(fs->dir, &name, NAME_LENGTH-1, i * META_LENGTH);
 		
