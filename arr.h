@@ -31,6 +31,7 @@ file_t* arr_remove_s(file_t* key, arr_t* arr);
 file_t* arr_get(int32_t index, arr_t* arr);
 
 // Search through array for element with matching key
+// Assumes the file passed has the valid key populated
 // (file_t* success, NULL file not found)
 file_t* arr_get_s(file_t* file, arr_t* arr);
 

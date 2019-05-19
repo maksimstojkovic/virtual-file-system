@@ -40,8 +40,12 @@ void update_dir_length(file_t* file, filesys_t* fs);
 // Write a file to dir_table at the index within file_t
 void write_dir_file(file_t* file, filesys_t* fs);
 
-// Write null bytes to a file descriptor
+// Write count null bytes to a file at offset (does not sync)
+void write_null_byte(char* f, int64_t count, int64_t offset);
+
+// Write count null bytes to a file descriptor at offset
+// Used for testcases
 // NOTE: DOES NOT CHECK FOR VALID OFFSET OR BYTE COUNT
-void write_null_byte(int fd, int64_t count, int64_t offset);
+void pwrite_null_byte(int fd, int64_t count, int64_t offset);
 
 #endif

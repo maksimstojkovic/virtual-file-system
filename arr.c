@@ -232,7 +232,7 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
 	return f;
 }
 
-// Remove file_t* with relevant key from array(file_t* success, NULL file not found)
+// Remove file_t* with relevant key from array (file_t* success, NULL file not found)
 file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	if (key == NULL || arr == NULL) {
 		perror("arr_remove_s: Invalid arguments");
@@ -272,6 +272,7 @@ file_t* arr_get(int32_t index, arr_t* arr) {
 }
 
 // Search through array for element with matching key
+// Assumes the file passed has the valid key populated
 // (file_t* success, NULL file not found)
 file_t* arr_get_s(file_t* file, arr_t* arr) {
 	if (file == NULL || arr == NULL) {

@@ -21,9 +21,9 @@
 #define LEN_F2 720
 #define LEN_F3 112
 
-static char* f1 = "data/file_data.bin";
-static char* f2 = "data/directory_table.bin";
-static char* f3 = "data/hash_data.bin";
+static char* f1 = "file_data.bin";
+static char* f2 = "directory_table.bin";
+static char* f3 = "hash_data.bin";
 
 int file;
 int dir;
@@ -44,9 +44,9 @@ void test(int (*test_function) (), char * function_name) {
 
 // Write blank data files for use with testing
 void gen_blank_files() {
-	write_null_byte(file, LEN_F1, 0);
-	write_null_byte(dir, LEN_F2, 0);
-	write_null_byte(hash, LEN_F3, 0);
+	pwrite_null_byte(file, LEN_F1, 0);
+	pwrite_null_byte(dir, LEN_F2, 0);
+	pwrite_null_byte(hash, LEN_F3, 0);
 }
 /****************************/
 
@@ -72,7 +72,7 @@ int test_array_empty() {
 // Test get from array
 int test_array_get() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	file_t* f[5];
 	f[0] = new_file_t("test3.txt", 5, 10, 0);
 	f[1] = new_file_t("zero1.txt", new_file_offset(0, fs), 0, 3);
@@ -114,7 +114,7 @@ int test_array_get() {
 // and zero size files
 int test_array_insert() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	file_t* f[4];
 	f[0] = new_file_t("test3.txt", 5, 10, 0);
 	f[1] = new_file_t("zero.txt", new_file_offset(0, fs), 0, 3);
@@ -158,7 +158,7 @@ int test_array_insert() {
 // and zero size files
 int test_array_remove() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	file_t* f[5];
 	f[0] = new_file_t("test3.txt", 5, 10, 0);
 	f[1] = new_file_t("zero2.txt", new_file_offset(0, fs), 0, 3);
@@ -226,7 +226,7 @@ int test_array_remove() {
 // Test initialising and closing filesystem for memory leaks
 int test_no_operation() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	close_fs(fs);
 	return 0;
 }
@@ -234,7 +234,7 @@ int test_no_operation() {
 // Test create_file with a single insertion
 int test_create_file_success() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	if (create_file("test1.txt", 50, fs) ||
 		create_file("test2.txt", 100, fs) ||
 		create_file("test3.txt", 150, fs)) {
@@ -262,7 +262,7 @@ int test_create_file_exists() {
 	}
 	close_fs(fs);
 
-	fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	fs = init_fs(f1, f2, f3, 1);
 	if (create_file("document.txt", 20, fs) != 1) {
 		perror ("create_file_exists: Create 3 should fail");
 		return 1;
@@ -275,7 +275,7 @@ int test_create_file_exists() {
 // Test create_file with insufficient filesystem space
 int test_create_file_no_space() {
 	gen_blank_files();
-	filesys_t* fs = init_fs("data/file_data.bin", "data/directory_table.bin", "data/hash_data.bin", 1);
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	if (create_file("test1.txt", 50, fs)) {
 		perror ("create_file_no_space: Create 1 failed");
 		return 1;
@@ -296,11 +296,10 @@ int test_create_file_no_space() {
 }
 
 int main(int argc, char * argv[]) {
-	// Create data folder and blank files for tests to use
-	mkdir("data", 0755);
-	file = open(f1, O_RDWR | O_CREAT);
-	dir = open(f2, O_RDWR | O_CREAT);
-	hash = open(f3, O_RDWR | O_CREAT);
+	// Create blank files for tests to use
+	file = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+	dir = open(f2, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+	hash = open(f3, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (file < 0 || dir < 0 || hash < 0) {
 		perror("main: Failed to open files");
 		exit(1);

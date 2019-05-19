@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 #include "structs.h"
 #include "helper.h"
@@ -38,9 +40,16 @@ int l_end() {
 // Unsigned to little endian and vice versa
 // (called when updating file_t offset/length, or reading dir_table)
 uint32_t utole(uint64_t in) {
+	// Return 0 if zero size file
+	if (in >= (uint64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH) {
+		return 0;
+	}
+	
 	if (l_end()) {
+		// Return casted value if little endian
 		return (uint32_t)in;
 	} else {
+		// Reverse bytes if big endian
 		uint32_t in_cast = (uint32_t)in;
 		uint32_t out = 0;
 		for (int i = 0; i < 4; i++) {
@@ -80,34 +89,59 @@ void update_file_length(uint32_t length, file_t* file) {
 	file->length_le = utole(length);
 }
 
-// Update a file's name field in dir_table
+// Update a file's name field in dir_table (does not sync)
 void update_dir_name(file_t* file, filesys_t* fs) {
-	pwrite(fs->dir, file->name, strlen(file->name) + 1,
-		   file->index * META_LENGTH);
+	memcpy(fs->dir + file->index * META_LENGTH, file->name, strlen(file->name)+1);
+	// pwrite(fs->dir, file->name, strlen(file->name) + 1,
+	// 	   file->index * META_LENGTH);
 }
 
-// Update a file's offset field in dir_table
+// Update a file's offset field in dir_table (does not sync)
 void update_dir_offset(file_t* file, filesys_t* fs) {
-	pwrite(fs->dir, &file->offset_le, sizeof(uint32_t),
-		   file->index * META_LENGTH + NAME_LENGTH);
+	memcpy(fs->dir + file->index * META_LENGTH + NAME_LENGTH,
+		   &file->offset_le, sizeof(uint32_t));
+	// pwrite(fs->dir, &file->offset_le, sizeof(uint32_t),
+	// 	   file->index * META_LENGTH + NAME_LENGTH);
 }
 
-// Update a file's offset field in dir_table
+// Update a file's offset field in dir_table (does not sync)
 void update_dir_length(file_t* file, filesys_t* fs) {
-	pwrite(fs->dir, &file->length_le, sizeof(uint32_t),
-		   file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH);
+	memcpy(fs->dir + file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH,
+		   &file->offset_le, sizeof(uint32_t));
+	// pwrite(fs->dir, &file->length_le, sizeof(uint32_t),
+	// 	   file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH);
 }
 
-// Write a file to dir_table at the index within file_t
+// Write a file to dir_table at the index within file_t (does not sync)
 void write_dir_file(file_t* file, filesys_t* fs) {
 	update_dir_name(file, fs);
 	update_dir_offset(file, fs);
 	update_dir_length(file, fs);
 }
 
-// Write null bytes to a file descriptor
+// Write count null bytes to a file at offset (does not sync)
+void write_null_byte(char* f, int64_t count, int64_t offset) {
+	// Return if negative or zero bytes to write
+	// Zero size files should pass a count argument of 0
+	if (count <= 0) {
+		return;
+	}
+	
+	// Check for invalid arguments
+	if (count >= (int64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH || offset < 0 ||
+	   	offset >= (int64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH) {
+		perror("write_null_byte: Invalid arguments");
+		exit(1);
+	}
+	
+	// Write null bytes to mmap'd file
+	memset(f+offset, '\0', count);
+}
+
+// Write count null bytes to a file descriptor at offset
+// Used for testcases
 // NOTE: DOES NOT CHECK FOR VALID OFFSET OR BYTE COUNT
-void write_null_byte(int fd, int64_t count, int64_t offset) {
+void pwrite_null_byte(int fd, int64_t count, int64_t offset) {
 	for (int64_t i = 0; i < count; i++) {
 		pwrite(fd, "", sizeof(char), offset + i);
 	}

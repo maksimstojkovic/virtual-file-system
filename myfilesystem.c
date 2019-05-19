@@ -6,14 +6,23 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "structs.h"
 #include "helper.h"
+#include "arr.h"
 #include "myfilesystem.h"
 
 // ONLY INCLUDE SOURCE (.C) FILES HERE!
-#include "arr.c"
-#include "helper.c"
+// #include "arr.c"
+// #include "helper.c"
+
+// MOVE TO HEADER FILE
+void repack_f(filesys_t* fs);
+
+// POSSIBLY TRY USING MS_ASYNC IN MSYNC CALLS
+// DOUBLE CHECK MSYNC POINTER AND LENGTH
 
 
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
@@ -26,18 +35,35 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	}
 	
 	// Check if files exist
-	fs->file = open(f1, O_RDWR);
-	fs->dir = open(f2, O_RDWR);
-	fs->hash = open(f3, O_RDWR);
-	if (fs->file < 0 || fs->dir < 0 || fs->hash < 0) {
+	fs->file_fd = open(f1, O_RDWR);
+	fs->dir_fd = open(f2, O_RDWR);
+	fs->hash_fd = open(f3, O_RDWR);
+	if (fs->file_fd < 0 || fs->dir_fd < 0 || fs->hash_fd < 0) {
 		perror("init_fs: Failed open calls");
 		exit(1);
 	}
 
 	// Store file lengths in filesystem
-	fs->len[0] = lseek(fs->file, 0, SEEK_END);
-	fs->len[1] = lseek(fs->dir, 0, SEEK_END);
-	fs->len[2] = lseek(fs->hash, 0, SEEK_END);
+	struct stat s[3];
+	if (fstat(fs->dir_fd, &s[0]) != 0 ||
+	   	fstat(fs->dir_fd, &s[1]) != 0 ||
+	   	fstat(fs->dir_fd, &s[2]) != 0) {
+		perror("init_fs: Failed to get file length");
+		exit(1);
+	}
+	fs->len[0] = s[0].st_size;
+	fs->len[1] = s[1].st_size;
+	fs->len[2] = s[2].st_size;
+	
+	// Map files to memory using mmap
+	fs->file = mmap(NULL, s[0].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
+	fs->file = mmap(NULL, s[1].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
+	fs->file = mmap(NULL, s[2].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
+	if (fs->file == MAP_FAILED || fs->dir == MAP_FAILED || fs->hash == MAP_FAILED ||
+	   	fs->file == NULL || fs->dir == NULL || fs->hash == NULL) {
+		perror("init_fs: Failed to map files to memory");
+		exit(1);
+	}
 
 	// Initialise remaining filesystem variables
 	fs->nproc = n_processors;
@@ -51,17 +77,31 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	char name[NAME_LENGTH] = {0};
 	uint32_t offset_le;
 	uint32_t length_le;
+	uint64_t offset;
+	uint32_t length;
 
 	for (int32_t i = 0; i < fs->index_len; i++) {
-		pread(fs->dir, &name, NAME_LENGTH-1, i * META_LENGTH);
+		printf("%d\n", i);
+		memcpy(&name, fs->dir + i * META_LENGTH, NAME_LENGTH-1);
+		// pread(fs->dir, &name, NAME_LENGTH-1, i * META_LENGTH);
 		
 		// Filenames that do not start with a null byte are valid
 		if (name[0] != '\0') {
-			pread(fs->dir, &offset_le, sizeof(uint32_t), i * META_LENGTH + NAME_LENGTH);
-			pread(fs->dir, &length_le, sizeof(uint32_t), i * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH);
+			memcpy(&offset_le, fs->dir + i * META_LENGTH + NAME_LENGTH, sizeof(uint32_t));
+			memcpy(&length_le, fs->dir + i * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH, sizeof(uint32_t));
+			// pread(fs->dir, &offset_le, sizeof(uint32_t), i * META_LENGTH + NAME_LENGTH);
+			// pread(fs->dir, &length_le, sizeof(uint32_t), i * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH);
+			
+			// Assign zero size files with offset = max length of file_data
+			length = utole(length_le);
+			if (length_le == 0) {
+				offset = (uint64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH;
+			} else {
+				offset = utole(offset_le);
+			}
 			
 			// Creating file_t and adding to sorted arrays
-			file_t* f = new_file_t(name, utole(offset_le), utole(length_le), i);
+			file_t* f = new_file_t(name, offset, length, i);
 			arr_insert_s(f, fs->o_list);
 			arr_insert_s(f, fs->n_list);
 			
@@ -85,10 +125,18 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 void close_fs(void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
 	
+	// Sync all files and unmap memory
+	msync(fs->file, fs->len[0], MS_SYNC);
+	msync(fs->dir, fs->len[1], MS_SYNC);
+	msync(fs->hash, fs->len[2], MS_SYNC);
+	munmap(fs->file, fs->len[0]);
+	munmap(fs->dir, fs->len[1]);
+	munmap(fs->hash, fs->len[2]);
+	
 	// Close files
-	close(fs->file);
-	close(fs->dir);
-	close(fs->hash);
+	close(fs->file_fd);
+	close(fs->dir_fd);
+	close(fs->hash_fd);
 	
 	// Free heap memory allocated
 	free_arr(fs->o_list);
@@ -120,8 +168,7 @@ static int32_t new_file_index(filesys_t* fs) {
 
 // Find offset in file_data for insertion (offset success)
 // Files with zero length are assigned offset = max length of file_data
-// (this value overflows to 0 when casting to uint32_t, but improves for more
-//  efficient insertion into a sorted offset list)
+// (this value is used for more efficient insertion, but is set as 0 in dir_table)
 uint64_t new_file_offset(size_t length, filesys_t* fs) {
 	if (length < 0 || fs == NULL) {
 		perror("new_file_offset: Invalid arguments");
@@ -141,16 +188,21 @@ uint64_t new_file_offset(size_t length, filesys_t* fs) {
 		return 0;
 	}
 	
-	for (int32_t i = 0; i < size; i++) {
-		if ((i < size - 1 && o_list[i+1]->offset - (o_list[i]->offset + o_list[i]->length) >= length) ||
-			(i == size - 1 && fs->len[0] - (o_list[i]->offset + o_list[i]->length) >= length)) {
+	// Check space between elements in offset list
+	for (int32_t i = 0; i < size - 1; i++) {
+		if (o_list[i+1]->offset - (o_list[i]->offset + o_list[i]->length) >= length) {
 			return o_list[i]->offset + o_list[i]->length;
 		}
 	}
 	
+	// Check space between last element in offset list and end of file_data
+	if (fs->len[0] - (o_list[size-1]->offset + o_list[size-1]->length) >= length) {
+		return o_list[size-1]->offset + o_list[size-1]->length;
+	}
+	
 	// Repack if no large enough contiguous space found,
 	// and check space at end of file_data
-	repack(fs);
+	repack_f(fs);
 	if (fs->len[0] - (o_list[size-1]->offset + o_list[size-1]->length) >= length) {
 		return o_list[size-1]->offset + o_list[size-1]->length;
 	}
@@ -189,12 +241,17 @@ int create_file(char * filename, size_t length, void * helper) {
 	// Write file metadata to dir_table
 	write_dir_file(f, fs);
 
-	// Write null bytes to file_data if not zero size file
+	// Write null bytes to file_data
+	// Zero size file do not write anything
 	write_null_byte(fs->file, length, f->offset);
 
 	// Update filesystem variables
 	fs->used += length;
 	fs->index[index] = 1;
+	
+	// Sync file_data and dir_table
+	msync(fs->file, fs->len[0], MS_SYNC);
+	msync(fs->dir, fs->len[1], MS_SYNC);
 	
 	// printf("create_file added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
@@ -207,36 +264,40 @@ int create_file(char * filename, size_t length, void * helper) {
 void resize_file_f(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 	int64_t old_length = file->length;
 	
-	// If length increases, temporarily store data in a buffer before finding
-	// a new suitable offset in file_data
+	// Reposition file if length increased
 	if (length > old_length) {
 		file_t** list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
 		
-		// Check if current offset has sufficient space from the next file
+		// Check if current offset has insufficient space from the next file
 		// or from the end of file_data
-		if ((file->o_index < size - 1 && 
-			 list[file->o_index+1]->offset - file->offset < length) ||
-		    (file->o_index == size - 1 && 
-			 fs->len[0] - file->offset < length)) {
+		if ((file->o_index < size - 1 && list[file->o_index+1]->offset - file->offset < length) ||
+		    (file->o_index == size - 1 && fs->len[0] - file->offset < length)) {
 			
 			// Store copy bytes of data from file_data into a buffer
-			// Only copy bytes are necessary as remaining bytes may be
-			// overwritten by write_file
+			// Only copy bytes are necessary as remaining bytes may be overwritten by write_file
 			char* temp = salloc(sizeof(*temp) * copy);
-			pread(fs->file, temp, copy, file->offset);
+			memcpy(temp, fs->file + file->offset, copy);
+			// pread(fs->file, temp, copy, file->offset);
 			
 			// Remove the file_t* from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
 			
-			// Find a new suitable offset, ignoring the current position
-			// of file's data and write to that offset
-			uint32_t new_offset = new_file_offset(length, fs);
-			pwrite(fs->file, temp, copy, new_offset);
-			free(temp);
+			// // Find a new suitable offset, ignoring the current position
+			// // of file's data and write to that offset
+			// uint32_t new_offset = new_file_offset(length, fs);
+			// pwrite(fs->file, temp, copy, new_offset);
+			// free(temp);
+			
+			// Repack and write copied file to end of file_data
+			repack_f(fs);
+			memcpy(fs->file + fs->used - old_length, temp, copy);
+			
+			// Sync file_data
+			msync(fs->file, fs->len[0], MS_SYNC);
 			
 			// Update file_t and dir_table entry's offset
-			update_file_offset(new_offset, file);
+			update_file_offset(fs->used - old_length, file);
 			update_dir_offset(file, fs);
 			
 			// Reinsert file into sorted offset list
@@ -248,6 +309,9 @@ void resize_file_f(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 	if (length != old_length) {
 		update_file_length(length, file);
 		update_dir_length(file, fs);
+		
+		// Sync dir_table
+		msync(fs->dir, fs->len[1], MS_SYNC);
 	}
 	
 	// Update filesystem variables
@@ -280,6 +344,9 @@ int resize_file(char * filename, size_t length, void * helper) {
 	resize_file_f(f, length, old_length, fs);
 	write_null_byte(fs->file, length - old_length, f->offset + old_length);
 	
+	// Sync file_data
+	msync(fs->file, fs->len[0], MS_SYNC);
+	
 	// printf("resize_file resized \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 
@@ -287,14 +354,18 @@ int resize_file(char * filename, size_t length, void * helper) {
 	return 0;
 };
 
-// Moves the file specified to new_offset in file_data
+// Moves the file specified to new_offset in file_data (does not sync)
 static void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
-	char* buff = salloc(file->length);
-	pread(fs->file, buff, file->length, file->offset);
-	pwrite(fs->file, buff, file->length, new_offset);
+	// Move file to new offset
+	memmove(fs->file + new_offset, fs->file + file->offset, file->length);
+	// char* buff = salloc(file->length);
+	// pread(fs->file, buff, file->length, file->offset);
+	// pwrite(fs->file, buff, file->length, new_offset);
+	// free(buff);
+	
+	// Update file_t and dir_table
 	update_file_offset(new_offset, file);
 	update_dir_offset(file, fs);
-	free(buff);
 }
 
 // Force repack regardless of filesystem mutex
@@ -303,18 +374,28 @@ void repack_f(filesys_t* fs) {
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
 	
+	// Return if no files in filesystem
+	if (size <= 0) {
+		return;
+	}
+	
 	// Move first file to offset 0
+	// Does not affect zero size files
 	if (o_list[0]->offset != 0 && o_list[0]->length != 0) {
 		repack_move(o_list[0], 0, fs);
 	}
 	
 	// Iterate over sorted offset list and move data when necessary
+	// Does not affect zero size files
 	for (int32_t i = 1; i < size; i++) {
 		if (o_list[i]->offset > o_list[i-1]->offset + o_list[i-1]->length &&
 			o_list[i]->length != 0) {
 			repack_move(o_list[i], o_list[i-1]->offset + o_list[i-1]->length, fs);
 		}
 	}
+	
+	// Sync file_data
+	msync(fs->file, fs->len[0], MS_SYNC);
 }
 
 void repack(void * helper) {
@@ -342,11 +423,14 @@ int delete_file(char * filename, void * helper) {
 	// Write null byte in file's name field in dir_table
 	write_null_byte(fs->dir, 1, f->index * META_LENGTH);
 	
+	// Sync dir_table
+	msync(fs->dir, fs->len[1], MS_SYNC);
+	
 	// Update filesystem variables
 	fs->used -= f->length;
 	fs->index[f->index] = 0;
 
-	// Remove from arrays using indices to handle zero size files
+	// Remove from arrays using indices
 	arr_remove(f->o_index, fs->o_list);
 	arr_remove(f->n_index, fs->n_list);
 	
@@ -369,7 +453,7 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	update_file_name(oldname, &temp_old);
 	update_file_name(newname, &temp_new);
 	file_t* f = arr_get_s(&temp_old, fs->n_list);
-	if ((f == NULL || arr_get_s(&temp_new, fs->n_list) != NULL)) {
+	if (f == NULL || arr_get_s(&temp_new, fs->n_list) != NULL) {
 		pthread_mutex_unlock(&fs->mutex);
 		return 1;
 	}
@@ -377,6 +461,9 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	// Update file_t struct and dir_table entry
 	update_file_name(newname, f);
 	update_dir_name(f, fs);
+	
+	// Sync dir_table
+	msync(fs->dir, fs->len[1], MS_SYNC);
 	
 	// printf("rename_file renamed \"%s\" to \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   oldname, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
@@ -405,7 +492,8 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	}
 	
 	// Read count bytes into buf at offset bytes from the start of f
-	pread(fs->file, buf, count, f->offset + offset);
+	memcpy(buf, fs->file + f->offset + offset, count);
+	// pread(fs->file, buf, count, f->offset + offset);
 	
 	// printf("read_file read \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
@@ -447,7 +535,11 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	
 	// Write count bytes from buf to file_data
 	// (f->offset will be updated if resize occured)
-	pwrite(fs->file, buf, count, f->offset + offset);
+	memcpy(fs->file + f->offset + offset, buf, count);
+	// pwrite(fs->file, buf, count, f->offset + offset);
+	
+	// Sync file_data
+	msync(fs->file, fs->len[0], MS_SYNC);
 	
 	// printf("write_file wrote \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);

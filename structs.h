@@ -44,9 +44,12 @@ typedef struct arr_t {
 
 typedef struct filesys_t {
 	int32_t nproc;
-	int file;
-	int dir;
-	int hash;
+	int file_fd;
+	int dir_fd;
+	int hash_fd;
+	char* file;
+	char* dir;
+	char* hash;
 	mutex_t mutex; // Filesystem mutex for blocking operations
 	int64_t len[3]; // Length of file, dir, hash in bytes
 	arr_t* o_list;
