@@ -104,8 +104,8 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 			arr_insert_s(f, fs->o_list);
 			arr_insert_s(f, fs->n_list);
 			
-			// printf("init_fs added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-			// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
+			printf("init_fs added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
+				   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 			
 			// Updating filesystem variables
 			fs->index[i] = 1;
@@ -113,10 +113,10 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 		}
 	}
 
-	// printf("init_fs f_len:%ld d_len:%ld h_len:%ld index_len:%d o_size:%d n_size:%d\n",
-	// 	   fs->len[0], fs->len[1], fs->len[2], fs->index_len, fs->o_list->size, fs->n_list->size);
-	// arr_print(fs->o_list);
-	// arr_print(fs->n_list);
+	printf("init_fs f_len:%ld d_len:%ld h_len:%ld index_len:%d o_size:%d n_size:%d\n",
+		   fs->len[0], fs->len[1], fs->len[2], fs->index_len, fs->o_list->size, fs->n_list->size);
+	arr_print(fs->o_list);
+	arr_print(fs->n_list);
 	
 	return fs;
 }
@@ -227,8 +227,8 @@ int create_file(char * filename, size_t length, void * helper) {
 		pthread_mutex_unlock(&fs->mutex);
 		return 2;
 	}
-
-	// printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
+	
+	printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
 
 	// Find available index in dir_table and space (suitable offset) in file_data
 	int32_t index = new_file_index(fs);
