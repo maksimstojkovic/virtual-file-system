@@ -228,6 +228,8 @@ int create_file(char * filename, size_t length, void * helper) {
 		return 2;
 	}
 
+	// printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
+
 	// Find available index in dir_table and space (suitable offset) in file_data
 	int32_t index = new_file_index(fs);
 	uint64_t offset = new_file_offset(length, fs);
