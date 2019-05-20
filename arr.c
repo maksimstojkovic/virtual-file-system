@@ -41,6 +41,11 @@ arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {
 	}
 	
 	arr_t* arr = salloc(sizeof(*arr));
+	if (pthread_mutex_init(&arr->list_mutex, NULL)) {
+		perror("arr_init: Failed to initialise mutex");
+		exit(1);
+	}
+	
 	arr->size = 0;
 	arr->capacity = capacity;
 	arr->type = type;
@@ -54,7 +59,7 @@ static void free_arr_list(arr_t* arr) {
 	if (arr->size > 0) {
 		file_t** list = arr->list;
 		for (int32_t i = 0; i < arr->size; i++) {
-			free(list[i]);
+			free_file_t(list[i]);
 		}
 		// Prevent double free
 		arr->fs->o_list->size = 0;
@@ -66,6 +71,7 @@ static void free_arr_list(arr_t* arr) {
 void free_arr(arr_t* arr) {
 	free_arr_list(arr);
 	free(arr->list);
+	pthread_mutex_destroy(&arr->list_mutex);
 	free(arr);
 }
 

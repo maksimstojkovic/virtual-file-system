@@ -19,6 +19,9 @@ uint32_t utole(uint64_t in);
 // Create new dynamically allocated file_t struct
 file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index);
 
+// Free dynamically allocated file_t struct
+void free_file_t(file_t* file);
+
 // Update file_t struct name
 void update_file_name(char* name, file_t* file);
 
@@ -41,11 +44,20 @@ void update_dir_length(file_t* file, filesys_t* fs);
 void write_dir_file(file_t* file, filesys_t* fs);
 
 // Write count null bytes to a file at offset (does not sync)
-void write_null_byte(char* f, int64_t count, int64_t offset);
+void write_null_byte(void* f, int64_t count, int64_t offset);
 
 // Write count null bytes to a file descriptor at offset
 // Used for testcases
 // NOTE: DOES NOT CHECK FOR VALID OFFSET OR BYTE COUNT
 void pwrite_null_byte(int fd, int64_t count, int64_t offset);
+
+// Returns index of parent in hash array for node at index
+int32_t p_index(int32_t index);
+
+// Returns index of left child in hash array for node at index
+int32_t lc_index(int32_t index);
+
+// Returns index of right child in hash array for node at index
+int32_t rc_index(int32_t index);
 
 #endif

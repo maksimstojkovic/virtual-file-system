@@ -14,12 +14,19 @@
 #include "arr.h"
 #include "myfilesystem.h"
 
+#define LOCK(x) pthread_mutex_lock(x)
+#define UNLOCK(x) pthread_mutex_unlock(x)
+
 // ONLY INCLUDE SOURCE (.C) FILES HERE!
 // #include "arr.c"
 // #include "helper.c"
 
 // MOVE TO HEADER FILE
 void repack_f(filesys_t* fs);
+
+// TODO: REMOVE ANY ARRAYS INITIALISED WITH VARIABLE VALUES AS LENGTH
+// TODO: TRY REPLACING POST-FIX INCREMENT (++) WITH PREFIX
+// TODO: TRY REPLACING MODULUS OPERATOR WITH rem=a-b*(a/b), using intermediate value (a/b)
 
 // POSSIBLY TRY USING MS_ASYNC IN MSYNC CALLS
 // DOUBLE CHECK MSYNC POINTER AND LENGTH
@@ -29,8 +36,12 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     filesys_t* fs = salloc(sizeof(*fs));
 
 	// Initialise main filesystem mutex
-	if (pthread_mutex_init(&fs->mutex, NULL) != 0) {
-		perror("init_fs: Failed to initialise mutex");
+	if (pthread_mutex_init(&fs->file_mutex, NULL) ||
+	   	pthread_mutex_init(&fs->dir_mutex, NULL) ||
+	   	pthread_mutex_init(&fs->hash_mutex, NULL) ||
+	   	pthread_mutex_init(&fs->used_mutex, NULL) ||
+	   	pthread_mutex_init(&fs->index_mutex, NULL)) {
+		perror("init_fs: Failed to initialise mutexes");
 		exit(1);
 	}
 	
@@ -73,6 +84,16 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	fs->n_list = arr_init(fs->index_len, NAME, fs);
 	fs->used = 0;
 	
+	// Initialising Merkle hash tree variables
+	fs->blocks = fs->len[0] / BLOCK_LENGTH;
+	int32_t leaves = 1;
+	while (leaves < fs->blocks) {
+		// Double number of leaves if insufficient for number of blocks
+		leaves *= 2;
+	}
+	fs->tree_len = (2 * leaves) - 1;
+	fs->leaf_offset = fs->blocks - 1;
+	
 	// Read through dir_table for existing files
 	char name[NAME_LENGTH] = {0};
 	uint32_t offset_le;
@@ -82,14 +103,11 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 
 	for (int32_t i = 0; i < fs->index_len; i++) {
 		memcpy(&name, fs->dir + i * META_LENGTH, NAME_LENGTH-1);
-		// pread(fs->dir, &name, NAME_LENGTH-1, i * META_LENGTH);
 		
 		// Filenames that do not start with a null byte are valid
 		if (name[0] != '\0') {
 			memcpy(&offset_le, fs->dir + i * META_LENGTH + NAME_LENGTH, sizeof(uint32_t));
 			memcpy(&length_le, fs->dir + i * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH, sizeof(uint32_t));
-			// pread(fs->dir, &offset_le, sizeof(uint32_t), i * META_LENGTH + NAME_LENGTH);
-			// pread(fs->dir, &length_le, sizeof(uint32_t), i * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH);
 			
 			// Assign zero size files with offset = max length of file_data
 			length = utole(length_le);
@@ -104,8 +122,8 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 			arr_insert_s(f, fs->o_list);
 			arr_insert_s(f, fs->n_list);
 			
-			printf("init_fs added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-				   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
+			// printf("init_fs added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
+			// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 			
 			// Updating filesystem variables
 			fs->index[i] = 1;
@@ -113,10 +131,10 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 		}
 	}
 
-	printf("init_fs f_len:%ld d_len:%ld h_len:%ld index_len:%d o_size:%d n_size:%d\n",
-		   fs->len[0], fs->len[1], fs->len[2], fs->index_len, fs->o_list->size, fs->n_list->size);
-	arr_print(fs->o_list);
-	arr_print(fs->n_list);
+	// printf("init_fs f_len:%ld d_len:%ld h_len:%ld index_len:%d o_size:%d n_size:%d\n",
+	// 	   fs->len[0], fs->len[1], fs->len[2], fs->index_len, fs->o_list->size, fs->n_list->size);
+	// arr_print(fs->o_list);
+	// arr_print(fs->n_list);
 	
 	return fs;
 }
@@ -137,6 +155,13 @@ void close_fs(void * helper) {
 	close(fs->dir_fd);
 	close(fs->hash_fd);
 	
+	// Destroy filesystem mutexes
+	pthread_mutex_destroy(&fs->file_mutex);
+	pthread_mutex_destroy(&fs->dir_mutex);
+	pthread_mutex_destroy(&fs->hash_mutex);
+	pthread_mutex_destroy(&fs->used_mutex);
+	pthread_mutex_destroy(&fs->index_mutex);
+	
 	// Free heap memory allocated
 	free_arr(fs->o_list);
 	free_arr(fs->n_list);
@@ -152,7 +177,7 @@ static int32_t new_file_index(filesys_t* fs) {
 	}
 	
 	int32_t len = fs->index_len;
-	char* index = fs->index;
+	uint8_t* index = fs->index;
 	
 	// Iterate over index array for space in dir_table
 	for (int32_t i = 0; i < len; i++) {
@@ -178,7 +203,7 @@ uint64_t new_file_offset(size_t length, filesys_t* fs) {
 	if (length == 0) {
 		return (uint64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH;
 	}
-
+	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
 	
@@ -212,24 +237,39 @@ uint64_t new_file_offset(size_t length, filesys_t* fs) {
 
 int create_file(char * filename, size_t length, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	LOCK(&fs->file_mutex);
+	LOCK(&fs->used_mutex);
+	LOCK(&fs->dir_mutex);
+	LOCK(&fs->index_mutex);
+	LOCK(&fs->o_list->list_mutex);
+	LOCK(&fs->n_list->list_mutex);
+	
+	// printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
 
 	// Return 1 if file already exists
 	file_t temp;
 	update_file_name(filename, &temp);
 	if (arr_get_s(&temp, fs->n_list) != NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		UNLOCK(&fs->file_mutex);
+		UNLOCK(&fs->used_mutex);
+		UNLOCK(&fs->dir_mutex);
+		UNLOCK(&fs->index_mutex);
+		UNLOCK(&fs->o_list->list_mutex);
+		UNLOCK(&fs->n_list->list_mutex);
 		return 1;
 	}
 	
 	// Return 2 if insufficient space in filesystem
 	if (fs->used + length > fs->len[0]) {
-		pthread_mutex_unlock(&fs->mutex);
+		UNLOCK(&fs->file_mutex);
+		UNLOCK(&fs->used_mutex);
+		UNLOCK(&fs->dir_mutex);
+		UNLOCK(&fs->index_mutex);
+		UNLOCK(&fs->o_list->list_mutex);
+		UNLOCK(&fs->n_list->list_mutex);
 		return 2;
 	}
 	
-	printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
-
 	// Find available index in dir_table and space (suitable offset) in file_data
 	int32_t index = new_file_index(fs);
 	uint64_t offset = new_file_offset(length, fs);
@@ -239,29 +279,31 @@ int create_file(char * filename, size_t length, void * helper) {
 	arr_insert_s(f, fs->o_list);
 	arr_insert_s(f, fs->n_list);
 
-	// Write file metadata to dir_table
+	// Write file metadata to dir_table, update index array and sync
 	write_dir_file(f, fs);
-
-	// Write null bytes to file_data
-	// Zero size file do not write anything
-	write_null_byte(fs->file, length, f->offset);
-
-	// Update filesystem variables
-	fs->used += length;
 	fs->index[index] = 1;
-	
-	// Sync file_data and dir_table
-	msync(fs->file, fs->len[0], MS_SYNC);
 	msync(fs->dir, fs->len[1], MS_SYNC);
+	UNLOCK(&fs->dir_mutex);
+	UNLOCK(&fs->index_mutex);
+	UNLOCK(&fs->o_list->list_mutex);
+	UNLOCK(&fs->n_list->list_mutex);
+
+	// Write null bytes to file_data (Zero size file do not write anything),
+	// update file_data used and sync
+	write_null_byte(fs->file, length, f->offset);
+	fs->used += length;
+	msync(fs->file, fs->len[0], MS_SYNC);
+	UNLOCK(&fs->file_mutex);
+	UNLOCK(&fs->used_mutex);
 	
 	// printf("create_file added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	pthread_mutex_unlock(&fs->mutex);
 	return 0;
 }
 
-// Force resize_file
+// Force resize_file - uses file_data, used, dir_table, o_list, n_list, and file
+// (file_data no sync, dir_table sync)
 void resize_file_f(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 	int64_t old_length = file->length;
 	
@@ -279,23 +321,15 @@ void resize_file_f(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 			// Only copy bytes are necessary as remaining bytes may be overwritten by write_file
 			char* temp = salloc(sizeof(*temp) * copy);
 			memcpy(temp, fs->file + file->offset, copy);
-			// pread(fs->file, temp, copy, file->offset);
 			
 			// Remove the file_t* from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
 			
-			// // Find a new suitable offset, ignoring the current position
-			// // of file's data and write to that offset
-			// uint32_t new_offset = new_file_offset(length, fs);
-			// pwrite(fs->file, temp, copy, new_offset);
-			// free(temp);
-			
 			// Repack and write copied file to end of file_data
+			// No sync performed as calling function may perform additonal writes
 			repack_f(fs);
 			memcpy(fs->file + fs->used - old_length, temp, copy);
-			
-			// Sync file_data
-			msync(fs->file, fs->len[0], MS_SYNC);
+			free(temp);
 			
 			// Update file_t and dir_table entry's offset
 			update_file_offset(fs->used - old_length, file);
@@ -321,7 +355,12 @@ void resize_file_f(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 
 int resize_file(char * filename, size_t length, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	LOCK(&fs->file_mutex);
+	LOCK(&fs->used_mutex);
+	LOCK(&fs->dir_mutex);
+	LOCK(&fs->index_mutex);
+	LOCK(&fs->o_list->list_mutex);
+	LOCK(&fs->n_list->list_mutex);
 	
 	// printf("resize_file resizing \"%s\" to %lu bytes\n", filename, length);
 	
@@ -330,39 +369,54 @@ int resize_file(char * filename, size_t length, void * helper) {
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		UNLOCK(&fs->file_mutex);
+		UNLOCK(&fs->used_mutex);
+		UNLOCK(&fs->dir_mutex);
+		UNLOCK(&fs->index_mutex);
+		UNLOCK(&fs->o_list->list_mutex);
+		UNLOCK(&fs->n_list->list_mutex);
 		return 1;
 	}
+	LOCK(&f->f_mutex);
 	
 	// Return 2 if insufficient space in filesystem
 	if (fs->used + (length - f->length) > fs->len[0]) {
-		pthread_mutex_unlock(&fs->mutex);
+		UNLOCK(&fs->file_mutex);
+		UNLOCK(&fs->used_mutex);
+		UNLOCK(&fs->dir_mutex);
+		UNLOCK(&fs->index_mutex);
+		UNLOCK(&fs->o_list->list_mutex);
+		UNLOCK(&fs->n_list->list_mutex);
+		UNLOCK(&f->f_mutex);
 		return 2;
 	}
 	
-	// Resize the file and append null bytes as required
+	// Resize file (dir_table is synced)
 	int64_t old_length = f->length;
 	resize_file_f(f, length, old_length, fs);
-	write_null_byte(fs->file, length - old_length, f->offset + old_length);
+	UNLOCK(&fs->dir_mutex);
+	UNLOCK(&fs->index_mutex);
+	UNLOCK(&fs->o_list->list_mutex);
+	UNLOCK(&fs->n_list->list_mutex);
+	UNLOCK(&f->f_mutex);
 	
-	// Sync file_data
+	// Append null bytes as required and sync file_data
+	write_null_byte(fs->file, length - old_length, f->offset + old_length);
 	msync(fs->file, fs->len[0], MS_SYNC);
+	UNLOCK(&fs->file_mutex);
+	UNLOCK(&fs->used_mutex);
 	
 	// printf("resize_file resized \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 
-	pthread_mutex_unlock(&fs->mutex);
 	return 0;
 };
 
-// Moves the file specified to new_offset in file_data (does not sync)
+// Moves the file specified to new_offset in file_data (no sync)
+// uses file_data, dir_table, file
 static void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
 	// Move file to new offset
 	memmove(fs->file + new_offset, fs->file + file->offset, file->length);
-	// char* buff = salloc(file->length);
-	// pread(fs->file, buff, file->length, file->offset);
-	// pwrite(fs->file, buff, file->length, new_offset);
-	// free(buff);
 	
 	// Update file_t and dir_table
 	update_file_offset(new_offset, file);
@@ -370,8 +424,11 @@ static void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
 }
 
 // Force repack regardless of filesystem mutex
-// Does not affect zero size files
+// Does not affect zero size files (no sync)
+// uses file_data, dir_table, o_list
 void repack_f(filesys_t* fs) {
+	// printf("repack Repacking now\n");
+	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
 	
@@ -382,71 +439,103 @@ void repack_f(filesys_t* fs) {
 	
 	// Move first file to offset 0
 	// Does not affect zero size files
+	LOCK(&o_list[0]->f_mutex);
 	if (o_list[0]->offset != 0 && o_list[0]->length != 0) {
 		repack_move(o_list[0], 0, fs);
 	}
+	UNLOCK(&o_list[0]->f_mutex);
 	
 	// Iterate over sorted offset list and move data when necessary
 	// Does not affect zero size files
 	for (int32_t i = 1; i < size; i++) {
+		LOCK(&o_list[i]->f_mutex);
 		if (o_list[i]->offset > o_list[i-1]->offset + o_list[i-1]->length &&
 			o_list[i]->length != 0) {
 			repack_move(o_list[i], o_list[i-1]->offset + o_list[i-1]->length, fs);
 		}
+		UNLOCK(&o_list[i]->f_mutex);
 	}
 	
-	// Sync file_data
-	msync(fs->file, fs->len[0], MS_SYNC);
+	// printf("repack Done repacking\n");
 }
 
 void repack(void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	LOCK(&fs->file_mutex);
+	LOCK(&fs->dir_mutex);
+	LOCK(&fs->o_list->list_mutex);
 	
+	// Sync file_data
 	repack_f(fs);
-	
-	pthread_mutex_unlock(&fs->mutex);
+	msync(fs->file, fs->len[0], MS_SYNC);
+		
+	UNLOCK(&fs->file_mutex);
+	UNLOCK(&fs->dir_mutex);
+	UNLOCK(&fs->o_list->list_mutex);
 }
 
 int delete_file(char * filename, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	LOCK(&fs->file_mutex);
+	LOCK(&fs->used_mutex);
+	LOCK(&fs->dir_mutex);
+	LOCK(&fs->index_mutex);
+	LOCK(&fs->o_list->list_mutex);
+	LOCK(&fs->n_list->list_mutex);
 	
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		UNLOCK(&fs->file_mutex);
+		UNLOCK(&fs->used_mutex);
+		UNLOCK(&fs->dir_mutex);
+		UNLOCK(&fs->index_mutex);
+		UNLOCK(&fs->o_list->list_mutex);
+		UNLOCK(&fs->n_list->list_mutex);
 		return 1;
 	}
+	LOCK(&f->f_mutex);
 	
-	// Write null byte in file's name field in dir_table
-	write_null_byte(fs->dir, 1, f->index * META_LENGTH);
-	
-	// Sync dir_table
-	msync(fs->dir, fs->len[1], MS_SYNC);
-	
-	// Update filesystem variables
+	// Update used space in file_data
 	fs->used -= f->length;
+	UNLOCK(&fs->file_mutex);
+	UNLOCK(&fs->used_mutex);
+	
+	// Update dir_table indexing array
 	fs->index[f->index] = 0;
+	UNLOCK(&fs->index_mutex);
 
 	// Remove from arrays using indices
 	arr_remove(f->o_index, fs->o_list);
 	arr_remove(f->n_index, fs->n_list);
+	UNLOCK(&fs->o_list->list_mutex);
+	UNLOCK(&fs->n_list->list_mutex);
+	
+	// Write null byte in dir_table name field and sync
+	write_null_byte(fs->dir, 1, f->index * META_LENGTH);
+	msync(fs->dir, fs->len[1], MS_SYNC);
+	UNLOCK(&fs->dir_mutex);
+	
+	// Free file_t struct
+	UNLOCK(&f->f_mutex);
+	free_file_t(f);
 	
 	// printf("delete_file removed \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	free(f);
-	
-	pthread_mutex_unlock(&fs->mutex);
 	return 0;
 }
 
 int rename_file(char * oldname, char * newname, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	LOCK(&fs->file_mutex);
+	LOCK(&fs->used_mutex);
+	LOCK(&fs->dir_mutex);
+	LOCK(&fs->index_mutex);
+	LOCK(&fs->o_list->list_mutex);
+	LOCK(&fs->n_list->list_mutex);
 	
 	// Return 1 if oldname file does not exist or newname file does exist
 	file_t temp_old;
@@ -455,9 +544,15 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	update_file_name(newname, &temp_new);
 	file_t* f = arr_get_s(&temp_old, fs->n_list);
 	if (f == NULL || arr_get_s(&temp_new, fs->n_list) != NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		UNLOCK(&fs->file_mutex);
+		UNLOCK(&fs->used_mutex);
+		UNLOCK(&fs->dir_mutex);
+		UNLOCK(&fs->index_mutex);
+		UNLOCK(&fs->o_list->list_mutex);
+		UNLOCK(&fs->n_list->list_mutex);
 		return 1;
 	}
+	LOCK(&f->f_mutex);
 		
 	// Update file_t struct and dir_table entry
 	update_file_name(newname, f);
@@ -469,26 +564,30 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	// printf("rename_file renamed \"%s\" to \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   oldname, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	pthread_mutex_unlock(&fs->mutex);
+	pthread_mutex_unlock(&fs->file_mutex);
+	pthread_mutex_unlock(&fs->dir_mutex);
 	return 0;
 }
 
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	pthread_mutex_lock(&fs->file_mutex);
+	pthread_mutex_lock(&fs->dir_mutex);
 	
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		pthread_mutex_unlock(&fs->file_mutex);
+		pthread_mutex_unlock(&fs->dir_mutex);
 		return 1;
 	}
 	
 	// Return 2 if invalid offset and count for given file
 	if (offset + count > f->length) {
-		pthread_mutex_unlock(&fs->mutex);
+		pthread_mutex_unlock(&fs->file_mutex);
+		pthread_mutex_unlock(&fs->dir_mutex);
 		return 2;
 	}
 	
@@ -499,32 +598,37 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	// printf("read_file read \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	pthread_mutex_unlock(&fs->mutex);
+	pthread_mutex_unlock(&fs->file_mutex);
+	pthread_mutex_unlock(&fs->dir_mutex);
 	return 0;
 }
 
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	pthread_mutex_lock(&fs->file_mutex);
+	pthread_mutex_lock(&fs->dir_mutex);
 	
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		pthread_mutex_unlock(&fs->file_mutex);
+		pthread_mutex_unlock(&fs->dir_mutex);
 		return 1;
 	}
 	
 	// Return 2 if offset is greater than the current file length
 	if (offset > f->length) {
-		pthread_mutex_unlock(&fs->mutex);
+		pthread_mutex_unlock(&fs->file_mutex);
+		pthread_mutex_unlock(&fs->dir_mutex);
 		return 2;
 	}
 	
 	// Return 3 if insufficient space in filesystem
 	if (fs->used + (offset + count - f->length) > fs->len[0]) {
-		pthread_mutex_unlock(&fs->mutex);
+		pthread_mutex_unlock(&fs->file_mutex);
+		pthread_mutex_unlock(&fs->dir_mutex);
 		return 3;
 	}
 	
@@ -545,20 +649,23 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	// printf("write_file wrote \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	pthread_mutex_unlock(&fs->mutex);
+	pthread_mutex_unlock(&fs->file_mutex);
+	pthread_mutex_unlock(&fs->dir_mutex);
 	return 0;
 }
 
 ssize_t file_size(char * filename, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	pthread_mutex_lock(&fs->mutex);
+	pthread_mutex_lock(&fs->file_mutex);
+	pthread_mutex_lock(&fs->dir_mutex);
 	
 	// Return -1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		pthread_mutex_unlock(&fs->mutex);
+		pthread_mutex_unlock(&fs->file_mutex);
+		pthread_mutex_unlock(&fs->dir_mutex);
 		return -1;
 	}
 	
@@ -566,18 +673,125 @@ ssize_t file_size(char * filename, void * helper) {
 	// 	   f->length, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
 	// Return length of file
-	pthread_mutex_unlock(&fs->mutex);
+	pthread_mutex_unlock(&fs->file_mutex);
+	pthread_mutex_unlock(&fs->dir_mutex);
 	return f->length;
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
-    return;
+    // Implementation assumes values passed are in little endian
+	// No mutexes are used as the function does not explicitly access the filesystem
+	
+	// Casting buffer to uint32_t for reading
+	uint32_t* buff = (uint32_t*)buf;
+	
+	// Calculate quotient and remainder for buff
+	uint64_t size = length / 4;
+	uint64_t rem = length % 4;
+	
+	// Separate variable for incomplete unsigned integer
+	uint32_t last = 0; // Initialised to zero for null byte padding
+	if (rem != 0) {
+		memcpy(&last, buff + size, sizeof(uint8_t) * rem);
+	}
+	
+	// Hashing variables
+	uint64_t a = 0;
+	uint64_t b = 0;
+	uint64_t c = 0;
+	uint64_t d = 0;
+	
+	// Iterate over buff, updating hash variables
+	for (uint64_t i = 0; i < size; i++) {
+		// memcpy(&data, buf[i], sizeof(uint32_t));
+		a = (a + buff[i]) % (MAX_FILE_DATA_LENGTH-1);
+		b = (b + a) % (MAX_FILE_DATA_LENGTH-1);
+		c = (c + b) % (MAX_FILE_DATA_LENGTH-1);
+		d = (d + c) % (MAX_FILE_DATA_LENGTH-1);
+	}
+	
+	// Hash incomplete unsigned integer if required
+	if (rem != 0) {
+		a = (a + (uint64_t)last) % (MAX_FILE_DATA_LENGTH-1);
+		b = (b + a) % (MAX_FILE_DATA_LENGTH-1);
+		c = (c + b) % (MAX_FILE_DATA_LENGTH-1);
+		d = (d + c) % (MAX_FILE_DATA_LENGTH-1);
+	}
+	
+	// Copy result to output
+	// Casting not used as little endian results should have
+	// least significant bits in the same position
+	memcpy(output, &a, sizeof(uint32_t));
+	memcpy(output + 4, &b, sizeof(uint32_t));
+	memcpy(output + 8, &c, sizeof(uint32_t));
+	memcpy(output + 12, &d, sizeof(uint32_t));
+}
+
+void hash_node(int32_t n_index, filesys_t* fs) {
+	// If internal node, calculate hash of concatenated child hashes
+	if (n_index < fs->leaf_offset) {
+		uint8_t hash_cat[2 * HASH_LENGTH];
+		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
+		memcpy(hash_cat + HASH_LENGTH, fs->hash + rc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
+		fletcher(hash_cat, 2 * HASH_LENGTH, fs->hash + n_index * HASH_LENGTH);
+		
+	// Otherwise, calculate hash of file_data block for leaf node
+	} else {
+		fletcher(fs->file + (n_index - fs->leaf_offset) * BLOCK_LENGTH, BLOCK_LENGTH,
+				 fs->hash + n_index * HASH_LENGTH);
+	}
+}
+
+void hash_recurse(int32_t n_index, filesys_t* fs) {
+	// Base case: if leaf node, hash file_data block and return
+	if (n_index >= fs->leaf_offset) {
+		hash_node(n_index, fs);
+		return;
+	}
+	
+	// Traverse left child, then right child, then current node
+	hash_recurse(lc_index(n_index), fs);
+	hash_recurse(rc_index(n_index), fs);
+	hash_node(n_index, fs);
 }
 
 void compute_hash_tree(void * helper) {
-    return;
+	filesys_t* fs = (filesys_t*)helper;
+	pthread_mutex_lock(&fs->file_mutex);
+	pthread_mutex_lock(&fs->dir_mutex);
+	
+	// Use postorder traversal to hash children before parent node
+	hash_recurse(0, fs);
+
+	// Sync hash_data
+	msync(fs->hash, fs->len[2], MS_SYNC);
+	
+	pthread_mutex_unlock(&fs->file_mutex);
+	pthread_mutex_unlock(&fs->dir_mutex);
 }
 
 void compute_hash_block(size_t block_offset, void * helper) {
-    return;
+	filesys_t* fs = (filesys_t*)helper;
+	pthread_mutex_lock(&fs->file_mutex);
+	pthread_mutex_lock(&fs->dir_mutex);
+	
+	// block_offset is the leaf node number
+	int32_t n_index = fs->leaf_offset + block_offset;
+	fletcher(fs->file + block_offset * BLOCK_LENGTH, BLOCK_LENGTH, fs->hash + n_index * HASH_LENGTH);
+	
+	// Traverse through parent nodes to root node, updating hashes
+	uint8_t hash_cat[2 * HASH_LENGTH]; // Space for concatenated hash value
+	n_index = p_index(n_index);
+	while (n_index >= 0) {
+		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
+		memcpy(hash_cat + HASH_LENGTH, fs->hash + rc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
+		fletcher(hash_cat, 2 * HASH_LENGTH, fs->hash + n_index * HASH_LENGTH);
+		n_index = p_index(n_index);
+	}
+	
+	// Sync hash_data
+	msync(fs->hash, fs->len[2], MS_SYNC);
+	
+	pthread_mutex_unlock(&fs->file_mutex);
+	pthread_mutex_unlock(&fs->dir_mutex);
 }

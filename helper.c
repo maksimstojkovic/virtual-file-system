@@ -62,6 +62,10 @@ uint32_t utole(uint64_t in) {
 // Create new dynamically allocated file_t struct
 file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index) {
 	file_t* f = salloc(sizeof(*f));
+	if (pthread_mutex_init(&f->f_mutex, NULL)) {
+		perror("new_file_t: Failed to initialise mutex");
+		exit(1);
+	}
 	update_file_name(name, f);
 	update_file_offset(offset, f);
 	update_file_length(length, f);
@@ -69,6 +73,12 @@ file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index) 
 	f->o_index = -1;
 	f->n_index = -1;
 	return f;
+}
+
+// Free dynamically allocated file_t struct
+void free_file_t(file_t* file) {
+	pthread_mutex_destroy(&file->f_mutex);
+	free(file);
 }
 
 // Update file_t struct name
@@ -107,7 +117,7 @@ void update_dir_offset(file_t* file, filesys_t* fs) {
 // Update a file's offset field in dir_table (does not sync)
 void update_dir_length(file_t* file, filesys_t* fs) {
 	memcpy(fs->dir + file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH,
-		   &file->offset_le, sizeof(uint32_t));
+		   &file->length_le, sizeof(uint32_t));
 	// pwrite(fs->dir, &file->length_le, sizeof(uint32_t),
 	// 	   file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH);
 }
@@ -120,7 +130,7 @@ void write_dir_file(file_t* file, filesys_t* fs) {
 }
 
 // Write count null bytes to a file at offset (does not sync)
-void write_null_byte(char* f, int64_t count, int64_t offset) {
+void write_null_byte(void* f, int64_t count, int64_t offset) {
 	// Return if negative or zero bytes to write
 	// Zero size files should pass a count argument of 0
 	if (count <= 0) {
@@ -145,6 +155,31 @@ void pwrite_null_byte(int fd, int64_t count, int64_t offset) {
 	for (int64_t i = 0; i < count; i++) {
 		pwrite(fd, "", sizeof(char), offset + i);
 	}
+}
+
+// Returns index of parent in hash array for node at index
+int32_t p_index(int32_t index) {
+	// Root node parent index
+	if (index <= 0) {
+		return -1;
+	}
+	
+	// Odd and even node parent indices respectively
+	if (index % 2 == 1) {
+		return index / 2;
+	} else {
+		return (index / 2) - 1;
+	}
+}
+
+// Returns index of left child in hash array for node at index
+int32_t lc_index(int32_t index) {
+	return (2 * index) + 1;
+}
+
+// Returns index of right child in hash array for node at index
+int32_t rc_index(int32_t index) {
+	return (2 * index) + 2;
 }
 
 
