@@ -93,7 +93,7 @@ void update_file_offset(uint64_t offset, file_t* file) {
 	file->offset_le = utole(offset);
 }
 
-// Update file_t struct length values
+// Update file_t struct lenth values
 void update_file_length(uint32_t length, file_t* file) {
 	file->length = length;
 	file->length_le = utole(length);

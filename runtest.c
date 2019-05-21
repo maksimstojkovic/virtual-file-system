@@ -12,6 +12,7 @@
 
 #include "structs.h"
 #include "helper.h"
+#include "synclist.h"
 #include "arr.h"
 #include "myfilesystem.h"
 
@@ -295,6 +296,24 @@ int test_create_file_no_space() {
 	return 0;
 }
 
+// Test create_file with insufficient filesystem space
+int test_delete_file_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+	if (create_file("test1.txt", 50, fs)) {
+		perror ("create_file_no_space: Create failed");
+		return 1;
+	}
+	
+	if (delete_file("test1.txt", fs)) {
+		perror ("delete_file_success: Delete failed");
+		return 1;
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
 int main(int argc, char * argv[]) {
 	// Create blank files for tests to use
 	file = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -324,6 +343,8 @@ int main(int argc, char * argv[]) {
 	TEST(test_create_file_exists);
 	TEST(test_create_file_no_space);
 
+	// delete_file tests
+	TEST(test_delete_file_success);
 
 
 	close(file);

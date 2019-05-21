@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define MAX_FILE_DATA_LENGTH (int64_t)4294967296
 #define MAX_NUM_BLOCKS 16777216
@@ -17,11 +18,24 @@
 
 #define HASH_LENGTH 16
 
+#define RW_LIMIT 10
+
+#define LOCK(x) pthread_mutex_lock(x)
+#define UNLOCK(x) pthread_mutex_unlock(x)
+#define SEM_WAIT(x) sem_wait(x)
+#define SEM_POST(x) sem_post(x)
+#define COND_WAIT(x,y) pthread_cond_wait(x,y)
+#define COND_SIGNAL(x) pthread_cond_signal(x)
+#define COND_BROADCAST(x) pthread_cond_broadcast(x)
+
 /*
 	Filesystem Mutex Lock Order and Acquisition Hierarchy
 	
 	file_mutex
 		used_mutex
+		rw_sem
+		fw_rw_mutex
+			rw_mutex + rw_cond
 	dir_mutex
 		index_mutex
 		o_list->list_mutex
@@ -29,18 +43,23 @@
 			f_mutex
 	hash_mutex
 */
-//fs_mutex - course
 
 typedef enum TYPE {OFFSET, NAME} TYPE;
 
 struct filesys_t;
 typedef pthread_mutex_t mutex_t;
+typedef pthread_cond_t cond_t;
+
+typedef struct range_t {
+	int64_t start; // start < 0 indicates range not in use
+	int64_t end;
+} range_t;
 
 typedef struct file_t {
 	char name[NAME_LENGTH];
 	
-	// Course mutex for file_t fields offset and length
-	mutex_t f_mutex;
+	// Syncronisation variable
+	mutex_t f_mutex; // Locks offset and length
 	
 	// Unsigned long used for offset to handle zero size files
 	// with a file_data length of 2^32 bytes
@@ -72,6 +91,12 @@ typedef struct filesys_t {
 	mutex_t file_mutex;
 	mutex_t dir_mutex;
 	mutex_t hash_mutex;
+	
+	sem_t rw_sem; // Limit on parallel read/write, set by RW_LIMIT
+	mutex_t fs_rw_mutex; // Mutex used by full blocking functions to stop new parallel operations
+	mutex_t rw_mutex; // Mutex for r/w ranges
+	cond_t rw_cond; // Cond for accessing the r/w range list
+	range_t* rw_range; // Ranges used by r/w operation
 	
 	int file_fd;
 	int dir_fd;
