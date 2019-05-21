@@ -9,10 +9,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include "structs.h"
 #include "helper.h"
-#include "synclist.h"
+// #include "synclist.h"
 #include "arr.h"
 #include "myfilesystem.h"
 
@@ -296,17 +297,40 @@ int test_create_file_no_space() {
 	return 0;
 }
 
-// Test create_file with insufficient filesystem space
 int test_delete_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	if (create_file("test1.txt", 50, fs)) {
-		perror ("create_file_no_space: Create failed");
+		perror ("delete_file_success: Create failed");
 		return 1;
 	}
 	
 	if (delete_file("test1.txt", fs)) {
 		perror ("delete_file_success: Delete failed");
+		return 1;
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_hash_verify_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+	if (create_file("test1.txt", 50, fs) ||
+	   	create_file("test2.txt", 27, fs)) {
+		perror ("hash_verify_success: Create failed");
+		return 1;
+	}
+
+	pwrite(hash, "132", 3, 0);
+	msync(fs->hash, fs->len[2], MS_SYNC);
+
+	// compute_hash_tree(fs);
+	
+	char buff[10];
+	if (read_file("test1.txt", 0, 1, buff, fs) != 3) {
+		perror ("hash_verify_success: Read should fail");
 		return 1;
 	}
 
@@ -346,6 +370,8 @@ int main(int argc, char * argv[]) {
 	// delete_file tests
 	TEST(test_delete_file_success);
 
+	// hash_verify tests
+	TEST(test_hash_verify_success);
 
 	close(file);
 	close(dir);
@@ -353,3 +379,5 @@ int main(int argc, char * argv[]) {
 
     return 0;
 }
+
+

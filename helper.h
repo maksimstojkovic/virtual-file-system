@@ -43,8 +43,8 @@ void update_dir_length(file_t* file, filesys_t* fs);
 // Write a file to dir_table at the index within file_t
 void write_dir_file(file_t* file, filesys_t* fs);
 
-// Write count null bytes to a file at offset (does not sync)
-void write_null_byte(void* f, int64_t count, int64_t offset);
+// Write count null bytes to a file at offset
+void write_null_byte(uint8_t* f, int64_t count, int64_t offset);
 
 // Write count null bytes to a file descriptor at offset
 // Used for testcases
@@ -59,5 +59,15 @@ int32_t lc_index(int32_t index);
 
 // Returns index of right child in hash array for node at index
 int32_t rc_index(int32_t index);
+
+// Resizes files regardless of filesystem lock state
+void resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs);
+
+void repack_f(filesys_t* fs);
+void hash_recurse(int32_t n_index, filesys_t* fs);
+void compute_hash_block_f(size_t block_offset, filesys_t* fs);
+void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs);
+int32_t verify_hash(size_t start_offset, size_t end_offset, filesys_t* fs);
+int32_t verify_hash_range(int64_t f_offset, int64_t f_length, filesys_t* fs);
 
 #endif

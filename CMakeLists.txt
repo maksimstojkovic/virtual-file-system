@@ -5,7 +5,7 @@ project(vfs-local C)
 set(GCC_ADDITIONAL_COMPILE_FLAGS "-O0 -std=gnu11 -fsanitize=address -Wall -Werror -g --coverage")
 set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${GCC_ADDITIONAL_COMPILE_FLAGS}")
 
-add_executable(runtest runtest.c myfilesystem.c helper.c arr.c synclist.c)
+add_executable(runtest runtest.c myfilesystem.c helper.c arr.c lock.c)
 target_link_libraries(runtest "-lm -lpthread -lfuse")
 #configure_file(${CMAKE_CURRENT_SOURCE_DIR}/data/file_data.bin
 #        ${CMAKE_CURRENT_BINARY_DIR}/data/file_data.bin COPYONLY)

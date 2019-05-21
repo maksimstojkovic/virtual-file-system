@@ -62,10 +62,10 @@ uint32_t utole(uint64_t in) {
 // Create new dynamically allocated file_t struct
 file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index) {
 	file_t* f = salloc(sizeof(*f));
-	if (pthread_mutex_init(&f->f_mutex, NULL)) {
-		perror("new_file_t: Failed to initialise mutex");
-		exit(1);
-	}
+	// if (pthread_mutex_init(&f->f_mutex, NULL)) {
+	// 	perror("new_file_t: Failed to initialise mutex");
+	// 	exit(1);
+	// }
 	update_file_name(name, f);
 	update_file_offset(offset, f);
 	update_file_length(length, f);
@@ -77,7 +77,7 @@ file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index) 
 
 // Free dynamically allocated file_t struct
 void free_file_t(file_t* file) {
-	pthread_mutex_destroy(&file->f_mutex);
+	// pthread_mutex_destroy(&file->f_mutex);
 	free(file);
 }
 
@@ -129,17 +129,18 @@ void write_dir_file(file_t* file, filesys_t* fs) {
 	update_dir_length(file, fs);
 }
 
-// Write count null bytes to a file at offset (does not sync)
-void write_null_byte(void* f, int64_t count, int64_t offset) {
-	// Return if negative or zero bytes to write
-	// Zero size files should pass a count argument of 0
+// Write count null bytes to a file at offset
+void write_null_byte(uint8_t* f, int64_t count, int64_t offset) {
+	// Return if no bytes to write
 	if (count <= 0) {
 		return;
 	}
 	
+	printf("%ld %ld\n", count, offset);
+	
 	// Check for invalid arguments
-	if (count >= (int64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH || offset < 0 ||
-	   	offset >= (int64_t)MAX_NUM_BLOCKS * BLOCK_LENGTH) {
+	if (count >= MAX_FILE_DATA_LENGTH || offset < 0 ||
+	   	offset >= MAX_FILE_DATA_LENGTH) {
 		perror("write_null_byte: Invalid arguments");
 		exit(1);
 	}
