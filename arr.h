@@ -4,10 +4,9 @@
 #include "structs.h"
 
 // Compares key of file_t based on array type (a relative to b)
-int cmp_key(file_t* a, file_t* b, arr_t* arr);
+int32_t cmp_key(file_t* a, file_t* b, arr_t* arr);
 
-// Initialise array with given capacity and filesys_t*
-// Array is fixed in size (dir_table has fixed length)
+// Initialise array with fixed capacity (dir_table has fixed length)
 arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs);
 
 // Free entire arr_t struct
@@ -23,7 +22,6 @@ int32_t arr_insert_s(file_t* file, arr_t* arr);
 // NOTE: NO MEMORY IS FREE'D DURING THIS PROCESS
 file_t* arr_remove(int32_t index, arr_t* arr);
 
-// TODO: EDGE CASE WITH FILE AT OFFSET fs->len[0] with size 0, should succeed?
 // Remove file_t* with relevant key from array(file_t* success, NULL file not found)
 file_t* arr_remove_s(file_t* key, arr_t* arr);
 	

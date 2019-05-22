@@ -1,6 +1,7 @@
 #include <pthread.h>
 
 #include "structs.h"
+#include "helper.h"
 #include "lock.h"
 
 // Initialise lock
@@ -13,7 +14,7 @@ lock_t* init_lock(lock_t* lock) {
 }
 
 // Destory lock
-void destory_lock(lock_t* lock) {
+void destroy_lock(lock_t* lock) {
 	pthread_mutex_destroy(&lock->w_mutex);
 	pthread_mutex_destroy(&lock->r_mutex);
 	pthread_cond_destroy(&lock->w_cond);
@@ -24,14 +25,14 @@ void read_lock(lock_t* lock) {
 	LOCK(&lock->w_mutex);
 	LOCK(&lock->r_mutex);
 	UNLOCK(&lock->w_mutex);
-	lock->r_count++;
+	++lock->r_count;
 	UNLOCK(&lock->r_mutex);
 }
 
 // Decrement read monitor and signal any pending writes
 void read_unlock(lock_t* lock) {
 	LOCK(&lock->r_mutex);
-	lock->r_count--;
+	--lock->r_count;
 	COND_SIGNAL(&lock->w_cond);
 	UNLOCK(&lock->r_mutex);
 }

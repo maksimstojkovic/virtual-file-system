@@ -3,71 +3,58 @@
 
 #include "structs.h"
 
+// MACROS
+
+// Parent and children index macros
+#define p_index(x) ((((x)%2)==1)?((x)/2):(((x)/2)-1))
+#define lc_index(x) ((2*(x))+1)
+#define rc_index(x) ((2*(x))+2)
+
+// TODO: CHECK FOR OFFSET AND LENGTH THAT PASSED VALUES ARE PROPERLY CASTED/RIGHT TYPE
+// file_t offset and length update macros
+#define update_file_offset(x,y) ((y)->offset=(x))
+#define update_file_length(x,y) ((y)->length=(x))
+
+// dir_table name and length update macros
+#define update_dir_name(file,fs) \
+	memcpy((fs)->dir + (file)->index * META_LENGTH, (file)->name, strlen((file)->name)+ 1);
+#define update_dir_length(file,fs) \
+	memcpy(fs->dir + file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH, \
+	&file->length, sizeof(uint32_t));
+
+// Macros for locking and unlocking synchronisation variables
+#define LOCK(x) pthread_mutex_lock(x)
+#define UNLOCK(x) pthread_mutex_unlock(x)
+#define COND_WAIT(x,y) pthread_cond_wait(x,y)
+#define COND_SIGNAL(x) pthread_cond_signal(x)
+
 // Safe malloc helper
 void* salloc(size_t size);
 
 // Safe calloc helper
 void* scalloc(size_t size);
 
-// Check if system is little endian
-int l_end();
-
-// Unsigned to little endian and vice versa
-// (called when updating file_t offset/length, or reading dir_table)
-uint32_t utole(uint64_t in);
-
 // Create new dynamically allocated file_t struct
-file_t* new_file_t(char* name, uint64_t offset, uint32_t length, int32_t index);
+file_t* file_init(char* name, uint64_t offset, uint32_t length, int32_t index);
 
 // Free dynamically allocated file_t struct
-void free_file_t(file_t* file);
+void free_file(file_t* file);
 
 // Update file_t struct name
 void update_file_name(char* name, file_t* file);
 
-// Update file_t struct offset values
-void update_file_offset(uint64_t offset, file_t* file);
-
-// Update file_t struct lenth values
-void update_file_length(uint32_t length, file_t* file);
-
-// Update a file's name field in dir_table
-void update_dir_name(file_t* file, filesys_t* fs);
-
 // Update a file's offset field in dir_table
+// Other dir_table update helpers are defined as macros in helper.h
 void update_dir_offset(file_t* file, filesys_t* fs);
-
-// Update a file's offset field in dir_table
-void update_dir_length(file_t* file, filesys_t* fs);
 
 // Write a file to dir_table at the index within file_t
 void write_dir_file(file_t* file, filesys_t* fs);
 
 // Write count null bytes to a file at offset
-void write_null_byte(uint8_t* f, int64_t count, int64_t offset);
+void write_null_byte(uint8_t* f, int64_t offset, int64_t count);
 
-// Write count null bytes to a file descriptor at offset
-// Used for testcases
-// NOTE: DOES NOT CHECK FOR VALID OFFSET OR BYTE COUNT
+// Write count null bytes to a file descriptor at offset (used for testcases)
+// Assumes valid arguments
 void pwrite_null_byte(int fd, int64_t count, int64_t offset);
-
-// Returns index of parent in hash array for node at index
-int32_t p_index(int32_t index);
-
-// Returns index of left child in hash array for node at index
-int32_t lc_index(int32_t index);
-
-// Returns index of right child in hash array for node at index
-int32_t rc_index(int32_t index);
-
-// Resizes files regardless of filesystem lock state
-void resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs);
-
-void repack_f(filesys_t* fs);
-void hash_recurse(int32_t n_index, filesys_t* fs);
-void compute_hash_block_f(size_t block_offset, filesys_t* fs);
-void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs);
-int32_t verify_hash(size_t start_offset, size_t end_offset, filesys_t* fs);
-int32_t verify_hash_range(int64_t f_offset, int64_t f_length, filesys_t* fs);
 
 #endif

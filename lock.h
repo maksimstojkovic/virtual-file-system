@@ -7,7 +7,7 @@
 lock_t* init_lock(lock_t* lock);
 
 // Destory lock
-void destory_lock(lock_t* lock);
+void destroy_lock(lock_t* lock);
 
 // Increment read monitor
 void read_lock(lock_t* lock);

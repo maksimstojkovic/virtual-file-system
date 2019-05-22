@@ -76,11 +76,11 @@ int test_array_get() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	file_t* f[5];
-	f[0] = new_file_t("test3.txt", 5, 10, 0);
-	f[1] = new_file_t("zero1.txt", new_file_offset(0, fs), 0, 3);
-	f[2] = new_file_t("zero2.txt", new_file_offset(0, fs), 0, 4);
-	f[3] = new_file_t("test2.txt", 0, 5, 2);
-	f[4] = new_file_t("test1.txt", 15, 10, 1);
+	f[0] = file_init("test3.txt", 5, 10, 0);
+	f[1] = file_init("zero1.txt", new_file_offset(0, NULL, fs), 0, 3);
+	f[2] = file_init("zero2.txt", new_file_offset(0, NULL, fs), 0, 4);
+	f[3] = file_init("test2.txt", 0, 5, 2);
+	f[4] = file_init("test1.txt", 15, 10, 1);
 
 	file_t key[4];
 	update_file_offset(5, &key[0]);
@@ -89,7 +89,7 @@ int test_array_get() {
 	update_file_name("nothing", &key[3]);
 
 	// Insert elements into arrays
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 5; ++i) {
 		arr_insert_s(f[i], fs->o_list);
 		arr_insert_s(f[i], fs->n_list);
 	}
@@ -118,16 +118,16 @@ int test_array_insert() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	file_t* f[4];
-	f[0] = new_file_t("test3.txt", 5, 10, 0);
-	f[1] = new_file_t("zero.txt", new_file_offset(0, fs), 0, 3);
-	f[2] = new_file_t("test2.txt", 0, 5, 2);
-	f[3] = new_file_t("test1.txt", 15, 10, 1);
+	f[0] = file_init("test3.txt", 5, 10, 0);
+	f[1] = file_init("zero.txt", new_file_offset(0, NULL, fs), 0, 3);
+	f[2] = file_init("test2.txt", 0, 5, 2);
+	f[3] = file_init("test1.txt", 15, 10, 1);
 
 	file_t* o_expect[4] = {f[2], f[0], f[3], f[1]};
 	file_t* n_expect[4] = {f[3], f[2], f[0], f[1]};
 
 	// Insert elements into arrays
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; ++i) {
 		arr_insert_s(f[i], fs->o_list);
 		arr_insert_s(f[i], fs->n_list);
 	}
@@ -140,7 +140,7 @@ int test_array_insert() {
 	}
 
 	// Compare offset and name lists with expected
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 4; ++i) {
 		if (fs->o_list->list[i] != o_expect[i]) {
 			perror("array_insert: Incorrect offset insertion order");
 			return 2;
@@ -162,11 +162,11 @@ int test_array_remove() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	file_t* f[5];
-	f[0] = new_file_t("test3.txt", 5, 10, 0);
-	f[1] = new_file_t("zero2.txt", new_file_offset(0, fs), 0, 3);
-	f[2] = new_file_t("zero1.txt", new_file_offset(0, fs), 0, 4);
-	f[3] = new_file_t("test2.txt", 0, 5, 2);
-	f[4] = new_file_t("test1.txt", 15, 10, 1);
+	f[0] = file_init("test3.txt", 5, 10, 0);
+	f[1] = file_init("zero2.txt", new_file_offset(0, NULL, fs), 0, 3);
+	f[2] = file_init("zero1.txt", new_file_offset(0, NULL, fs), 0, 4);
+	f[3] = file_init("test2.txt", 0, 5, 2);
+	f[4] = file_init("test1.txt", 15, 10, 1);
 
 	file_t key[4];
 	update_file_offset(5, &key[0]);
@@ -178,7 +178,7 @@ int test_array_remove() {
 	file_t* n_expect[3] = {f[4], f[3], f[1]};
 
 	// Insert elements into arrays
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 5; ++i) {
 		arr_insert_s(f[i], fs->o_list);
 		arr_insert_s(f[i], fs->n_list);
 	}
@@ -207,7 +207,7 @@ int test_array_remove() {
 	}
 
 	// Compare offset and name lists with expected
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 3; ++i) {
 		if (fs->o_list->list[i] != o_expect[i]) {
 			perror("array_remove: Incorrect offset order after removal");
 			return 4;

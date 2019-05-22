@@ -7,6 +7,7 @@
 #include <pthread.h>
 
 #define MAX_FILE_DATA_LENGTH (int64_t)4294967296
+#define MAX_FILE_DATA_LENGTH_MIN_ONE 4294967295
 #define MAX_NUM_BLOCKS 16777216
 #define BLOCK_LENGTH 256
 
@@ -16,11 +17,11 @@
 #define META_LENGTH 72
 
 #define HASH_LENGTH 16
+#define HASH_OFFSET_A 4
+#define HASH_OFFSET_B 8
+#define HASH_OFFSET_C 12
 
-#define LOCK(x) pthread_mutex_lock(x)
-#define UNLOCK(x) pthread_mutex_unlock(x)
-#define COND_WAIT(x,y) pthread_cond_wait(x,y)
-#define COND_SIGNAL(x) pthread_cond_signal(x)
+// Macros for optimisation and readability
 
 typedef enum TYPE {OFFSET, NAME} TYPE;
 
@@ -39,8 +40,6 @@ typedef struct file_t {
 	char name[NAME_LENGTH];	// File name
 	uint64_t offset;		// File offset in file_data
 	uint32_t length;		// File length in bytes
-	uint32_t offset_le;		// Offset in little endian form
-	uint32_t length_le;		// Length in little endian form
 	int32_t index; 			// dir_table index
 	int32_t o_index; 		// Offset array index
 	int32_t n_index; 		// Name array index
@@ -70,7 +69,7 @@ typedef struct filesys_t {
 	int32_t index_len;		// Maximum number of entries in dir_table
 	uint8_t* index;			// Array of available indices in dir_table
 	int32_t tree_len;		// Number of entries in hash tree
-	int32_t leaf_offset;	// Offset to start of leaf nodes in hash tree
+	int32_t leaf_offset;	// Hash offset to start of leaf nodes in hash tree
 } filesys_t;
 
 #endif

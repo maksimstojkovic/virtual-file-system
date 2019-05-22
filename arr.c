@@ -6,6 +6,16 @@
 #include "helper.h"
 #include "arr.h"
 
+/*
+	Implementation of an Array that is Sorted by Offset or Name
+	
+	Zero size files are assigned and offset equal to the 2^32, hence
+	uint64_t is used in file_t structs as this value exceeds the limit of
+	uint32_t. Using this offset allows zero size files to be appended to the end
+	of the array, increasing insertion efficiency, whilst all writes to
+	the offset field of the file in dir_table will have value 0.
+*/
+
 // Compares key of file_t based on array type (a relative to b)
 int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 	if (arr->type == OFFSET) {
@@ -16,7 +26,7 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 		} else {
 			// Check if file_t* b refers to a zero size file
 			// Zero size files have an offset that exceeds the bounds
-			// of file_data and are stored at the end of the array
+			// of file_data, and are stored at the end of the array
 			// (zero size files should be found by name, not offset)
 			if (b->offset < arr->fs->len[0]) {
 				return 0;
@@ -26,31 +36,30 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 			}
 		}
 	} else {
-		// NOTE: Only compares first 63 characters
+		// Only compare the first 63 characters of names
 		return strncmp(a->name, b->name, NAME_LENGTH - 1); 
 	}
 }
 
-// Initialise array with given capacity and filesys_t*
-// Array is fixed in size (dir_table has fixed length)
+// Initialise array with fixed capacity (dir_table has fixed length)
 arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {
+	// Check for valid arguments
 	if (capacity < 0 || capacity > MAX_NUM_FILES ||
 	   (type != OFFSET && type != NAME) || fs == NULL) {
 		perror("arr_init: Invalid arguments");
 		exit(1);
 	}
 	
+	// Allocate memory for array
 	arr_t* arr = salloc(sizeof(*arr));
-	// if (pthread_mutex_init(&arr->list_mutex, NULL)) {
-	// 	perror("arr_init: Failed to initialise mutex");
-	// 	exit(1);
-	// }
 	
-	arr->size = 0;
-	arr->capacity = capacity;
-	arr->type = type;
-	arr->fs = fs;
-	arr->list = salloc(sizeof(*arr->list) * capacity); // sizeof(void*)
+	// Initialise array variables
+	arr->size = 0;					// Number of elements in array
+	arr->capacity = capacity;		// Max capacity of array
+	arr->type = type;				// Type that the array is sorted by
+	arr->fs = fs;					// Filesystem referencing the array
+	arr->list =						// Array of file_t*
+		salloc(sizeof(*arr->list) * capacity);
 	return arr;
 }
 
@@ -59,7 +68,7 @@ static void free_arr_list(arr_t* arr) {
 	if (arr->size > 0) {
 		file_t** list = arr->list;
 		for (int32_t i = 0; i < arr->size; i++) {
-			free_file_t(list[i]);
+			free_file(list[i]);
 		}
 		// Prevent double free
 		arr->fs->o_list->size = 0;
@@ -67,16 +76,13 @@ static void free_arr_list(arr_t* arr) {
 	}
 }
 
-// Free entire arr_t struct
+// Free arr_t struct and file_t structs within the array
 void free_arr(arr_t* arr) {
 	free_arr_list(arr);
 	free(arr->list);
-	// pthread_mutex_destroy(&arr->list_mutex);
 	free(arr);
 }
 
-// TODO: Convert to parallel helper function (add thread id and rightmost file_t* to struct)
-// NOTE: CAREFUL WITH PARALLEL FUNCTION AS INDEXES ARE DECREMENTED
 // Increase index of elements from index start to end - 1
 static void arr_rshift(int32_t start, int32_t end, arr_t* arr) {
 	TYPE type = arr->type;
@@ -110,7 +116,7 @@ int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {
 	
 	// Update list and file_t variables
 	arr->list[index] = file;
-	arr->size++;
+	++arr->size;
 	if (arr->type == OFFSET) {
 		file->o_index = index;
 	} else {
@@ -146,7 +152,7 @@ static int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
 	int32_t size = arr->size;
 	file_t** list = arr->list;
 	
-	for (int32_t i = 0; i < size; i++) {
+	for (int32_t i = 0; i < size; ++i) {
 		if (cmp_key(file, list[i], arr) < 0) {
 			// Expected offset or name position passed
 			if (insert) {
