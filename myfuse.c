@@ -117,16 +117,37 @@ int myfuse_unlink(const char * path) {
 }
 
 int myfuse_rename(const char * oldname, const char * newname) {
-	char* old = salloc(strlen(oldname) + 1);
-	char* new = salloc(strlen(newname) + 1);
-	memcpy(old, oldname, strlen(oldname) + 1);
-	memcpy(new, newname, strlen(newname) + 1);
+    // Exit if filesystem does not exist
+    if (fuse_get_context()->private_data == NULL) {
+        perror("myfuse_rename: Filesystem does not exist");
+        exit(1);
+    }
+    
+    // Check for valid arguments
+    if (oldname == NULL || newname == NULL) {
+        return -EINVAL;
+    }
+    
+    // Check if names are directories
+    if (strcmp(oldname, "/") == 0 || strcmp(newname, "/") == 0) {
+    	return -EISDIR;
+    }
+    
+    char* old = salloc(strlen(oldname));
+	char* new = salloc(strlen(newname));
+	memcpy(old, oldname + 1, strlen(oldname));
+	memcpy(new, newname + 1, strlen(newname));
 
 	int ret = rename_file(old, new, fuse_get_context()->private_data);
-
 	free(old);
 	free(new);
-	return ret;
+	
+	// Check if oldname file does not exist or newname file already exists
+	if (ret == 1) {
+		return -ENOENT;
+	}
+	
+	return 0;
 }
 
 int myfuse_truncate(const char *, off_t);

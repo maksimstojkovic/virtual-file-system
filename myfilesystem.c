@@ -501,7 +501,6 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	file_t temp;
 	update_file_name(oldname, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
-	
 	update_file_name(newname, &temp);
 	if (f == NULL || arr_get_s(&temp, fs->n_list) != NULL) {
 		UNLOCK(&fs->lock);
