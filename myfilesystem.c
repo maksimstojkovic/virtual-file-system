@@ -10,7 +10,6 @@
 
 #include "structs.h"
 #include "helper.h"
-#include "lock.h"
 #include "arr.h"
 #include "myfilesystem.h"
 
@@ -25,7 +24,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	filesys_t* fs = salloc(sizeof(*fs));
 	
 	// Initialise filesystem lock
-	init_lock(&fs->lock);
+	pthread_mutex_init(&fs->lock, NULL);
 	
 	// Check if files exist
 	fs->file_fd = open(f1, O_RDWR);
@@ -124,8 +123,8 @@ void close_fs(void * helper) {
 	close(fs->dir_fd);
 	close(fs->hash_fd);
 	
-	// Destory filesystem lock
-	destroy_lock(&fs->lock);
+	// Destroy filesystem lock
+	pthread_mutex_destroy(&fs->lock);
 	
 	// Free heap memory allocated
 	free_arr(fs->o_list);
@@ -206,7 +205,7 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 
 int create_file(char * filename, size_t length, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// TODO: REMOVE
 	// printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
@@ -215,13 +214,13 @@ int create_file(char * filename, size_t length, void * helper) {
 	file_t temp;
 	update_file_name(filename, &temp);
 	if (arr_get_s(&temp, fs->n_list) != NULL) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
 	// Return 2 if insufficient space in filesystem
 	if (fs->used + length > fs->len[0]) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 2;
 	}
 	
@@ -262,7 +261,7 @@ int create_file(char * filename, size_t length, void * helper) {
 	// printf("create_file added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return 0;
 }
 
@@ -322,7 +321,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 
 int resize_file(char * filename, size_t length, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// TODO: REMOVE
 	// printf("resize_file resizing \"%s\" to %lu bytes\n", filename, length);
@@ -332,19 +331,19 @@ int resize_file(char * filename, size_t length, void * helper) {
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
 	// Return 2 if insufficient space in filesystem
 	if (fs->used + (length - f->length) > fs->len[0]) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 2;
 	}
 	
 	// Return 0 if new length is same as old length
 	if (length == f->length) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 0;
 	}
 	
@@ -369,7 +368,7 @@ int resize_file(char * filename, size_t length, void * helper) {
 	// printf("resize_file resized \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return 0;
 };
 
@@ -432,7 +431,7 @@ int64_t repack_helper(filesys_t* fs) {
 
 void repack(void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// Repack file_data
 	int64_t hash_offset = repack_helper(fs);
@@ -447,19 +446,19 @@ void repack(void * helper) {
 	msync(fs->dir, fs->len[1], MS_ASYNC);
 	msync(fs->hash, fs->len[2], MS_ASYNC);
 	
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 }
 
 int delete_file(char * filename, void * helper) {
     filesys_t* fs = (filesys_t*)helper;	
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 		
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
@@ -486,13 +485,13 @@ int delete_file(char * filename, void * helper) {
 	// Sync dir_table
 	msync(fs->dir, fs->len[1], MS_ASYNC);
 	
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return 0;
 }
 
 int rename_file(char * oldname, char * newname, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// TODO: REMOVE
 	// printf("rename_file renaming \"%s\" to \"%s\"\n",
@@ -505,7 +504,7 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	
 	update_file_name(newname, &temp);
 	if (f == NULL || arr_get_s(&temp, fs->n_list) != NULL) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
@@ -520,13 +519,13 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	// printf("rename_file renamed \"%s\" to \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   oldname, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return 0;
 }
 
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
-	read_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// TODO: REMOVE
 	// printf("read_file reading \"%s\" %lu bytes at offset %lu\n", filename, count, offset);
@@ -536,19 +535,19 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		read_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
 	// Return 2 if invalid offset and count for given file
 	if (offset + count > f->length) {
-		read_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 2;
 	}
 	
 	// Return 3 if invalid hashes
 	if (verify_hash_range(f->offset + offset, count, fs) != 0) {
-		read_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 3;
 	}
 	
@@ -564,13 +563,13 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	// printf("read_file read \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	read_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return 0;
 }
 
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// TODO: REMOVE
 	// printf("write_file writing to \"%s\" %lu bytes at offset %lu\n", filename, count, offset);
@@ -581,19 +580,19 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
 	// Return 2 if offset is invalid (greater than the current file length)
 	if (offset > f->length) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 2;
 	}
 	
 	// Return 3 if insufficient space in filesystem
 	if (fs->used + ((int64_t)offset + count - f->length) > fs->len[0]) {
-		write_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return 3;
 	}
 	
@@ -629,20 +628,20 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	// printf("write_file wrote \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return 0;
 }
 
 ssize_t file_size(char * filename, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
-	read_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// Return -1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
 	if (f == NULL) {
-		read_unlock(&fs->lock);
+		UNLOCK(&fs->lock);
 		return -1;
 	}
 	
@@ -651,11 +650,17 @@ ssize_t file_size(char * filename, void * helper) {
 	// 	   f->length, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
 	// Return length of file
-	read_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 	return f->length;
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
+	// Check for valid arguments
+	if (buf == NULL || output == NULL) {
+		perror("fletcher: Invalid arguments");
+		exit(1);
+	}
+	
 	// Casting buffer to uint32_t for reading
 	uint32_t* buff = (uint32_t*)buf;
 	
@@ -663,13 +668,10 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 	uint64_t size = length / 4;
 	uint64_t rem = length % 4;
 	
-	// Hashing variables
 	uint64_t a = 0;
 	uint64_t b = 0;
 	uint64_t c = 0;
 	uint64_t d = 0;
-	
-	// Iterate over buff, updating hash variables
 	for (uint64_t i = 0; i < size; ++i) {
 		a = (a + buff[i]) % MAX_FILE_DATA_LENGTH_MIN_ONE;
 		b = (b + a) % MAX_FILE_DATA_LENGTH_MIN_ONE;
@@ -687,11 +689,11 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 		d = (d + c) % MAX_FILE_DATA_LENGTH_MIN_ONE;
 	}
 	
-	// Copy result to output buffer at required offset (assumed little endian)
+	// Copy result to output buffer at required offset (little endian system assumed)
 	memcpy(output, &a, sizeof(uint32_t));
-	memcpy(output + HASH_OFFSET_A, &b, sizeof(uint32_t));
-	memcpy(output + HASH_OFFSET_B, &c, sizeof(uint32_t));
-	memcpy(output + HASH_OFFSET_C, &d, sizeof(uint32_t));
+	memcpy(output + HASH_OFFSET_B, &b, sizeof(uint32_t));
+	memcpy(output + HASH_OFFSET_C, &c, sizeof(uint32_t));
+	memcpy(output + HASH_OFFSET_D, &d, sizeof(uint32_t));
 }
 
 // Writes the hash for the node at n_index to out buffer
@@ -710,21 +712,35 @@ void hash_node(int32_t n_index, uint8_t* hash_cat, uint8_t* out, filesys_t* fs) 
 
 void compute_hash_tree(void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
-	// Address of mmap for hash_data
+	// Variables for bottom-to-top tree level traversal
 	uint8_t* hash_addr = fs->hash;
-	
-	// Traverse tree from bottom up
+	int32_t n_index = fs->leaf_offset;
+	int32_t n_count = 0;
+	int32_t n_level = n_index + 1;
 	uint8_t hash_cat[2 * HASH_LENGTH];
-	for (int32_t i = fs->tree_len - 1; i >= 0; --i) {
-		hash_node(i, hash_cat, hash_addr + i * HASH_LENGTH, fs);
+	
+	// Iterate over level nodes with loop unrolling
+	while (n_level > 0) {
+		// Write hash of current node to hash_data
+		// printf("%d %d %d\n", n_count, n_index, n_level);
+		hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LENGTH, fs);
+		
+		// Update variables if level traversal complete
+		if (++n_count >= n_level) {
+			n_level /= 2;
+			n_index = n_level - 1;
+			n_count = 0;
+		} else {
+			++n_index;
+		}
 	}
 
 	// Sync hash_data
 	msync(fs->hash, fs->len[2], MS_ASYNC);
 
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 }
 
 // Update hashes for block at offset specified, regardless of filesystem lock state
@@ -770,7 +786,7 @@ void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs) {
 
 void compute_hash_block(size_t block_offset, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
-	write_lock(&fs->lock);
+	LOCK(&fs->lock);
 	
 	// Compute hash block
 	compute_hash_block_helper(block_offset, fs);
@@ -778,7 +794,7 @@ void compute_hash_block(size_t block_offset, void * helper) {
 	// Sync hash_data
 	msync(fs->hash, fs->len[2], MS_ASYNC);
 	
-	write_unlock(&fs->lock);
+	UNLOCK(&fs->lock);
 }
 
 // Compare hashes for blocks in the range specified

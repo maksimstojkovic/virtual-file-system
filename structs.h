@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <pthread.h>
 
+// Defined values
+
 #define MAX_FILE_DATA_LENGTH (int64_t)4294967296
 #define MAX_FILE_DATA_LENGTH_MIN_ONE 4294967295
 #define MAX_NUM_BLOCKS 16777216
@@ -17,24 +19,15 @@
 #define META_LENGTH 72
 
 #define HASH_LENGTH 16
-#define HASH_OFFSET_A 4
-#define HASH_OFFSET_B 8
-#define HASH_OFFSET_C 12
-
-// Macros for optimisation and readability
+#define HASH_OFFSET_B 4
+#define HASH_OFFSET_C 8
+#define HASH_OFFSET_D 12
 
 typedef enum TYPE {OFFSET, NAME} TYPE;
 
 struct filesys_t;
 typedef pthread_mutex_t mutex_t;
 typedef pthread_cond_t cond_t;
-
-typedef struct lock_t {
-	mutex_t w_mutex;		// Write mutex
-	mutex_t r_mutex;		// Read mutex
-	int32_t r_count;		// Read counter
-	cond_t w_cond;			// Write cond for signaling end of read operations
-} lock_t;
 
 typedef struct file_t {
 	char name[NAME_LENGTH];	// File name
@@ -55,7 +48,7 @@ typedef struct arr_t {
 
 typedef struct filesys_t {
 	int32_t nproc;			// Number of processors available
-	lock_t lock;			// Filesystem lock
+	mutex_t lock;			// Filesystem lock
 	int file_fd;			// file_data file descriptor
 	int dir_fd;				// dir_table file descriptor
 	int hash_fd;			// hash_data file descriptor

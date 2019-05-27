@@ -12,6 +12,10 @@
 
 #include "myfilesystem.h"
 
+char * file_data_file_name = NULL;
+char * directory_table_file_name = NULL;
+char * hash_data_file_name = NULL;
+
 int myfuse_getattr(const char * name, struct stat * result) {
     // MODIFY THIS FUNCTION
     memset(result, 0, sizeof(struct stat));
@@ -80,6 +84,15 @@ struct fuse_operations operations = {
 
 int main(int argc, char * argv[]) {
     // MODIFY (OPTIONAL)
+    if (argc >= 5) {
+        if (strcmp(argv[argc-4], "--files") == 0) {
+            file_data_file_name = argv[argc-3];
+            directory_table_file_name = argv[argc-2];
+            hash_data_file_name = argv[argc-1];
+            argc -= 4;
+        }
+    }
+    // After this point, you have access to file_data_file_name, directory_table_file_name and hash_data_file_name
     int ret = fuse_main(argc, argv, &operations, NULL);
     return ret;
 }
