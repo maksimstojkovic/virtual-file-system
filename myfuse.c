@@ -28,68 +28,92 @@ int myfuse_getattr(const char * path, struct stat * result) {
 
     // Check for valid path
     if (strncmp(path, "/", 1) != 0) {
-        return -ENOTDIR;
+        return -EINVAL;
     }
 
 	memset(result, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
-        // Mode is a directory
-	    result->st_mode = S_IFDIR;
-
+	    // TODO: REMOVE
         printf("%s directory\n", path);
 
-		// Set size as the number of bytes used in the filesystem, or 0 if filesystem is NULL
-		if ((fuse_get_context()->private_data) == NULL) {
-            result->st_size = 0;
-		} else {
-            result->st_size = ((filesys_t*)(fuse_get_context()->private_data))->used;
-		}
+		// Set size as the number of bytes used in the filesystem
+        result->st_size = ((filesys_t*)(fuse_get_context()->private_data))->used;
+
+        // Mode is a directory
+        result->st_mode = S_IFDIR;
 	} else {
-		// Mode is a regular file
-	    result->st_mode = S_IFREG;
+        // TODO: REMOVE
+	    printf("%s!!!!!!!!\n", path);
 
-        printf("%s!!!!!!!!\n", path);
+        // Set size as the number of bytes used by the file
+        char* name = salloc(strlen(path));
+        memcpy(name, path + 1, strlen(path));
 
-        // Set size as the number of bytes used by the file, or 0 if filesystem is NULL
-        if ((fuse_get_context()->private_data) == NULL) {
-            result->st_size = 0;
-        } else {
-            char* name = salloc(strlen(path));
-            memcpy(name, path + 1, strlen(path));
+        ssize_t size = file_size(name, fuse_get_context()->private_data);
+        free(name);
 
-            ssize_t size = file_size(name, fuse_get_context()->private_data);
-            free(name);
-
-            // Check if file exists
-            if (size < 0) {
-                return -EBADF;
-            }
-
-            result->st_size = (off_t)size;
+        // Check if file exists
+        if (size < 0) {
+            return -ENOENT;
         }
 
+        result->st_size = (off_t)size;
 
+        // Mode is a regular file
+        result->st_mode = S_IFREG;
 	}
 
 	return 0;
 }
 
 int myfuse_readdir(const char * path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
-	// MODIFY THIS FUNCTION
+    // Exit if filesystem does not exist
+    if (fuse_get_context()->private_data == NULL) {
+        perror("myfuse_readdir: Filesystem does not exist");
+        exit(1);
+    }
+
 	if (strcmp(path, "/") == 0) {
-		filler(buf, "test_file", NULL, 0);
+	    filesys_t* fs = (filesys_t*)(fuse_get_context()->private_data);
+	    file_t** n_list = fs->n_list->list;
+	    int32_t size = fs->n_list->size;
+
+	    // Iterate over filesystem files in alphabetical order
+		for (int i = 0; i < size; ++i) {
+            filler(buf, n_list[i]->name, NULL, 0);
+		}
+	} else {
+	    // Path is not a directory
+	    return -ENOTDIR;
 	}
+
 	return 0;
 }
 
 int myfuse_unlink(const char * path) {
-	char* name = salloc(strlen(path) + 1);
-	memcpy(name, path, strlen(path) + 1);
+    // Exit if filesystem does not exist
+    if (fuse_get_context()->private_data == NULL) {
+        perror("myfuse_unlink: Filesystem does not exist");
+        exit(1);
+    }
+
+    // Check for valid path
+    if (strncmp(path, "/", 1) != 0 || strcmp(path, "/") == 0) {
+        return -EINVAL;
+    }
+
+	char* name = salloc(strlen(path));
+	memcpy(name, path + 1, strlen(path));
 
 	int ret = delete_file(name, fuse_get_context()->private_data);
+    free(name);
 
-	free(name);
-	return ret;
+    // Check if file exists
+    if (ret == 1) {
+        return -ENOENT;
+    }
+
+	return 0;
 }
 
 int myfuse_rename(const char * oldname, const char * newname) {
@@ -121,15 +145,22 @@ int myfuse_release(const char *, struct fuse_file_info *);
 	// FILL OUT
 
 void * myfuse_init(struct fuse_conn_info * info) {
-	// Check for valid arguments
-	if (file_data_file_name == NULL || directory_table_file_name == NULL || hash_data_file_name) {
-		return NULL;
+    // Check for valid arguments
+	if (file_data_file_name == NULL || directory_table_file_name == NULL || hash_data_file_name == NULL) {
+		printf("FILESYSTEM NOT INPUT CORRECTLY\n");
+        printf("%s %s %s\n", file_data_file_name, directory_table_file_name, hash_data_file_name);
+	    return NULL;
 	}
 
 	return init_fs(file_data_file_name, directory_table_file_name, hash_data_file_name, 1);
 }
 
 void myfuse_destroy(void * fs) {
+    // Check for valid argument
+    if (fs == NULL) {
+        return;
+    }
+
 	close_fs(fs);
 }
 
