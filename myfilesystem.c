@@ -111,6 +111,11 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 }
 
 void close_fs(void * helper) {
+	// Check for valid argument
+	if (helper == NULL) {
+		return;
+	}
+	
 	filesys_t* fs = (filesys_t*)helper;
 	
 	// Unmap open files

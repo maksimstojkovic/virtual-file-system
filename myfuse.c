@@ -185,7 +185,7 @@ void myfuse_destroy(void * fs) {
 	close_fs(fs);
 }
 
-int myfuse_create(const char *, mode_t, struct fuse_file_info *);
+int myfuse_create(const char * path, mode_t mode, struct fuse_file_info * fi);
 
 struct fuse_operations operations = {
 	.getattr = myfuse_getattr,
@@ -198,7 +198,7 @@ struct fuse_operations operations = {
 //    .write =
 //    .release =
 	.init = myfuse_init,
-	.destroy = close_fs,
+	.destroy = myfuse_destroy // TODO: COMMA HERE
 //    .create =
 };
 
