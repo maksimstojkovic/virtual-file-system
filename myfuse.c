@@ -92,7 +92,10 @@ int main(int argc, char * argv[]) {
             argc -= 4;
         }
     }
+
     // After this point, you have access to file_data_file_name, directory_table_file_name and hash_data_file_name
     int ret = fuse_main(argc, argv, &operations, NULL);
+
+
     return ret;
 }

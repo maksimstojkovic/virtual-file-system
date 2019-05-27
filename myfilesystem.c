@@ -817,8 +817,8 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 		// Get leaf node index for block
 		n_index = fs->leaf_offset + i;
 		
-		// Compare hashes from leaf to root (excluding root)
-		while (n_index > 0) {
+		// Compare hashes from leaf to root
+		while (n_index >= 0) {
 			hash_node(n_index, hash_cat, hash, fs);
 			if (memcmp(hash, fs->hash + n_index * HASH_LENGTH, HASH_LENGTH) != 0) {
 				// Return 1 if verification failed

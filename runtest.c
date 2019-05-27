@@ -313,23 +313,28 @@ int test_delete_file_success() {
 	return 0;
 }
 
-int test_hash_verify_success() {
+int test_hash_verify_invalid() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 	if (create_file("test1.txt", 50, fs) ||
 	   	create_file("test2.txt", 27, fs)) {
-		perror ("hash_verify_success: Create failed");
+		perror ("hash_verify_invalid: Create failed");
 		return 1;
 	}
 
+	// Write to file
+	char buff[3] = {'a', 'b', 'c'};
+	if (write_file("test1.txt", 0, 3, buff, fs) != 0) {
+		perror ("hash_verify_invalid: Write failed");
+		return 1;
+	}
+
+	// Modify hash_data.bin and sync
 	pwrite(hash, "132", 3, 0);
 	msync(fs->hash, fs->len[2], MS_SYNC);
 
-	// compute_hash_tree(fs);
-	
-	char buff[10];
-	if (read_file("test1.txt", 0, 1, buff, fs) != 3) {
-		perror ("hash_verify_success: Read should fail");
+	if (read_file("test1.txt", 0, 3, buff, fs) != 3) {
+		perror ("hash_verify_invalid: Read should fail");
 		return 1;
 	}
 
@@ -370,7 +375,7 @@ int main(int argc, char * argv[]) {
 	TEST(test_delete_file_success);
 
 	// hash_verify tests
-	TEST(test_hash_verify_success);
+	TEST(test_hash_verify_invalid);
 
 	close(file);
 	close(dir);
