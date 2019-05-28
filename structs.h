@@ -6,7 +6,9 @@
 #include <stdint.h>
 #include <pthread.h>
 
-// Defined Values
+/*
+ * Defined values
+ */
 
 #define MAX_FILE_DATA_LEN ((int64_t)4294967296)
 #define MAX_FILE_DATA_LEN_MIN_ONE (4294967295)
@@ -26,7 +28,6 @@ typedef enum TYPE {OFFSET, NAME} TYPE;
 
 struct filesys_t;
 typedef pthread_mutex_t mutex_t;
-typedef pthread_cond_t cond_t;
 
 typedef struct file_t {
 	char name[NAME_LEN];	// File name
