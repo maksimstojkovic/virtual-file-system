@@ -319,6 +319,7 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 }
 
 int myfuse_release(const char * path, struct fuse_file_info * fi) {
+	UNUSED(path);
 	UNUSED(fi);
 
 	// Does not alter filesystem
