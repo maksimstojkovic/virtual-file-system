@@ -62,8 +62,8 @@ int failure() {
 // Test initialising and freeing array for memory leaks
 int test_array_empty() {
 	filesys_t* fs = malloc(sizeof(*fs));
-	arr_t* o_list = arr_init(LEN_F2/META_LENGTH, OFFSET, fs);
-	arr_t* n_list = arr_init(LEN_F2/META_LENGTH, NAME, fs);
+	arr_t* o_list = arr_init(LEN_F2 / META_LEN, OFFSET, fs);
+	arr_t* n_list = arr_init(LEN_F2 / META_LEN, NAME, fs);
 	free_arr(o_list);
 	free_arr(n_list);
 	free(fs);

@@ -5,6 +5,11 @@
 
 // MACROS
 
+// File length macros
+#define FILE_DATA_LEN (fs->len[0])
+#define DIR_TABLE_LEN (fs->len[1])
+#define HASH_DATA_LEN (fs->len[2])
+
 // Parent and children index macros
 #define p_index(x) ((((x)%2)==1)?((x)/2):(((x)/2)-1))
 #define lc_index(x) ((2*(x))+1)
@@ -17,10 +22,11 @@
 
 // dir_table name and length update macros
 #define update_dir_name(file,fs) \
-	memcpy((fs)->dir + (file)->index * META_LENGTH, (file)->name, strlen((file)->name)+ 1);
+	(memcpy((fs)->dir + (file)->index * META_LEN, \
+	(file)->name, strlen((file)->name) + 1))
 #define update_dir_length(file,fs) \
-	memcpy(fs->dir + file->index * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH, \
-	&file->length, sizeof(uint32_t));
+	(memcpy(fs->dir + file->index * META_LEN + NAME_LEN + OFFSET_LEN, \
+	&file->length, sizeof(uint32_t)))
 
 // Macros for locking and unlocking synchronisation variables
 #define LOCK(x) pthread_mutex_lock(x)

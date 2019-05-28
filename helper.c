@@ -48,8 +48,8 @@ void free_file(file_t* file) {
 // Update file_t struct name
 // Other file_t field helpers are defined as macros in helper.h
 void update_file_name(char* name, file_t* file) {
-	strncpy(file->name, name, NAME_LENGTH - 1);
-	file->name[NAME_LENGTH - 1] = '\0';
+	strncpy(file->name, name, NAME_LEN - 1);
+	file->name[NAME_LEN - 1] = '\0';
 }
 
 // Update a file's offset field in dir_table
@@ -57,12 +57,12 @@ void update_file_name(char* name, file_t* file) {
 void update_dir_offset(file_t* file, filesys_t* fs) {
 	// If file length is greater than zero, write its offset
 	if (file->length > 0) {
-		memcpy(fs->dir + file->index * META_LENGTH + NAME_LENGTH,
+		memcpy(fs->dir + file->index * META_LEN + NAME_LEN,
 		   &file->offset, sizeof(uint32_t));
 	
 	// Otherwise write 0 for zero size files
 	} else {
-		memset(fs->dir + file->index * META_LENGTH + NAME_LENGTH, '\0', sizeof(uint32_t));
+		memset(fs->dir + file->index * META_LEN + NAME_LEN, '\0', sizeof(uint32_t));
 	}
 }
 
@@ -81,8 +81,8 @@ void write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
 	}
 	
 	// Check for invalid arguments
-	if (count >= MAX_FILE_DATA_LENGTH || offset < 0 ||
-	   	offset >= MAX_FILE_DATA_LENGTH) {
+	if (count >= MAX_FILE_DATA_LEN || offset < 0 ||
+	   	offset >= MAX_FILE_DATA_LEN) {
 		perror("write_null_byte: Invalid arguments");
 		exit(1);
 	}
@@ -91,6 +91,7 @@ void write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
 	memset(f + offset, '\0', count);
 }
 
+// TODO: REVISE/REMOVE
 // Write count null bytes to a file descriptor at offset (used for testcases)
 // Assumes valid arguments
 void pwrite_null_byte(int fd, int64_t count, int64_t offset) {

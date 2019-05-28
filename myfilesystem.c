@@ -16,9 +16,6 @@
 // TODO: REMOVE ANY ARRAYS INITIALISED WITH VARIABLE VALUES AS LENGTH
 // TODO: TRY REPLACING POST-FIX INCREMENT (++) WITH PREFIX
 
-// USE MS_ASYNC IN MSYNC CALLS
-// DOUBLE CHECK MSYNC POINTERS AND LENGTHS
-
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     // Allocate space for filesystem helper
 	filesys_t* fs = salloc(sizeof(*fs));
@@ -38,53 +35,55 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	// Store file lengths in filesystem
 	struct stat s[3];
 	if (fstat(fs->file_fd, &s[0]) || fstat(fs->dir_fd, &s[1]) || fstat(fs->hash_fd, &s[2])) {
-		perror("init_fs: Failed to get file length");
+		perror("init_fs: Failed to get file lengths");
 		exit(1);
 	}
-	fs->len[0] = s[0].st_size;
-	fs->len[1] = s[1].st_size;
-	fs->len[2] = s[2].st_size;
+
+	FILE_DATA_LEN = s[0].st_size;
+	DIR_TABLE_LEN = s[1].st_size;
+	HASH_DATA_LEN = s[2].st_size;
 	
 	// Map files to memory using mmap
-	fs->file = mmap(NULL, s[0].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
-	fs->dir = mmap(NULL, s[1].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
-	fs->hash = mmap(NULL, s[2].st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
-	if (fs->file == MAP_FAILED || fs->dir == MAP_FAILED || fs->hash == MAP_FAILED) {
+	fs->file = mmap(NULL, FILE_DATA_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
+	fs->dir = mmap(NULL, DIR_TABLE_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
+	fs->hash = mmap(NULL, HASH_DATA_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
+	if (fs->file == MAP_FAILED || fs->dir == MAP_FAILED ||
+		fs->hash == MAP_FAILED) {
 		perror("init_fs: Failed to map files to memory");
 		exit(1);
 	}
 
 	// Initialise filesystem variables
 	fs->nproc = n_processors;
-	fs->index_len = fs->len[1] / META_LENGTH;
-	fs->index = scalloc(sizeof(*fs->index) * fs->index_len);
+	fs->index_len = DIR_TABLE_LEN / META_LEN;
 	fs->index_count = 0;
+	fs->index = scalloc(sizeof(*fs->index) * fs->index_len);
 	fs->o_list = arr_init(fs->index_len, OFFSET, fs);
 	fs->n_list = arr_init(fs->index_len, NAME, fs);
 	fs->used = 0;
-	fs->tree_len = fs->len[2] / HASH_LENGTH;
+	fs->tree_len = HASH_DATA_LEN / HASH_LEN;
 	fs->leaf_offset = fs->tree_len / 2;
-	
-	// Little and big endian file variables in dir_table
-	char name[NAME_LENGTH] = {0};
-	uint64_t offset = 0;
-	uint64_t length = 0;
-	
+
 	// Read through dir_table for existing files
+	char name[NAME_LEN] = {0};
+	uint64_t offset = 0;
+	uint32_t length = 0;
 	for (int32_t i = 0; i < fs->index_len; ++i) {
-		// Copy name from file_data, ensuring the ending null byte in the array is unchanged
-		memcpy(&name, fs->dir + i * META_LENGTH, NAME_LENGTH-1);
+		// Copy 63 characters from name field of dir_table entry
+		memcpy(&name, fs->dir + i * META_LEN, NAME_LEN - 1);
 		
 		// Valid filenames do not start with a null byte
 		if (name[0] != '\0') {
-			memcpy(&length, fs->dir + i * META_LENGTH + NAME_LENGTH + OFFSET_LENGTH, sizeof(uint32_t));
+			memcpy(&length, fs->dir + i * META_LEN + NAME_LEN + OFFSET_LEN,
+					sizeof(uint32_t));
 			
 			// Assign max length of file_data as offset for zero size files
-			// See arr.c for explanation
+			// See arr.c for justification
 			if (length == 0) {
-				offset = MAX_FILE_DATA_LENGTH;
+				offset = MAX_FILE_DATA_LEN;
 			} else {
-				memcpy(&offset, fs->dir + i * META_LENGTH + NAME_LENGTH, sizeof(uint32_t));
+				memcpy(&offset, fs->dir + i * META_LEN + NAME_LEN,
+						sizeof(uint32_t));
 			}
 			
 			// Create file_t and add to sorted arrays
@@ -97,14 +96,15 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 			// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 			
 			// Updating filesystem variables
-			fs->index[i] = 1;
 			fs->used += f->length;
+			fs->index[i] = 1;
+			++fs->index_count;
 		}
 	}
 
 	// TODO: REMOVE
 	// printf("init_fs f_len:%ld d_len:%ld h_len:%ld index_len:%d o_size:%d n_size:%d\n",
-	// 	   fs->len[0], fs->len[1], fs->len[2], fs->index_len, fs->o_list->size, fs->n_list->size);
+	// 	   FILE_DATA_LEN, DIR_TABLE_LEN, HASH_DATA_LEN, fs->index_len, fs->o_list->size, fs->n_list->size);
 	// arr_print(fs->o_list);
 	// arr_print(fs->n_list);
 	
@@ -119,27 +119,27 @@ void close_fs(void * helper) {
 	
 	filesys_t* fs = (filesys_t*)helper;
 	
-	// Unmap open files
-	munmap(fs->file, fs->len[0]);
-	munmap(fs->dir, fs->len[1]);
-	munmap(fs->hash, fs->len[2]);
+	munmap(fs->file, FILE_DATA_LEN);
+	munmap(fs->dir, DIR_TABLE_LEN);
+	munmap(fs->hash, HASH_DATA_LEN);
 	
-	// Close file descriptors
 	close(fs->file_fd);
 	close(fs->dir_fd);
 	close(fs->hash_fd);
 	
-	// Destroy filesystem lock
 	pthread_mutex_destroy(&fs->lock);
 	
-	// Free heap memory allocated
 	free_arr(fs->o_list);
 	free_arr(fs->n_list);
 	free(fs->index);
 	free(fs);
 }
 
-// Returns first empty index in dir_table
+/*
+ * Returns first empty index in dir_table
+ *
+ * returns: Lowest empty index in dir_table
+ */
 int32_t new_file_index(filesys_t* fs) {
 	// Check for valid arguments
 	if (fs == NULL) {
@@ -147,50 +147,69 @@ int32_t new_file_index(filesys_t* fs) {
 		exit(1);
 	}
 	
-	// Iterate over index array for space in dir_table
+	// Iterate over index array for dir_table
 	int32_t len = fs->index_len;
-	uint8_t* index = fs->index;
+	uint8_t* arr = fs->index;
 	for (int32_t i = 0; i < len; ++i) {
-		if (index[i] == 0) {
+		if (arr[i] == 0) {
 			return i;
 		}
 	}
 
+	// Should never be reached
 	perror("new_file_index: Filesystem full, no index available");
 	exit(1);
 }
 
-// Return offset in file_data for insertion
+/*
+ * Returns offset in file_data for insertion
+ *
+ * length: length of new file
+ * hash_offset: pointer to variable storing offset of first modified
+ * 				byte in file_data
+ *
+ * returns: valid file_data offset for new file, repacking if required
+ */
 uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	// Check for valid arguments
-	if (fs == NULL || length > fs->len[0]) {
+	if (fs == NULL || length > FILE_DATA_LEN) {
 		perror("new_file_offset: Invalid arguments");
 		exit(1);
 	}
 	
 	// Return max length of file_data for zero size files
 	if (length == 0) {
-		return MAX_FILE_DATA_LENGTH;
+		return MAX_FILE_DATA_LEN;
 	}
 	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
 	
-	// Cases for no elements in offset list, or first element not at offset 0
-	if (size <= 0 || o_list[0]->offset >= length) {
+	// Return 0 if no files or only zero size files in filesystem,
+	// or if first non-zero size file offset is large enough
+	if (size <= 0 || o_list[0]->length == 0 ||
+		(o_list[0]->length > 0 && o_list[0]->offset >= length)) {
 		return 0;
 	}
 	
 	// Check space between elements in offset list
+	uint64_t start_curr_file;
+	uint64_t end_prev_file;
+
 	for (int32_t i = 1; i < size; ++i) {
-		if (o_list[i]->offset - (o_list[i - 1]->offset + o_list[i-1]->length) >= length) {
-			return o_list[i - 1]->offset + o_list[i - 1]->length;
+		start_curr_file = o_list[i]->offset;
+		end_prev_file = o_list[i - 1]->offset + o_list[i-1]->length;
+
+		if (start_curr_file - end_prev_file >= length) {
+			return end_prev_file;
 		}
 	}
 	
 	// Check space between last element in offset list and end of file_data
-	if (fs->len[0] - (o_list[size - 1]->offset + o_list[size - 1]->length) >= length) {
-		return o_list[size - 1]->offset + o_list[size - 1]->length;
+	uint64_t end_last_file =
+			o_list[size - 1]->offset + o_list[size - 1]->length;
+	if (FILE_DATA_LEN - end_last_file >= length) {
+		return end_last_file;
 	}
 	
 	// Repack file_data if no large enough contiguous space found
@@ -201,10 +220,12 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	}
 	
 	// Check space at end of file_data
-	if (fs->len[0] - (o_list[size - 1]->offset + o_list[size - 1]->length) >= length) {
-		return o_list[size - 1]->offset + o_list[size - 1]->length;
+	end_last_file = o_list[size - 1]->offset + o_list[size - 1]->length;
+	if (FILE_DATA_LEN - end_last_file >= length) {
+		return end_last_file;
 	}
 
+	// Should never be reached
 	perror("new_file_offset: Unable to find valid offset");
 	exit(1);
 }
@@ -225,7 +246,8 @@ int create_file(char * filename, size_t length, void * helper) {
 	}
 	
 	// Return 2 if insufficient space in file_data or dir_table
-	if (fs->used + length > fs->len[0] || fs->index_count >= fs->index_len) {
+	if (fs->used + length > FILE_DATA_LEN ||
+		fs->index_count >= fs->index_len) {
 		UNLOCK(&fs->lock);
 		return 2;
 	}
@@ -248,21 +270,21 @@ int create_file(char * filename, size_t length, void * helper) {
 	// Only perform file_data updates for non-zero size files
 	if (length > 0) {
 		// Write null bytes to file_data and update filesystem variables
-		write_null_byte(fs->file, f->offset, length);
+		write_null_byte(fs->file, offset, length);
 		fs->used += length;
 
-		// Update hash_data based on whether repack occurred
 		if (hash_offset >= 0) {
+			// Hash from first repacked byte to end of used file_data
 			compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 		} else {
+			// Only hash the file created
 			compute_hash_block_range(offset, length, fs);
 		}
 	}
 	
-	// Sync files
-	msync(fs->file, fs->len[0], MS_ASYNC);
-	msync(fs->dir, fs->len[1], MS_ASYNC);
-	msync(fs->hash, fs->len[2], MS_ASYNC);
+	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
+	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
+	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
 	// TODO: REMOVE
 	// printf("create_file added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
@@ -272,14 +294,22 @@ int create_file(char * filename, size_t length, void * helper) {
 	return 0;
 }
 
-// Resizes files regardless of filesystem lock state, returns first repack offset
-// Returns index of first byte repacked if repack occurred
-int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs) {
+/*
+ * Helper for resizing files, independent of the filesystem lock state
+ *
+ * file: file_t of file being resized
+ * length: new file size
+ * copy: number of bytes to copy if repacking required
+ *
+ * returns: offset of first byte repacked if repack occurred, else -1
+ */
+int64_t resize_file_helper(file_t* file, size_t length, size_t copy,
+		filesys_t* fs) {
 	int64_t hash_offset = -1;
 	int64_t old_length = file->length;
 	
 	// TODO: REMOVE
-//	printf("fs_len: %ld\n", fs->len[0]);
+//	printf("fs_len: %ld\n", FILE_DATA_LEN);
 //	printf("old offset: %lu length: %u\n", file->offset, file->length);
 //	printf("new length: %lu\n", length);
 //	printf("%d\n", length > old_length);
@@ -289,77 +319,79 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 		file_t** list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
 		
-		// Handle expansion of zero size files
+		// Expansion of zero size files
 		if (old_length == 0) {
-			// Remove the file_t* from the sorted offset list
+			// Remove the file from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
 			
-			// Check if space at beginning of file_data and repack if necessary
-			if (fs->used > 0 && size >= 2 && list[0]->length != 0 && list[0]->offset < length) {
+			// Check for space at beginning of file_data and repack if
+			// necessary (zero size files have an initial offset of 0)
+			if (fs->used > 0 && size >= 2 && list[0]->length != 0 &&
+				list[0]->offset >= length) {
+				update_file_offset(0, file);
+			} else {
 				hash_offset = repack_helper(fs);
 				update_file_offset(fs->used, file);
-				update_dir_offset(file, fs);
-			} else {
-				update_file_offset(0, file);
-				update_dir_offset(file, fs);
 			}
-			
-			// Re-insert file to sorted offset list
+
+			update_dir_offset(file, fs);
+
+			// Re-insert file into sorted offset list
 			arr_insert_s(file, fs->o_list);
 			
-		// Handle expansion of non-zero size files
+		// Expansion of non-zero size files
 		} else {
-			// Check for insufficient space from the next non-zero size file or from the end of file_data
-			if ((file->o_index < size - 1 && list[file->o_index + 1]->length != 0 &&
-				 list[file->o_index + 1]->offset - file->offset < length) ||
-				(file->o_index < size - 1 && list[file->o_index + 1]->length == 0 &&
-				 fs->len[0] - file->offset < length) ||
-				(file->o_index == size - 1 && fs->len[0] - file->offset < length)) {
-				
-				// Store copy bytes of data from file_data into a buffer
+			int is_last = file->o_index == size - 1;
+			int next_is_zero =
+					!is_last && list[file->o_index + 1]->length == 0;
+			int fit_current =
+					list[file->o_index + 1]->offset - file->offset < length;
+			int fit_last = FILE_DATA_LEN - file->offset < length;
+
+			// Check for insufficient space from the next non-zero size file
+			// or from the end of file_data
+			if ((!next_is_zero && fit_current) ||
+				((next_is_zero || is_last) && fit_last)) {
 				uint8_t* temp = salloc(sizeof(*temp) * copy);
 				memcpy(temp, fs->file + file->offset, copy);
 				
-				// Remove file_t* from sorted offset list
+				// Remove file from sorted offset list
 				arr_remove(file->o_index, fs->o_list);
-				
+
 				// Repack and write buffer contents to the end of file_data
 				hash_offset = repack_helper(fs);
 				memcpy(fs->file + fs->used - old_length, temp, copy);
 				free(temp);
 				
-				// Update file_t and dir_table entry's offset
 				update_file_offset(fs->used - old_length, file);
 				update_dir_offset(file, fs);
-				
-				// Re-insert file to sorted offset list (cannot append due to zero size files)
+
+				// Re-insert file into sorted offset list
 				arr_insert_s(file, fs->o_list);
 			}
 		}
 	}
 	
-	// TODO: REMOVE
-//	printf("old_len: %ld new_len: %ld\n", old_length, length);
-	
-	// Update file_t and dir_table if length changed
+	// Update file and dir_table if length changed
 	if (length != old_length) {
-		// Update offset variable for zero size files
-		if (length == 0) {
-			update_file_offset(MAX_FILE_DATA_LENGTH, file);
-		}
-		
-		// Update file struct and dir_table
 		update_file_length(length, file);
 		update_dir_length(file, fs);
+
+		fs->used += length - old_length;
+
+		// Update internal offset of files resized to 0 bytes
+		// File offset in dir_table is unchanged
+		if (length == 0) {
+			// Remove file from sorted offset list
+			arr_remove(file->o_index, fs->o_list);
+
+			update_file_offset(MAX_FILE_DATA_LEN, file);
+
+			// Re-insert file into sorted offset list
+			arr_insert_s(file, fs->o_list);
+		}
 	}
-	
-	// TODO: REMOVE
-//	printf("new offset: %lu length: %u\n", file->offset, file->length);
-	
-	// Update filesystem variables
-	fs->used += length - old_length;
-	
-	// Return offset for first hashing block
+
 	return hash_offset;
 }
 
@@ -379,8 +411,8 @@ int resize_file(char * filename, size_t length, void * helper) {
 		return 1;
 	}
 	
-	// Return 2 if insufficient space in filesystem
-	if (fs->used + (length - f->length) > fs->len[0]) {
+	// Return 2 if insufficient space in file_data
+	if (fs->used + (length - f->length) > FILE_DATA_LEN) {
 		UNLOCK(&fs->lock);
 		return 2;
 	}
@@ -391,22 +423,21 @@ int resize_file(char * filename, size_t length, void * helper) {
 		return 0;
 	}
 	
-	// Resize file
 	int64_t old_length = f->length;
 	int64_t hash_offset = resize_file_helper(f, length, old_length, fs);
-	
-	// Append null bytes as required
-	write_null_byte(fs->file, f->offset + old_length, length - old_length);
-	
+
+	if (length > old_length) {
+		write_null_byte(fs->file, f->offset + old_length, length - old_length);
+	}
+
 	// Update hash_data if size increased
 	if (hash_offset >= 0) {
 		compute_hash_block_range(hash_offset, f->offset + length - hash_offset, fs);
 	}
 	
-	// Sync files
-	msync(fs->file, fs->len[0], MS_ASYNC);
-	msync(fs->dir, fs->len[1], MS_ASYNC);
-	msync(fs->hash, fs->len[2], MS_ASYNC);
+	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
+	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
+	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
 	// TODO: REMOVE
 	// printf("resize_file resized \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
@@ -414,7 +445,7 @@ int resize_file(char * filename, size_t length, void * helper) {
 
 	UNLOCK(&fs->lock);
 	return 0;
-};
+}
 
 // Moves the file specified to new_offset in file_data
 void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
@@ -486,9 +517,9 @@ void repack(void * helper) {
 	}
 	
 	// Sync files
-	msync(fs->file, fs->len[0], MS_ASYNC);
-	msync(fs->dir, fs->len[1], MS_ASYNC);
-	msync(fs->hash, fs->len[2], MS_ASYNC);
+	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
+	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
+	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 }
@@ -516,7 +547,7 @@ int delete_file(char * filename, void * helper) {
 	arr_remove(f->n_index, fs->n_list);
 	
 	// Write null byte in dir_table name field
-	write_null_byte(fs->dir, f->index * META_LENGTH, 1);
+	write_null_byte(fs->dir, f->index * META_LEN, 1);
 	
 	// TODO: REMOVE
 	// printf("delete_file removed \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
@@ -526,7 +557,7 @@ int delete_file(char * filename, void * helper) {
 	free_file(f);
 	
 	// Sync dir_table
-	msync(fs->dir, fs->len[1], MS_ASYNC);
+	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 	return 0;
@@ -555,7 +586,7 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	update_dir_name(f, fs);
 	
 	// Sync dir_table
-	msync(fs->dir, fs->len[1], MS_ASYNC);
+	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	
 	// TODO: REMOVE
 	// printf("rename_file renamed \"%s\" to \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
@@ -633,7 +664,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	}
 	
 	// Return 3 if insufficient space in filesystem
-	if (fs->used + ((int64_t)offset + count - f->length) > fs->len[0]) {
+	if (fs->used + ((int64_t)offset + count - f->length) > FILE_DATA_LEN) {
 		UNLOCK(&fs->lock);
 		return 3;
 	}
@@ -669,9 +700,9 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		compute_hash_block_range(f->offset + offset, count, fs);
 	}
 	
-	msync(fs->file, fs->len[0], MS_ASYNC);
-	msync(fs->dir, fs->len[1], MS_ASYNC);
-	msync(fs->hash, fs->len[2], MS_ASYNC);
+	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
+	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
+	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
 	// TODO: REMOVE
 	// printf("write_file wrote \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
@@ -722,20 +753,20 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 	uint64_t c = 0;
 	uint64_t d = 0;
 	for (uint64_t i = 0; i < size; ++i) {
-		a = (a + buff[i]) % MAX_FILE_DATA_LENGTH_MIN_ONE;
-		b = (b + a) % MAX_FILE_DATA_LENGTH_MIN_ONE;
-		c = (c + b) % MAX_FILE_DATA_LENGTH_MIN_ONE;
-		d = (d + c) % MAX_FILE_DATA_LENGTH_MIN_ONE;
+		a = (a + buff[i]) % MAX_FILE_DATA_LEN_MIN_ONE;
+		b = (b + a) % MAX_FILE_DATA_LEN_MIN_ONE;
+		c = (c + b) % MAX_FILE_DATA_LEN_MIN_ONE;
+		d = (d + c) % MAX_FILE_DATA_LEN_MIN_ONE;
 	}
 	
 	// Hash last unsigned integer if required
 	if (rem != 0) {
 		uint32_t last = 0; // Initialised to zero for null byte padding
 		memcpy(&last, buff + size, sizeof(uint8_t) * rem);
-		a = (a + last) % MAX_FILE_DATA_LENGTH_MIN_ONE;
-		b = (b + a) % MAX_FILE_DATA_LENGTH_MIN_ONE;
-		c = (c + b) % MAX_FILE_DATA_LENGTH_MIN_ONE;
-		d = (d + c) % MAX_FILE_DATA_LENGTH_MIN_ONE;
+		a = (a + last) % MAX_FILE_DATA_LEN_MIN_ONE;
+		b = (b + a) % MAX_FILE_DATA_LEN_MIN_ONE;
+		c = (c + b) % MAX_FILE_DATA_LEN_MIN_ONE;
+		d = (d + c) % MAX_FILE_DATA_LEN_MIN_ONE;
 	}
 	
 	// Copy result to output buffer at required offset (little endian system assumed)
@@ -749,13 +780,13 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 void hash_node(int32_t n_index, uint8_t* hash_cat, uint8_t* out, filesys_t* fs) {
 	// If internal node, calculate hash of concatenated child hashes
 	if (n_index < fs->leaf_offset) {
-		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
-		memcpy(hash_cat + HASH_LENGTH, fs->hash + rc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
-		fletcher(hash_cat, 2 * HASH_LENGTH, out);
+		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LEN, HASH_LEN);
+		memcpy(hash_cat + HASH_LEN, fs->hash + rc_index(n_index) * HASH_LEN, HASH_LEN);
+		fletcher(hash_cat, 2 * HASH_LEN, out);
 		
 	// Otherwise, calculate hash of file_data block for leaf node
 	} else {
-		fletcher(fs->file + (n_index - fs->leaf_offset) * BLOCK_LENGTH, BLOCK_LENGTH, out);
+		fletcher(fs->file + (n_index - fs->leaf_offset) * BLOCK_LEN, BLOCK_LEN, out);
 	}
 }
 
@@ -768,13 +799,13 @@ void compute_hash_tree(void * helper) {
 	int32_t n_index = fs->leaf_offset;
 	int32_t n_count = 0;
 	int32_t n_level = n_index + 1;
-	uint8_t hash_cat[2 * HASH_LENGTH];
+	uint8_t hash_cat[2 * HASH_LEN];
 	
 	// Iterate over level nodes with loop unrolling
 	while (n_level > 0) {
 		// Write hash of current node to hash_data
 		// printf("%d %d %d\n", n_count, n_index, n_level);
-		hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LENGTH, fs);
+		hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LEN, fs);
 		
 		// Update variables if level traversal complete
 		if (++n_count >= n_level) {
@@ -787,7 +818,7 @@ void compute_hash_tree(void * helper) {
 	}
 
 	// Sync hash_data
-	msync(fs->hash, fs->len[2], MS_ASYNC);
+	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 
 	UNLOCK(&fs->lock);
 }
@@ -798,18 +829,18 @@ void compute_hash_block_helper(size_t block_offset, filesys_t* fs) {
 	int32_t n_index = fs->leaf_offset + block_offset;
 	
 	// Update the leaf node hash in hash_data
-	fletcher(fs->file + block_offset * BLOCK_LENGTH, BLOCK_LENGTH, fs->hash + n_index * HASH_LENGTH);
+	fletcher(fs->file + block_offset * BLOCK_LEN, BLOCK_LEN, fs->hash + n_index * HASH_LEN);
 	
 	// Traverse through parent nodes to root node, updating hashes
-	uint8_t hash_cat[2 * HASH_LENGTH]; // Space for concatenated hash value
+	uint8_t hash_cat[2 * HASH_LEN]; // Space for concatenated hash value
 	n_index = p_index(n_index);
 	while (n_index >= 0) {
 		// Copy hashes from hash_data
-		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
-		memcpy(hash_cat + HASH_LENGTH, fs->hash + rc_index(n_index) * HASH_LENGTH, HASH_LENGTH);
+		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LEN, HASH_LEN);
+		memcpy(hash_cat + HASH_LEN, fs->hash + rc_index(n_index) * HASH_LEN, HASH_LEN);
 		
 		// Calculate hash and write to hash_data
-		fletcher(hash_cat, 2 * HASH_LENGTH, fs->hash + n_index * HASH_LENGTH);
+		fletcher(hash_cat, 2 * HASH_LEN, fs->hash + n_index * HASH_LEN);
 		
 		// Update index
 		n_index = p_index(n_index);
@@ -824,8 +855,8 @@ void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs) {
 	}
 	
 	// Determine first and last block modified
-	int64_t first_block = offset / BLOCK_LENGTH;
-	int64_t last_block = (offset + length - 1) / BLOCK_LENGTH;
+	int64_t first_block = offset / BLOCK_LEN;
+	int64_t last_block = (offset + length - 1) / BLOCK_LEN;
 	
 	// Update hash tree for each block modified
 	for (int64_t i = first_block; i <= last_block; ++i) {
@@ -841,7 +872,7 @@ void compute_hash_block(size_t block_offset, void * helper) {
 	compute_hash_block_helper(block_offset, fs);
 	
 	// Sync hash_data
-	msync(fs->hash, fs->len[2], MS_ASYNC);
+	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 }
@@ -855,13 +886,13 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 	}
 	
 	// Determine first and last block to verify
-	int64_t first_block = offset / BLOCK_LENGTH;
-	int64_t last_block = (offset + length - 1) / BLOCK_LENGTH;
+	int64_t first_block = offset / BLOCK_LEN;
+	int64_t last_block = (offset + length - 1) / BLOCK_LEN;
 	
 	// Verify hashes for each node
 	int32_t n_index;
-	uint8_t hash[HASH_LENGTH];
-	uint8_t hash_cat[2 * HASH_LENGTH];
+	uint8_t hash[HASH_LEN];
+	uint8_t hash_cat[2 * HASH_LEN];
 	for (int32_t i = first_block; i <= last_block; i++) {
 		// Get leaf node index for block
 		n_index = fs->leaf_offset + i;
@@ -869,7 +900,7 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 		// Compare hashes from leaf to root
 		while (n_index >= 0) {
 			hash_node(n_index, hash_cat, hash, fs);
-			if (memcmp(hash, fs->hash + n_index * HASH_LENGTH, HASH_LENGTH) != 0) {
+			if (memcmp(hash, fs->hash + n_index * HASH_LEN, HASH_LEN) != 0) {
 				// Return 1 if verification failed
 				return 1;
 			}

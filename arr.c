@@ -42,7 +42,7 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 		}
 	} else {
 		// Only compare the first 63 characters of names
-		return strncmp(a->name, b->name, NAME_LENGTH - 1); 
+		return strncmp(a->name, b->name, NAME_LEN - 1);
 	}
 }
 
