@@ -329,7 +329,6 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 				free(temp);
 				
 				// Update file_t and dir_table entry's offset
-				printf("new offset value: %ld\n", fs->used - old_length);
 				update_file_offset(fs->used - old_length, file);
 				update_dir_offset(file, fs);
 				
@@ -432,7 +431,7 @@ void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
 // Returns index of first byte repacked
 int64_t repack_helper(filesys_t* fs) {
 	// TODO: REMOVE
-	printf("repack Repacking now\n");
+//	printf("repack Repacking now\n");
 	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
@@ -878,8 +877,5 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 		}
 	}
 	
-	// Return 0 if verification successful
 	return 0;
 }		
-
-
