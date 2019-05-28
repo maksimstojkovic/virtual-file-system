@@ -37,7 +37,6 @@
 // Macro for suppressing unused variable warnings
 #define UNUSED(x) ((void)(x))
 
-
 void* salloc(size_t size);
 
 void* scalloc(size_t size);
