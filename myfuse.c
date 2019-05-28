@@ -233,7 +233,7 @@ int myfuse_read(const char * path, char * buf, size_t length, off_t offset, stru
 	char* name = salloc(strlen(path));
 	memcpy(name, path + 1, strlen(path));
 	
-	ssize_t f_size = file_size(name, fuse_get_context()->private_data);
+	ssize_t f_size = file_size(name, FILESYSTEM);
 	
 	// Check if file exists
 	if (f_size < 0) {
