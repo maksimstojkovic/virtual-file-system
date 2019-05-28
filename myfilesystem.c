@@ -278,34 +278,66 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 	int64_t hash_offset = -1;
 	int64_t old_length = file->length;
 	
+	// TODO: REMOVE
+	printf("fs_len: %ld\n", fs->len[0]);
+	printf("old offset: %lu length: %u\n", file->offset, file->length);
+	printf("new length: %lu\n", length);
+	printf("%d\n", length > old_length);
+	
 	// Find suitable space in file_data if length increased
 	if (length > old_length) {
 		file_t** list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
 		
-		// Check for insufficient space from the next file or the end of file_data
-		if ((file->o_index < size - 1 && list[file->o_index + 1]->offset - file->offset < length) ||
-		    (file->o_index == size - 1 && fs->len[0] - file->offset < length)) {
-			// Store copy bytes of data from file_data into a buffer
-			uint8_t* temp = salloc(sizeof(*temp) * copy);
-			memcpy(temp, fs->file + file->offset, copy);
-			
+		// Handling expansion of zero size files
+		if (old_length == 0) {
 			// Remove the file_t* from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
 			
-			// Repack and write buffer contents to the end of file_data
-			hash_offset = repack_helper(fs);
-			memcpy(fs->file + fs->used - old_length, temp, copy);
-			free(temp);
+			// Set offset to 0 if no filesystem space used
+			if (fs->used == 0) {
+				update_file_offset(0, file);
+				update_dir_offset(file, fs);
+				
+			// Otherwise repack and insert at end of file_data
+			} else {
+				hash_offset = repack_helper(fs);
+				update_file_offset(fs->used, file);
+				update_dir_offset(file, fs);
+			}
 			
-			// Update file_t and dir_table entry's offset
-			update_file_offset(fs->used - old_length, file);
-			update_dir_offset(file, fs);
-			
-			// Insert file to sorted offset list (cannot append due to zero size files)
 			arr_insert_s(file, fs->o_list);
+			
+		} else {
+			// Check for insufficient space from the next file or the end of file_data
+			if ((file->o_index < size - 1 && list[file->o_index + 1]->length != 0 &&
+				list[file->o_index + 1]->offset - file->offset < length) ||
+				(file->o_index == size - 1 && fs->len[0] - file->offset < length)) {
+				// Store copy bytes of data from file_data into a buffer
+				uint8_t* temp = salloc(sizeof(*temp) * copy);
+				memcpy(temp, fs->file + file->offset, copy);
+				
+				// Remove the file_t* from the sorted offset list
+				arr_remove(file->o_index, fs->o_list);
+				
+				// Repack and write buffer contents to the end of file_data
+				hash_offset = repack_helper(fs);
+				memcpy(fs->file + fs->used - old_length, temp, copy);
+				free(temp);
+				
+				// Update file_t and dir_table entry's offset
+				printf("new offset value: %ld\n", fs->used - old_length);
+				update_file_offset(fs->used - old_length, file);
+				update_dir_offset(file, fs);
+				
+				// Insert file to sorted offset list (cannot append due to zero size files)
+				arr_insert_s(file, fs->o_list);
+			}
 		}
 	}
+	
+	// TODO: REMOVE
+	printf("old_len: %ld new_len: %ld\n", old_length, length);
 	
 	// Update file_t and dir_table if length changed
 	if (length != old_length) {
@@ -318,6 +350,9 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 		update_file_length(length, file);
 		update_dir_length(file, fs);
 	}
+	
+	// TODO: REMOVE
+	printf("new offset: %lu length: %u\n", file->offset, file->length);
 	
 	// Update filesystem variables
 	fs->used += length - old_length;
@@ -394,7 +429,7 @@ void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
 // Returns index of first byte repacked
 int64_t repack_helper(filesys_t* fs) {
 	// TODO: REMOVE
-	// printf("repack Repacking now\n");
+	printf("repack Repacking now\n");
 	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
@@ -606,11 +641,19 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		return 0;
 	}
 	
+	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
+	
 	// Only resize if write exceeds the current bounds of a file
 	int32_t hash_offset = -1;
 	if (offset + count > f->length) {
+		printf("resizing\n");
 		hash_offset = resize_file_helper(f, offset + count, offset, fs);
 	}
+	
+	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
+	
+	// TODO: REMOVE
+//	printf("%s %lu %lu %s\n", filename, count, offset, (char*)buf);
 	
 	// Write count bytes from buf to file_data
 	// (f->offset will be updated if resize occurred)

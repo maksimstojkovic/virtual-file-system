@@ -270,11 +270,19 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 		return -EISDIR;
 	}
 	
+	// TODO: REMOVE EXTRA SPACE IN TEMP BUFFER - ONLY USED FOR TESTING
+	
 	// Write to file at offset
 	char* name = salloc(strlen(path));
-	char* temp = salloc(length);
+	char* temp = salloc(length + 1);
 	memcpy(name, path + 1, strlen(path));
 	memcpy(temp, buf, length);
+	temp[length] = '\0';
+	
+	printf("%s\n", name);
+	printf("%lu\n", length);
+	printf("%lu\n", offset);
+	printf("%s\n", temp);
 	
 	int ret = write_file(name, offset, length, temp, fuse_get_context()->private_data);
 	free(name);

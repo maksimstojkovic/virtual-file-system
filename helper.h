@@ -12,8 +12,8 @@
 
 // TODO: CHECK FOR OFFSET AND LENGTH THAT PASSED VALUES ARE PROPERLY CASTED/RIGHT TYPE
 // file_t offset and length update macros
-#define update_file_offset(x,y) ((y)->offset=(x))
-#define update_file_length(x,y) ((y)->length=(x))
+#define update_file_offset(x,y) (((y)->offset)=(x))
+#define update_file_length(x,y) (((y)->length)=(x))
 
 // dir_table name and length update macros
 #define update_dir_name(file,fs) \
@@ -25,8 +25,6 @@
 // Macros for locking and unlocking synchronisation variables
 #define LOCK(x) pthread_mutex_lock(x)
 #define UNLOCK(x) pthread_mutex_unlock(x)
-#define COND_WAIT(x,y) pthread_cond_wait(x,y)
-#define COND_SIGNAL(x) pthread_cond_signal(x)
 
 // Safe malloc helper
 void* salloc(size_t size);
