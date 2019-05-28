@@ -176,7 +176,7 @@ int myfuse_truncate(const char * path, off_t length) {
 	
 	// Check if sufficient space in filesystem
 	if (ret == 2) {
-		return -EINVAL;
+		return -ENOSPC;
 	}
 	
 	return 0;
@@ -252,10 +252,13 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 	
 	// Write to file at offset
 	char* name = salloc(strlen(path));
+	char* temp = salloc(length);
 	memcpy(name, path + 1, strlen(path));
+	memcpy(temp, buf, length);
 	
-	int ret = write_file(name, offset, length, buf, fuse_get_context()->private_data);
+	int ret = write_file(name, offset, length, temp, fuse_get_context()->private_data);
 	free(name);
+	free(temp);
 	
 	// Check if file exists
 	if (ret == 1) {
@@ -268,24 +271,11 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 	}
 	
 	// Check for sufficient filesystem space
-	
-	// Update number of bytes to read based on length of file
-	size_t read_length;
-	if (length > f_size - offset) {
-		read_length = f_size - offset;
-	} else {
-		read_length = length;
-	}
-	
-	int ret = read_file(name, offset, read_length, buf,fuse_get_context()->private_data);
-	free(name);
-	
-	// Check for valid filesystem hashing
 	if (ret == 3) {
-		return -EAGAIN;
+		return -ENOSPC;
 	}
 	
-	return read_length;
+	return length;
 }
 
 // TODO: READ ED THREADS
