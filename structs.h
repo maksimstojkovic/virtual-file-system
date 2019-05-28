@@ -10,7 +10,6 @@
 
 #define MAX_FILE_DATA_LENGTH (int64_t)4294967296
 #define MAX_FILE_DATA_LENGTH_MIN_ONE 4294967295
-#define MAX_NUM_BLOCKS 16777216
 #define BLOCK_LENGTH 256
 
 #define MAX_NUM_FILES 65536
@@ -61,6 +60,7 @@ typedef struct filesys_t {
 	int64_t used;			// Memory used in file_data
 	int32_t index_len;		// Maximum number of entries in dir_table
 	uint8_t* index;			// Array of available indices in dir_table
+	int32_t index_count;	// Number of entries in dir_table used
 	int32_t tree_len;		// Number of entries in hash tree
 	int32_t leaf_offset;	// Hash offset to start of leaf nodes in hash tree
 } filesys_t;

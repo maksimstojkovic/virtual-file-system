@@ -58,6 +58,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	fs->nproc = n_processors;
 	fs->index_len = fs->len[1] / META_LENGTH;
 	fs->index = scalloc(sizeof(*fs->index) * fs->index_len);
+	fs->index_count = 0;
 	fs->o_list = arr_init(fs->index_len, OFFSET, fs);
 	fs->n_list = arr_init(fs->index_len, NAME, fs);
 	fs->used = 0;
@@ -223,8 +224,8 @@ int create_file(char * filename, size_t length, void * helper) {
 		return 1;
 	}
 	
-	// Return 2 if insufficient space in filesystem
-	if (fs->used + length > fs->len[0]) {
+	// Return 2 if insufficient space in file_data or dir_table
+	if (fs->used + length > fs->len[0] || fs->index_count >= fs->index_len) {
 		UNLOCK(&fs->lock);
 		return 2;
 	}
@@ -242,6 +243,7 @@ int create_file(char * filename, size_t length, void * helper) {
 	// Write file metadata to dir_table and update index array
 	write_dir_file(f, fs);
 	fs->index[index] = 1;
+	++fs->index_count;
 
 	// Only perform file_data updates for non-zero size files
 	if (length > 0) {
@@ -467,11 +469,10 @@ int delete_file(char * filename, void * helper) {
 		return 1;
 	}
 	
-	// Update used space in file_data
+	// Update used space in file_data and dir_table
 	fs->used -= f->length;
-	
-	// Update dir_table indexing array
 	fs->index[f->index] = 0;
+	--fs->index_count;
 
 	// Remove from arrays using indices
 	arr_remove(f->o_index, fs->o_list);
