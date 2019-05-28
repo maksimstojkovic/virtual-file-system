@@ -19,12 +19,17 @@ char * file_data_file_name = NULL;
 char * directory_table_file_name = NULL;
 char * hash_data_file_name = NULL;
 
-int myfuse_getattr(const char * path, struct stat * result) {
-	// Exit if filesystem does not exist
+int filesystem_exists() {
 	if (fuse_get_context()->private_data == NULL) {
-	    perror("myfuse_getattr: Filesystem does not exist");
-	    exit(1);
+		perror("filesystem_exists: Filesystem does not exist");
+		exit(1);
 	}
+	return 0;
+}
+
+int myfuse_getattr(const char * path, struct stat * result) {
+	// Check if filesystem exists
+	filesystem_exists();
 
     // Check for valid path
     if (strncmp(path, "/", 1) != 0) {
@@ -91,11 +96,8 @@ int myfuse_readdir(const char * path, void * buf, fuse_fill_dir_t filler, off_t 
 }
 
 int myfuse_unlink(const char * path) {
-    // Exit if filesystem does not exist
-    if (fuse_get_context()->private_data == NULL) {
-        perror("myfuse_unlink: Filesystem does not exist");
-        exit(1);
-    }
+	// Check if filesystem exists
+	filesystem_exists();
 
     // Check for valid path
     if (strncmp(path, "/", 1) != 0 || strcmp(path, "/") == 0) {
@@ -117,11 +119,8 @@ int myfuse_unlink(const char * path) {
 }
 
 int myfuse_rename(const char * oldname, const char * newname) {
-    // Exit if filesystem does not exist
-    if (fuse_get_context()->private_data == NULL) {
-        perror("myfuse_rename: Filesystem does not exist");
-        exit(1);
-    }
+	// Check if filesystem exists
+	filesystem_exists();
     
     // Check for valid arguments
     if (oldname == NULL || newname == NULL) {
@@ -150,24 +149,99 @@ int myfuse_rename(const char * oldname, const char * newname) {
 	return 0;
 }
 
-int myfuse_truncate(const char *, off_t);
-	// FILL OUT
+int myfuse_truncate(const char * path, off_t length) {
+	// Check if filesystem exists
+	filesystem_exists();
+	
+	// Check for valid arguments
+	if (path == NULL) {
+		return -EINVAL;
+	}
+	
+	// Check if path is a directory
+	if (strcmp(path, "/") == 0) {
+		return -EISDIR;
+	}
+	
+	char* name = salloc(strlen(path));
+	memcpy(name, path + 1, strlen(path));
+	
+	int ret = resize_file(name, length, fuse_get_context()->private_data);
+	free(name);
+	
+	// Check if file exists
+	if (ret == 1) {
+		return -ENOENT;
+	}
+	
+	// Check if sufficient space in filesystem
+	if (ret == 2) {
+		return -EINVAL;
+	}
+	
+	return 0;
+}
 
+// TODO: READ ED THREADS
 int myfuse_open(const char *, struct fuse_file_info *);
-	// FILL OUT
 
-int myfuse_read(const char *, char *, size_t, off_t, struct fuse_file_info *);
-	// FILL OUT
+int myfuse_read(const char * path, char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
+	// Check if filesystem exists
+	filesystem_exists();
+	
+	// Check for valid arguments
+	if (path == NULL || buf == NULL) {
+		return -EINVAL;
+	}
+	
+	// Check if path is a directory
+	if (strcmp(path, "/") == 0) {
+		return -EISDIR;
+	}
+	
+	// Check current length of file
+	char* name = salloc(strlen(path));
+	memcpy(name, path + 1, strlen(path));
+	
+	ssize_t f_size = file_size(name, fuse_get_context()->private_data);
+	
+	// Check if file exists
+	if (f_size < 0) {
+		return -ENOENT;
+	}
+	
+	// Check for EOF
+	if (offset >= f_size) {
+		return 0;
+	}
+	
+	// Update number of bytes to read based on length of file
+	size_t read_length;
+	if (length > f_size - offset) {
+		read_length = f_size - offset;
+	} else {
+		read_length = length;
+	}
+	
+	// Relevant error checks for read_file have been performed by this point
+	read_file(name, offset, read_length, buf,fuse_get_context()->private_data);
+	free(name);
+	
+	return read_length;
+}
 
-int myfuse_write(const char *, const char *, size_t, off_t, struct fuse_file_info *);
-	// FILL OUT
+int myfuse_write(const char * path, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
 
+}
+
+// TODO: READ ED THREADS
 int myfuse_release(const char *, struct fuse_file_info *);
 	// FILL OUT
 
 void * myfuse_init(struct fuse_conn_info * info) {
     // Check for valid arguments
 	if (file_data_file_name == NULL || directory_table_file_name == NULL || hash_data_file_name == NULL) {
+		// TODO: REMOVE
 		printf("FILESYSTEM NOT INPUT CORRECTLY\n");
         printf("%s %s %s\n", file_data_file_name, directory_table_file_name, hash_data_file_name);
 	    return NULL;
@@ -192,7 +266,7 @@ struct fuse_operations operations = {
 	.readdir = myfuse_readdir,
 	.unlink = myfuse_unlink,
 	.rename = myfuse_rename,
-//    .truncate =
+    .truncate = myfuse_truncate,
 //    .open =
 //    .read =
 //    .write =
