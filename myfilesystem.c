@@ -277,7 +277,7 @@ int create_file(char * filename, size_t length, void * helper) {
 			// Hash from first repacked byte to end of used file_data
 			compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 		} else {
-			// Only hash the file created
+			// Only hash the bytes modified
 			compute_hash_block_range(offset, length, fs);
 		}
 	}
@@ -303,8 +303,7 @@ int create_file(char * filename, size_t length, void * helper) {
  *
  * returns: offset of first byte repacked if repack occurred, else -1
  */
-int64_t resize_file_helper(file_t* file, size_t length, size_t copy,
-		filesys_t* fs) {
+int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 	int64_t hash_offset = -1;
 	int64_t old_length = file->length;
 	
@@ -341,12 +340,12 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy,
 			
 		// Expansion of non-zero size files
 		} else {
-			int is_last = file->o_index == size - 1;
-			int next_is_zero =
+			int32_t is_last = file->o_index == size - 1;
+			int32_t next_is_zero =
 					!is_last && list[file->o_index + 1]->length == 0;
-			int fit_current =
+			int32_t fit_current =
 					list[file->o_index + 1]->offset - file->offset < length;
-			int fit_last = FILE_DATA_LEN - file->offset < length;
+			int32_t fit_last = FILE_DATA_LEN - file->offset < length;
 
 			// Check for insufficient space from the next non-zero size file
 			// or from the end of file_data
@@ -574,21 +573,20 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	// printf("rename_file renaming \"%s\" to \"%s\"\n",
 	// 	   oldname, newname);
 	
-	// Return 1 if oldname file does not exist or newname file does exist
+	// Return 1 if oldname file does not exist or newname file already exist
 	file_t temp;
 	update_file_name(oldname, &temp);
 	file_t* f = arr_get_s(&temp, fs->n_list);
+
 	update_file_name(newname, &temp);
 	if (f == NULL || arr_get_s(&temp, fs->n_list) != NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
 	}
 	
-	// Update file_t struct and dir_table entry
 	update_file_name(newname, f);
 	update_dir_name(f, fs);
 	
-	// Sync dir_table
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	
 	// TODO: REMOVE
@@ -632,7 +630,6 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 		return 0;
 	}
 	
-	// Read count bytes into buf at offset bytes from the start of f
 	memcpy(buf, fs->file + f->offset + offset, count);
 	
 	// TODO: REMOVE
@@ -660,13 +657,13 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		return 1;
 	}
 	
-	// Return 2 if offset is invalid (greater than the current file length)
+	// Return 2 if offset is invalid
 	if (offset > f->length) {
 		UNLOCK(&fs->lock);
 		return 2;
 	}
 	
-	// Return 3 if insufficient space in filesystem
+	// Return 3 if insufficient space in file_data
 	if (fs->used + ((int64_t)offset + count - f->length) > FILE_DATA_LEN) {
 		UNLOCK(&fs->lock);
 		return 3;
@@ -677,29 +674,19 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		return 0;
 	}
 	
-	// TODO: REMOVE
-//	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
-	
-	// Only resize if write exceeds the current bounds of a file
+	// Resize if write exceeds bounds of file
 	int32_t hash_offset = -1;
 	if (offset + count > f->length) {
 		hash_offset = resize_file_helper(f, offset + count, offset, fs);
 	}
 	
-	// TODO: REMOVE
-//	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
-	
-	// TODO: REMOVE
-//	printf("%s %lu %lu %s\n", filename, count, offset, (char*)buf);
-	
-	// Write count bytes from buf to file_data
-	// (f->offset will be updated if resize occurred)
 	memcpy(fs->file + f->offset + offset, buf, count);
 	
-	// Update hash_data based on whether a repack occurred
 	if (hash_offset >= 0) {
+		// Hash from first repacked byte to end of used file_data
 		compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 	} else {
+		// Only hash the bytes modified
 		compute_hash_block_range(f->offset + offset, count, fs);
 	}
 	
@@ -772,24 +759,32 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 		d = (d + c) % MAX_FILE_DATA_LEN_MIN_ONE;
 	}
 	
-	// Copy result to output buffer at required offset (little endian system assumed)
+	// Copy result to output buffer at required offset
 	memcpy(output, &a, sizeof(uint32_t));
 	memcpy(output + HASH_OFFSET_B, &b, sizeof(uint32_t));
 	memcpy(output + HASH_OFFSET_C, &c, sizeof(uint32_t));
 	memcpy(output + HASH_OFFSET_D, &d, sizeof(uint32_t));
 }
 
-// Writes the hash for the node at n_index to out buffer
+/*
+ * Writes the hash for the node at n_index to address out
+ *
+ * n_index: index of node in hash tree
+ * hash_cat: address of stack array used for concatenating hashes
+ * out: address that output hash is written to
+ */
 void hash_node(int32_t n_index, uint8_t* hash_cat, uint8_t* out, filesys_t* fs) {
 	// If internal node, calculate hash of concatenated child hashes
 	if (n_index < fs->leaf_offset) {
 		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LEN, HASH_LEN);
-		memcpy(hash_cat + HASH_LEN, fs->hash + rc_index(n_index) * HASH_LEN, HASH_LEN);
+		memcpy(hash_cat + HASH_LEN, fs->hash + rc_index(n_index) * HASH_LEN,
+				HASH_LEN);
 		fletcher(hash_cat, 2 * HASH_LEN, out);
 		
 	// Otherwise, calculate hash of file_data block for leaf node
 	} else {
-		fletcher(fs->file + (n_index - fs->leaf_offset) * BLOCK_LEN, BLOCK_LEN, out);
+		fletcher(fs->file + (n_index - fs->leaf_offset) * BLOCK_LEN,
+				BLOCK_LEN, out);
 	}
 }
 
@@ -797,60 +792,64 @@ void compute_hash_tree(void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
 	
-	// Variables for bottom-to-top tree level traversal
+	// Variables for bottom-to-top level traversal of hash tree
 	uint8_t* hash_addr = fs->hash;
 	int32_t n_index = fs->leaf_offset;
 	int32_t n_count = 0;
-	int32_t n_level = n_index + 1;
+	int32_t nodes_in_level = n_index + 1;
 	uint8_t hash_cat[2 * HASH_LEN];
-	
-	// Iterate over level nodes with loop unrolling
-	while (n_level > 0) {
+
+	while (nodes_in_level > 0) {
 		// Write hash of current node to hash_data
-		// printf("%d %d %d\n", n_count, n_index, n_level);
 		hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LEN, fs);
 		
-		// Update variables if level traversal complete
-		if (++n_count >= n_level) {
-			n_level /= 2;
-			n_index = n_level - 1;
-			n_count = 0;
-		} else {
+		if (++n_count < nodes_in_level) {
 			++n_index;
+		} else {
+			// Move to next level once current level is completed
+			nodes_in_level /= 2;
+			n_index = nodes_in_level - 1;
+			n_count = 0;
 		}
 	}
 
-	// Sync hash_data
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 
 	UNLOCK(&fs->lock);
 }
 
-// Update hashes for block at offset specified, regardless of filesystem lock state
+/*
+ * Helper for updating hash for block at offset specified, independent of
+ * filesystem lock state
+ *
+ * offset: index of block in file_data
+ */
 void compute_hash_block_helper(size_t block_offset, filesys_t* fs) {
 	// Calculate the index of the leaf node for the block
 	int32_t n_index = fs->leaf_offset + block_offset;
 	
-	// Update the leaf node hash in hash_data
-	fletcher(fs->file + block_offset * BLOCK_LEN, BLOCK_LEN, fs->hash + n_index * HASH_LEN);
+	// Update the leaf node hash
+	fletcher(fs->file + block_offset * BLOCK_LEN, BLOCK_LEN,
+			fs->hash + n_index * HASH_LEN);
 	
-	// Traverse through parent nodes to root node, updating hashes
-	uint8_t hash_cat[2 * HASH_LEN]; // Space for concatenated hash value
-	n_index = p_index(n_index);
-	while (n_index >= 0) {
-		// Copy hashes from hash_data
+	// Update parent node hashes all the way to the root node
+	uint8_t hash_cat[2 * HASH_LEN];
+	while ((n_index = p_index(n_index)) >= 0) {
 		memcpy(hash_cat, fs->hash + lc_index(n_index) * HASH_LEN, HASH_LEN);
-		memcpy(hash_cat + HASH_LEN, fs->hash + rc_index(n_index) * HASH_LEN, HASH_LEN);
+		memcpy(hash_cat + HASH_LEN, fs->hash + rc_index(n_index) * HASH_LEN,
+				HASH_LEN);
 		
-		// Calculate hash and write to hash_data
 		fletcher(hash_cat, 2 * HASH_LEN, fs->hash + n_index * HASH_LEN);
-		
-		// Update index
-		n_index = p_index(n_index);
 	}
 }
 
 // Update hashes for modified blocks in range specified
+/*
+ * Update hashes for file_data blocks in the range specified
+ *
+ * offset: file_data offset of first byte modified
+ * length: number of adjacent bytes modified
+ */
 void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs) {
 	// Return if length is 0
 	if (length <= 0) {
@@ -871,10 +870,8 @@ void compute_hash_block(size_t block_offset, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
 	
-	// Compute hash block
 	compute_hash_block_helper(block_offset, fs);
 	
-	// Sync hash_data
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
@@ -892,9 +889,9 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 	int64_t first_block = offset / BLOCK_LEN;
 	int64_t last_block = (offset + length - 1) / BLOCK_LEN;
 	
-	// Verify hashes for each node
+	// Verify hashes for each block
 	int32_t n_index;
-	uint8_t hash[HASH_LEN];
+	uint8_t curr_hash[HASH_LEN];
 	uint8_t hash_cat[2 * HASH_LEN];
 	for (int32_t i = first_block; i <= last_block; i++) {
 		// Get leaf node index for block
@@ -902,9 +899,11 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 		
 		// Compare hashes from leaf to root
 		while (n_index >= 0) {
-			hash_node(n_index, hash_cat, hash, fs);
-			if (memcmp(hash, fs->hash + n_index * HASH_LEN, HASH_LEN) != 0) {
-				// Return 1 if verification failed
+			hash_node(n_index, hash_cat, curr_hash, fs);
+
+			// Return 1 if verification failed
+			if (memcmp(curr_hash,
+					fs->hash + n_index * HASH_LEN, HASH_LEN) != 0) {
 				return 1;
 			}
 			n_index = p_index(n_index);
