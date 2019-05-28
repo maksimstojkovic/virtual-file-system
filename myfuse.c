@@ -182,8 +182,28 @@ int myfuse_truncate(const char * path, off_t length) {
 	return 0;
 }
 
-// TODO: READ ED THREADS
-int myfuse_open(const char *, struct fuse_file_info *);
+int myfuse_open(const char * path, struct fuse_file_info * fi) {
+	// Check if filesystem exists
+	filesystem_exists();
+	
+	// Check for valid file path
+	if (strncmp(path, "/", 1) != 0 || strcmp(path, "/") == 0) {
+		return -EISDIR;
+	}
+	
+	// Check if file exists
+	char* name = salloc(strlen(path));
+	memcpy(name, path + 1, strlen(path));
+	
+	ssize_t size = file_size(name, fuse_get_context()->private_data);
+	free(name);
+	
+	if (size < 0) {
+		return -ENOENT;
+	}
+	
+	return 0;
+}
 
 int myfuse_read(const char * path, char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
 	// Check if filesystem exists
@@ -278,9 +298,11 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 	return length;
 }
 
-// TODO: READ ED THREADS
-int myfuse_release(const char *, struct fuse_file_info *);
-	// FILL OUT
+int myfuse_release(const char * path, struct fuse_file_info * fi) {
+	// Does not alter filesystem
+	// No checks requires as only called after create or open
+	return 0;
+}
 
 void * myfuse_init(struct fuse_conn_info * info) {
     // Check for valid arguments
@@ -303,7 +325,34 @@ void myfuse_destroy(void * fs) {
 	close_fs(fs);
 }
 
-int myfuse_create(const char * path, mode_t mode, struct fuse_file_info * fi);
+int myfuse_create(const char * path, mode_t mode, struct fuse_file_info * fi) {
+	// Check if filesystem exists
+	filesystem_exists();
+	
+	// Check for valid file path
+	if (strncmp(path, "/", 1) != 0 || strcmp(path, "/") == 0) {
+		return -EISDIR;
+	}
+	
+	// Attempt to create file with given name
+	char* name = salloc(strlen(path));
+	memcpy(name, path + 1, strlen(path));
+	
+	int ret = create_file(name, 0, fuse_get_context()->private_data);
+	free(name);
+	
+	// Check if file exists
+	if (ret == 1) {
+		return -EEXIST;
+	}
+	
+	// Check for sufficient filesystem space
+	if (ret == 2) {
+		return -ENOSPC;
+	}
+	
+	return 0;
+}
 
 struct fuse_operations operations = {
 	.getattr = myfuse_getattr,
@@ -311,13 +360,13 @@ struct fuse_operations operations = {
 	.unlink = myfuse_unlink,
 	.rename = myfuse_rename,
     .truncate = myfuse_truncate,
-//    .open =
+    .open = myfuse_open,
     .read = myfuse_read,
-//    .write =
-//    .release =
+    .write = myfuse_write,
+    .release = myfuse_release,
 	.init = myfuse_init,
-	.destroy = myfuse_destroy // TODO: COMMA HERE
-//    .create =
+	.destroy = myfuse_destroy,
+    .create = myfuse_create
 };
 
 int main(int argc, char * argv[]) {
