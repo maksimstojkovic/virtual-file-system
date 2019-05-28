@@ -279,10 +279,10 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 	int64_t old_length = file->length;
 	
 	// TODO: REMOVE
-	printf("fs_len: %ld\n", fs->len[0]);
-	printf("old offset: %lu length: %u\n", file->offset, file->length);
-	printf("new length: %lu\n", length);
-	printf("%d\n", length > old_length);
+//	printf("fs_len: %ld\n", fs->len[0]);
+//	printf("old offset: %lu length: %u\n", file->offset, file->length);
+//	printf("new length: %lu\n", length);
+//	printf("%d\n", length > old_length);
 	
 	// Find suitable space in file_data if length increased
 	if (length > old_length) {
@@ -340,7 +340,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 	}
 	
 	// TODO: REMOVE
-	printf("old_len: %ld new_len: %ld\n", old_length, length);
+//	printf("old_len: %ld new_len: %ld\n", old_length, length);
 	
 	// Update file_t and dir_table if length changed
 	if (length != old_length) {
@@ -355,7 +355,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 	}
 	
 	// TODO: REMOVE
-	printf("new offset: %lu length: %u\n", file->offset, file->length);
+//	printf("new offset: %lu length: %u\n", file->offset, file->length);
 	
 	// Update filesystem variables
 	fs->used += length - old_length;
@@ -644,16 +644,17 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		return 0;
 	}
 	
-	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
+	// TODO: REMOVE
+//	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
 	
 	// Only resize if write exceeds the current bounds of a file
 	int32_t hash_offset = -1;
 	if (offset + count > f->length) {
-		printf("resizing\n");
 		hash_offset = resize_file_helper(f, offset + count, offset, fs);
 	}
 	
-	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
+	// TODO: REMOVE
+//	printf("f_offset: %lu f_size: %u\n", f->offset, f->length);
 	
 	// TODO: REMOVE
 //	printf("%s %lu %lu %s\n", filename, count, offset, (char*)buf);
@@ -662,7 +663,6 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	// (f->offset will be updated if resize occurred)
 	memcpy(fs->file + f->offset + offset, buf, count);
 	
-	// TODO: Check that hashing function works
 	// Update hash_data based on whether a repack occurred
 	if (hash_offset >= 0) {
 		compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
@@ -670,7 +670,6 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		compute_hash_block_range(f->offset + offset, count, fs);
 	}
 	
-	// Sync files
 	msync(fs->file, fs->len[0], MS_ASYNC);
 	msync(fs->dir, fs->len[1], MS_ASYNC);
 	msync(fs->hash, fs->len[2], MS_ASYNC);

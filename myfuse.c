@@ -38,18 +38,12 @@ int myfuse_getattr(const char * path, struct stat * result) {
 
 	memset(result, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
-	    // TODO: REMOVE
-        printf("%s directory\n", path);
-
 		// Set size as the number of bytes used in the filesystem
         result->st_size = ((filesys_t*)(fuse_get_context()->private_data))->used;
 
         // Mode is a directory
         result->st_mode = S_IFDIR;
 	} else {
-        // TODO: REMOVE
-	    printf("%s!!!!!!!!\n", path);
-
         // Set size as the number of bytes used by the file
         char* name = salloc(strlen(path));
         memcpy(name, path + 1, strlen(path));
@@ -274,15 +268,9 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 	
 	// Write to file at offset
 	char* name = salloc(strlen(path));
-	char* temp = salloc(length + 1);
+	char* temp = salloc(length);
 	memcpy(name, path + 1, strlen(path));
 	memcpy(temp, buf, length);
-	temp[length] = '\0';
-	
-	printf("%s\n", name);
-	printf("%lu\n", length);
-	printf("%lu\n", offset);
-	printf("%s\n", temp);
 	
 	int ret = write_file(name, offset, length, temp, fuse_get_context()->private_data);
 	free(name);
@@ -308,7 +296,7 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 
 int myfuse_release(const char * path, struct fuse_file_info * fi) {
 	// Does not alter filesystem
-	// No checks requires as only called after create or open
+	// No checks requires as release is only called after create or open
 	return 0;
 }
 
