@@ -26,6 +26,9 @@
 #define LOCK(x) pthread_mutex_lock(x)
 #define UNLOCK(x) pthread_mutex_unlock(x)
 
+// Macro for managing unused variable warnings
+#define UNUSED(x) ((void)(x))
+
 // Safe malloc helper
 void* salloc(size_t size);
 

@@ -200,6 +200,8 @@ int myfuse_open(const char * path, struct fuse_file_info * fi) {
 }
 
 int myfuse_read(const char * path, char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
+	UNUSED(fi);
+	
 	// Check if filesystem exists
 	filesystem_exists();
 	
