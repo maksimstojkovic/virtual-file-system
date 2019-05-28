@@ -296,6 +296,30 @@ int test_create_file_no_space() {
 	return 0;
 }
 
+int test_resize_file_no_space() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+	if (create_file("test1.txt", 50, fs)) {
+		perror ("resize_file_no_space: Create failed");
+		return 1;
+	}
+
+	if (resize_file("test1.txt", 1025, fs) != 2) {
+		perror ("resize_file_no_space: Resize 1 should fail");
+		return 1;
+	}
+
+	if (resize_file("test1.txt", 1024, fs)) {
+		perror ("resize_file_no_space: Resize 2 failed");
+		return 1;
+	}
+
+	// TODO: Check dir_table length here
+
+	close_fs(fs);
+	return 0;
+}
+
 int test_delete_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -370,6 +394,9 @@ int main(int argc, char * argv[]) {
 	TEST(test_create_file_success);
 	TEST(test_create_file_exists);
 	TEST(test_create_file_no_space);
+
+	// resize_file tests
+	TEST(test_resize_file_no_space);
 
 	// delete_file tests
 	TEST(test_delete_file_success);

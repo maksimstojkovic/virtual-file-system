@@ -341,16 +341,16 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 		// Expansion of non-zero size files
 		} else {
 			int32_t is_last = file->o_index == size - 1;
-			int32_t next_is_zero =
+			int32_t next_is_zero_size =
 					!is_last && list[file->o_index + 1]->length == 0;
-			int32_t fit_current =
-					list[file->o_index + 1]->offset - file->offset < length;
-			int32_t fit_last = FILE_DATA_LEN - file->offset < length;
+			int32_t fit_curr_offset = !is_last && !next_is_zero_size &&
+					list[file->o_index + 1]->offset - file->offset >= length;
+			int32_t fit_last_offset = (is_last || next_is_zero_size)&&
+					FILE_DATA_LEN - file->offset >= length;
 
 			// Check for insufficient space from the next non-zero size file
 			// or from the end of file_data
-			if ((!next_is_zero && fit_current) ||
-				((next_is_zero || is_last) && fit_last)) {
+			if (!fit_curr_offset || !fit_last_offset) {
 				uint8_t* temp = salloc(sizeof(*temp) * copy);
 				memcpy(temp, fs->file + file->offset, copy);
 				
@@ -426,7 +426,8 @@ int resize_file(char * filename, size_t length, void * helper) {
 	int64_t hash_offset = resize_file_helper(f, length, old_length, fs);
 
 	if (length > old_length) {
-		write_null_byte(fs->file, f->offset + old_length, length - old_length);
+		write_null_byte(fs->file, f->offset + old_length,
+				length - old_length);
 	}
 
 	// Update hash_data if size increased
