@@ -207,11 +207,13 @@ int myfuse_read(const char * path, char * buf, size_t length, off_t offset, stru
 	
 	// Check if file exists
 	if (f_size < 0) {
+		free(name);
 		return -ENOENT;
 	}
 	
 	// Check for EOF
 	if (offset >= f_size) {
+		free(name);
 		return 0;
 	}
 	
@@ -223,15 +225,67 @@ int myfuse_read(const char * path, char * buf, size_t length, off_t offset, stru
 		read_length = length;
 	}
 	
-	// Relevant error checks for read_file have been performed by this point
-	read_file(name, offset, read_length, buf,fuse_get_context()->private_data);
+	int ret = read_file(name, offset, read_length, buf,fuse_get_context()->private_data);
 	free(name);
+	
+	// Check for valid filesystem hashing
+	if (ret == 3) {
+		return -EAGAIN;
+	}
 	
 	return read_length;
 }
 
 int myfuse_write(const char * path, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
-
+	// Check if filesystem exists
+	filesystem_exists();
+	
+	// Check for valid arguments
+	if (path == NULL || buf == NULL) {
+		return -EINVAL;
+	}
+	
+	// Check if path is a directory
+	if (strcmp(path, "/") == 0) {
+		return -EISDIR;
+	}
+	
+	// Write to file at offset
+	char* name = salloc(strlen(path));
+	memcpy(name, path + 1, strlen(path));
+	
+	int ret = write_file(name, offset, length, buf, fuse_get_context()->private_data);
+	free(name);
+	
+	// Check if file exists
+	if (ret == 1) {
+		return -ENOENT;
+	}
+	
+	// Check for invalid offset
+	if (ret == 2) {
+		return -EINVAL;
+	}
+	
+	// Check for sufficient filesystem space
+	
+	// Update number of bytes to read based on length of file
+	size_t read_length;
+	if (length > f_size - offset) {
+		read_length = f_size - offset;
+	} else {
+		read_length = length;
+	}
+	
+	int ret = read_file(name, offset, read_length, buf,fuse_get_context()->private_data);
+	free(name);
+	
+	// Check for valid filesystem hashing
+	if (ret == 3) {
+		return -EAGAIN;
+	}
+	
+	return read_length;
 }
 
 // TODO: READ ED THREADS
@@ -268,7 +322,7 @@ struct fuse_operations operations = {
 	.rename = myfuse_rename,
     .truncate = myfuse_truncate,
 //    .open =
-//    .read =
+    .read = myfuse_read,
 //    .write =
 //    .release =
 	.init = myfuse_init,
@@ -277,7 +331,6 @@ struct fuse_operations operations = {
 };
 
 int main(int argc, char * argv[]) {
-	// MODIFY (OPTIONAL)
 	if (argc >= 5) {
 		if (strcmp(argv[argc-4], "--files") == 0) {
 			file_data_file_name = argv[argc-3];
