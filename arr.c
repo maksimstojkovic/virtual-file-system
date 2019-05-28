@@ -123,6 +123,10 @@ int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {
 		perror("list_insert: Invalid arguments");
 		exit(1);
 	}
+	if (index < 0 || index > arr->size) {
+		perror("list_insert: Invalid index");
+		exit(1);
+	}
 	if (arr->size >= arr->capacity) {
 		perror("list_insert: List full");
 		exit(1);
@@ -268,6 +272,10 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
 	// Check for valid arguments
 	if (arr == NULL || index < 0 || index >= arr->size) {
 		perror("list_remove: Invalid arguments");
+		exit(1);
+	}
+	if (index < 0 || index >= arr->size) {
+		perror("list_remove: Invalid index");
 		exit(1);
 	}
 	if (arr->size <= 0) {
