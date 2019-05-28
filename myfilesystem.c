@@ -289,25 +289,24 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 		file_t** list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
 		
-		// Handling expansion of zero size files
+		// Handle expansion of zero size files
 		if (old_length == 0) {
 			// Remove the file_t* from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
 			
-			// Set offset to 0 if no filesystem space used
-			if (fs->used == 0) {
-				update_file_offset(0, file);
-				update_dir_offset(file, fs);
-				
-			// Otherwise repack and insert at end of file_data
-			} else {
+			// Check if repack required
+			if (fs->used > 0 && size >= 2 && list[0]->length != 0 && list[0]->offset < length) {
 				hash_offset = repack_helper(fs);
 				update_file_offset(fs->used, file);
+				update_dir_offset(file, fs);
+			} else {
+				update_file_offset(0, file);
 				update_dir_offset(file, fs);
 			}
 			
 			arr_insert_s(file, fs->o_list);
 			
+		// Handle expansion of normal files
 		} else {
 			// Check for insufficient space from the next file or the end of file_data
 			if ((file->o_index < size - 1 && list[file->o_index + 1]->length != 0 &&
