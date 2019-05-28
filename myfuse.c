@@ -264,8 +264,6 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 		return -EISDIR;
 	}
 	
-	// TODO: REMOVE EXTRA SPACE IN TEMP BUFFER - ONLY USED FOR TESTING
-	
 	// Write to file at offset
 	char* name = salloc(strlen(path));
 	char* temp = salloc(length);
@@ -301,11 +299,8 @@ int myfuse_release(const char * path, struct fuse_file_info * fi) {
 }
 
 void * myfuse_init(struct fuse_conn_info * info) {
-    // Check for valid arguments
+    // Check for valid file names
 	if (file_data_file_name == NULL || directory_table_file_name == NULL || hash_data_file_name == NULL) {
-		// TODO: REMOVE
-		printf("FILESYSTEM NOT INPUT CORRECTLY\n");
-        printf("%s %s %s\n", file_data_file_name, directory_table_file_name, hash_data_file_name);
 	    return NULL;
 	}
 
