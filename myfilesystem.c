@@ -447,19 +447,25 @@ int resize_file(char * filename, size_t length, void * helper) {
 	return 0;
 }
 
-// Moves the file specified to new_offset in file_data
+/*
+ * Moves file data to new offset in file_data
+ *
+ * file: file_t of file being moved
+ * new_offset: new offset in file data to move file contents to
+ */
 void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
-	// Move file to new offset
 	memmove(fs->file + new_offset, fs->file + file->offset, file->length);
 	
-	// Update file_t and dir_table
 	update_file_offset(new_offset, file);
 	update_dir_offset(file, fs);
 }
 
-// Repack files regardless of filesystem lock state, returns first repack offset
-// Does not affect zero size files
-// Returns index of first byte repacked
+/*
+ * Helper for repacking files, independent of the filesystem lock state
+ * All zero size_files have their offset changed to 0
+ *
+ * returns: offset of first byte repacked if repack occurred, else -1
+ */
 int64_t repack_helper(filesys_t* fs) {
 	// TODO: REMOVE
 //	printf("repack Repacking now\n");
@@ -476,22 +482,27 @@ int64_t repack_helper(filesys_t* fs) {
 	int64_t hash_offset = -1;
 	
 	// Move first file to offset 0
-	// Does not affect zero size files
-	if (o_list[0]->offset != 0 && o_list[0]->length != 0) {
+	int32_t is_zero_size =  o_list[0]->length == 0;
+	if (!is_zero_size && o_list[0]->offset > 0) {
 		repack_move(o_list[0], 0, fs);
-		
-		// Update hashing tracker
 		hash_offset = 0;
+	} else if (is_zero_size && o_list[0]->offset > 0) {
+		// Only update dir_table entry for zero size file
+		// as internal offset should already be updated
+		update_dir_offset(o_list[0], fs);
 	}
 	
-	// Iterate over sorted offset list and move data when necessary
-	// Does not affect zero size files
+	// Iterate over sorted offset array and move data when necessary
+	uint64_t start_curr_file;
+	uint64_t end_prev_file;
 	for (int32_t i = 1; i < size; ++i) {
-		if (o_list[i]->offset > o_list[i - 1]->offset + o_list[i - 1]->length &&
-			o_list[i]->length != 0) {
-			repack_move(o_list[i], o_list[i - 1]->offset + o_list[i - 1]->length, fs);
+		is_zero_size = o_list[i]->length == 0;
+		start_curr_file = o_list[i]->offset;
+		end_prev_file = o_list[i - 1]->offset + o_list[i - 1]->length;
+
+		if (!is_zero_size && start_curr_file > end_prev_file) {
+			repack_move(o_list[i], end_prev_file, fs);
 			
-			// Update hashing tracker
 			if (hash_offset < 0) {
 				hash_offset = o_list[i]->offset;
 			}
@@ -499,16 +510,12 @@ int64_t repack_helper(filesys_t* fs) {
 	}
 	
 	return hash_offset;
-	
-	// TODO: REMOVE
-	// printf("repack Done repacking\n");
 }
 
 void repack(void * helper) {
     filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
 	
-	// Repack file_data
 	int64_t hash_offset = repack_helper(fs);
 	
 	// Hash if repack moved files
@@ -516,7 +523,6 @@ void repack(void * helper) {
 		compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 	}
 	
-	// Sync files
 	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
@@ -537,7 +543,6 @@ int delete_file(char * filename, void * helper) {
 		return 1;
 	}
 	
-	// Update used space in file_data and dir_table
 	fs->used -= f->length;
 	fs->index[f->index] = 0;
 	--fs->index_count;
@@ -553,10 +558,8 @@ int delete_file(char * filename, void * helper) {
 	// printf("delete_file removed \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
 	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
-	// Free file_t struct
 	free_file(f);
 	
-	// Sync dir_table
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
