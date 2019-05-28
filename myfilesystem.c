@@ -348,9 +348,8 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			int32_t fit_last_offset = (is_last || next_is_zero_size)&&
 					FILE_DATA_LEN - file->offset >= length;
 
-			// Check for insufficient space from the next non-zero size file
-			// or from the end of file_data
-			if (!fit_curr_offset || !fit_last_offset) {
+			// Repack if insufficient space in current position
+			if (!(fit_curr_offset || fit_last_offset)) {
 				uint8_t* temp = salloc(sizeof(*temp) * copy);
 				memcpy(temp, fs->file + file->offset, copy);
 				
