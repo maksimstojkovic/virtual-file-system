@@ -319,12 +319,16 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 }
 
 int myfuse_release(const char * path, struct fuse_file_info * fi) {
+	UNUSED(fi);
+
 	// Does not alter filesystem
 	// No checks requires as release is only called after create or open
 	return 0;
 }
 
 void * myfuse_init(struct fuse_conn_info * info) {
+	UNUSED(info);
+
     // Check for valid filesystem filenames
 	if (file_data_file_name == NULL || directory_table_file_name == NULL || hash_data_file_name == NULL) {
 	    return NULL;
