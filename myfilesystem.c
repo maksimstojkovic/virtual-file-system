@@ -294,7 +294,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			// Remove the file_t* from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
 			
-			// Check if repack required
+			// Check if space at beginning of file_data and repack if necessary
 			if (fs->used > 0 && size >= 2 && list[0]->length != 0 && list[0]->offset < length) {
 				hash_offset = repack_helper(fs);
 				update_file_offset(fs->used, file);
@@ -304,19 +304,23 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 				update_dir_offset(file, fs);
 			}
 			
+			// Re-insert file to sorted offset list
 			arr_insert_s(file, fs->o_list);
 			
-		// Handle expansion of normal files
+		// Handle expansion of non-zero size files
 		} else {
-			// Check for insufficient space from the next file or the end of file_data
+			// Check for insufficient space from the next non-zero size file or from the end of file_data
 			if ((file->o_index < size - 1 && list[file->o_index + 1]->length != 0 &&
-				list[file->o_index + 1]->offset - file->offset < length) ||
+				 list[file->o_index + 1]->offset - file->offset < length) ||
+				(file->o_index < size - 1 && list[file->o_index + 1]->length == 0 &&
+				 fs->len[0] - file->offset < length) ||
 				(file->o_index == size - 1 && fs->len[0] - file->offset < length)) {
+				
 				// Store copy bytes of data from file_data into a buffer
 				uint8_t* temp = salloc(sizeof(*temp) * copy);
 				memcpy(temp, fs->file + file->offset, copy);
 				
-				// Remove the file_t* from the sorted offset list
+				// Remove file_t* from sorted offset list
 				arr_remove(file->o_index, fs->o_list);
 				
 				// Repack and write buffer contents to the end of file_data
@@ -329,7 +333,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 				update_file_offset(fs->used - old_length, file);
 				update_dir_offset(file, fs);
 				
-				// Insert file to sorted offset list (cannot append due to zero size files)
+				// Re-insert file to sorted offset list (cannot append due to zero size files)
 				arr_insert_s(file, fs->o_list);
 			}
 		}
