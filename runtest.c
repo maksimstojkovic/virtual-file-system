@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <string.h>
 
 #include "structs.h"
 #include "helper.h"
@@ -337,6 +338,45 @@ int test_delete_file_success() {
 	return 0;
 }
 
+int test_compute_hash_tree_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+	if (create_file("test1.txt", 50, fs) ||
+		create_file("test2.txt", 27, fs)) {
+		perror ("compute_hash_tree_success: Create failed");
+		return 1;
+	}
+
+	// Write to file
+	char buff[3] = {'a', 'b', 'c'};
+	if (write_file("test1.txt", 0, 3, buff, fs) != 0) {
+		perror ("compute_hash_tree_success: Write failed");
+		return 1;
+	}
+
+	// Store root hash
+	uint8_t expected[HASH_LEN] = {0};
+	uint8_t actual[HASH_LEN] = {0};
+	pread(file, expected, HASH_LEN, 0);
+
+	// Modify root hash and sync
+	pwrite(hash, "132", 3, 0);
+	msync(fs->hash, fs->len[2], MS_SYNC);
+
+	compute_hash_tree(fs);
+
+	// Verify root hash
+	pread(hash, actual, HASH_LEN, 0);
+
+	if (memcmp(actual, expected, HASH_LEN) != 0) {
+		perror ("compute_hash_tree_success: Root hash invalid");
+		return 1;
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
 int test_hash_verify_invalid() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -400,6 +440,9 @@ int main(int argc, char * argv[]) {
 
 	// delete_file tests
 	TEST(test_delete_file_success);
+
+	// compute_hash_tree tests
+	TEST(test_compute_hash_tree_success);
 
 	// hash_verify tests
 	TEST(test_hash_verify_invalid);

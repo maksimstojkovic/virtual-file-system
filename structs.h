@@ -28,6 +28,7 @@ typedef enum TYPE {OFFSET, NAME} TYPE;
 
 struct filesys_t;
 typedef pthread_mutex_t mutex_t;
+typedef pthread_barrier_t barrier_t;
 typedef pthread_cond_t cond_t;
 
 typedef struct warg_t {
@@ -55,7 +56,16 @@ typedef struct arr_t {
 } arr_t;
 
 typedef struct filesys_t {
-	int32_t nproc;			// Number of processors available
+	int nproc;				// Number of processors available
+	int nthreads;			// Number of threads for workers
+	pthread_t* tid;			// Array of thread IDs
+	int finalise_index;		// Index for finalising hashes in hash_data
+	int worker_count;		// Monitor for workers to start
+	int exit_count;			// Monitor for workers to exit
+	warg_t* wargs;			// Worker arguments for threads
+	mutex_t hash_mutex;		// Mutex to checking worker and exit monitors
+	barrier_t hash_barrier;	// Barrier to wait for workers
+	cond_t hash_cond;		// Cond to signal workers to start
 	mutex_t lock;			// Filesystem lock
 	int file_fd;			// file_data file descriptor
 	int dir_fd;				// dir_table file descriptor
@@ -72,6 +82,7 @@ typedef struct filesys_t {
 	uint8_t* index;			// Array of available indices in dir_table
 	int32_t tree_len;		// Number of entries in hash tree
 	int32_t leaf_offset;	// Hash offset to start of leaf nodes in hash tree
+	int32_t leaf_count;		// Number of leaves in hash tree
 } filesys_t;
 
 #endif

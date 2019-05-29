@@ -22,6 +22,8 @@ int64_t repack_helper(filesys_t* fs);
 
 void hash_node(int32_t n_index, uint8_t* hash_cat, uint8_t* out, filesys_t* fs);
 
+void* hash_worker(void* wargs);
+
 void compute_hash_block_helper(size_t block_offset, filesys_t* fs);
 
 void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs);
