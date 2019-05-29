@@ -30,9 +30,12 @@
 	(memcpy(fs->dir + file->index * META_LEN + NAME_LEN + OFFSET_LEN, \
 	&file->length, sizeof(uint32_t)))
 
-// Macros for locking and unlocking synchronisation variables
+// Macros for synchronisation variables
 #define LOCK(x) pthread_mutex_lock(x)
 #define UNLOCK(x) pthread_mutex_unlock(x)
+#define COND_WAIT(x,y) (pthread_cond_wait((x),(y)))
+#define COND_BROADCAST(x) (pthread_cond_broadcast(x))
+#define BARRIER_WAIT(x) (pthread_barrier_wait(x))
 
 // Macro for suppressing unused variable warnings
 #define UNUSED(x) ((void)(x))

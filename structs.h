@@ -28,6 +28,14 @@ typedef enum TYPE {OFFSET, NAME} TYPE;
 
 struct filesys_t;
 typedef pthread_mutex_t mutex_t;
+typedef pthread_cond_t cond_t;
+
+typedef struct warg_t {
+	int id;
+	int32_t start_index;
+	int32_t nodes_in_level;
+	struct filesys_t* fs;
+} warg_t;
 
 typedef struct file_t {
 	char name[NAME_LEN];	// File name
