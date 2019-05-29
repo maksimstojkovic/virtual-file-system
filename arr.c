@@ -7,16 +7,38 @@
 #include "arr.h"
 
 /*
-	Implementation of an Array that is Sorted by Offset or Name
-	
-	Zero size files are assigned and offset equal to the 2^32, hence
-	uint64_t is used in file_t structs as this value exceeds the limit of
-	uint32_t. Using this offset allows zero size files to be appended to the end
-	of the array, increasing insertion efficiency, whilst all writes to
-	the offset field of the file in dir_table will have value 0.
-*/
+ * Implementation of an array that sorts file_t structs based on name or offset
+ *
+ * The purpose of this array was to improve the efficiency of common operations
+ * such as finding a file by name, and performing a filesystem repack. An array
+ * sorted by name allows a binary search algorithm to be used for both the
+ * insertion of new files, and retrieval of existing files. Additionally, by
+ * iterating over an array sorted by offset, repack can be streamlined, as
+ * opposed to sorting files during each individual repack.
+ *
+ * Zero size files are assigned an offset equal to the maximum size of
+ * file_data (2^32), as it allows all new zero size files to be appended to end
+ * of the offset array, minimising the cost of create_file. Comparison of files
+ * using a key accounts for the insertion of zero size files at the end of the
+ * offset array, redirecting the binary search to lower indices.
+ *
+ * Although internally these files have an offset of 2^32, the offset update
+ * helper for dir_table writes 0 to the dir_table file, as expected by the
+ * filesystem specifications. To accommodate this, uint64_t is used instead
+ * of uint32_t.
+ */
 
-// Compares key of file_t based on array type (a relative to b)
+
+/*
+ * Compares the key field of file_t structs based on array type
+ *
+ * a: first file_t being compared
+ * b: second file_t being compared
+ * arr: address of array, used to determine array sorting type
+ *
+ * returns: -1, 0, or 1, representing the position of a relative to the
+ * 			position of b
+ */
 int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 	// Check for valid arguments
 	if (a == NULL || b == NULL || arr == NULL) {
@@ -31,13 +53,11 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 			return 1;
 		} else {
 			// Check if file_t* b refers to a zero size file
-			// Zero size files have an offset that exceeds the bounds
-			// of file_data, and are stored at the end of the array
 			// (zero size files should be found by name, not offset)
 			if (b->length > 0) {
 				return 0; // Valid non-zero size file found
 			} else {
-				return -1; // Redirect search to lower indices if zero size file found
+				return -1; // Redirect search to lower indices
 			}
 		}
 	} else {
@@ -46,7 +66,17 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 	}
 }
 
-// Initialise array with fixed capacity (dir_table has fixed length)
+/*
+ * Initialises an array with the fixed capacity and type specified
+ * A fixed capacity is used as the size of dir_table does not change over time
+ *
+ * capacity: maximum number of file_t struct pointers in array
+ * type: whether the array should be sorted by offset or name
+ *
+ * returns: address of dynamically allocated arr_t struct representing
+ * 			the array
+ * 			See structs.h for more information about arr_t fields
+ */
 arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {
 	// Check for valid arguments
 	if (capacity < 0 || capacity > MAX_NUM_FILES ||
@@ -57,17 +87,20 @@ arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {
 	
 	arr_t* arr = salloc(sizeof(*arr));
 	
-	arr->size = 0;					// Number of elements in array
-	arr->capacity = capacity;		// Total capacity of array
-	arr->type = type;				// Type that array is sorted by
-	arr->fs = fs;					// Reference to filesystem
-	arr->list =						// Array elements
-		salloc(sizeof(*arr->list) * capacity);
+	arr->size = 0;
+	arr->capacity = capacity;
+	arr->type = type;
+	arr->fs = fs;
+	arr->list = salloc(sizeof(*arr->list) * capacity);
 	
 	return arr;
 }
 
-// Free file_t* elements in list of array
+/*
+ * Frees file_t structs pointed to by the array
+ *
+ * arr: address of arr_t struct containing file_t pointers to free
+ */
 void free_arr_list(arr_t* arr) {
 	// Check for valid arguments
 	if (arr == NULL) {
@@ -87,7 +120,12 @@ void free_arr_list(arr_t* arr) {
 	}
 }
 
-// Free arr_t struct and file_t structs within the array
+/*
+ * Frees arr_t struct files and file_t structs pointed to in the list
+ * of the array
+ *
+ * arr: address of arr_t struct containing file_t pointers to free
+ */
 void free_arr(arr_t* arr) {
 	// Check for valid arguments
 	if (arr == NULL) {
@@ -100,12 +138,20 @@ void free_arr(arr_t* arr) {
 	free(arr);
 }
 
-// Increase index of elements from index start to end
+/*
+ * Increase the index of elements from start to end by 1, creating
+ * space for insertion
+ *
+ * start: lowest array index being shifted
+ * end: highest array index being shifted
+ * arr: address of arr_t struct containing a list of file_t pointers
+ */
 void arr_rshift(int32_t start, int32_t end, arr_t* arr) {
 	TYPE type = arr->type;
 	file_t** list = arr->list;
 	
-	// Iterate over array elements, incrementing the relevant index and shifting pointers
+	// Iterate over array elements, incrementing the relevant
+	// index and shifting pointers
 	for (int32_t i = end; i >= start; --i) {
 		if (type == OFFSET) {
 			++list[i]->o_index;
@@ -116,7 +162,16 @@ void arr_rshift(int32_t start, int32_t end, arr_t* arr) {
 	}
 }
 
-// Insert file_t* at index, ensuring adjacent elements (index success)
+/*
+ * Inserts file_t pointer at index specified, ensuring that elements remain
+ * adjacent after insertion
+ *
+ * index: position in array to insert file_t pointer
+ * file: file_t pointer being inserted into the array
+ * arr: address of arr_t struct containing a list of file_t pointers
+ *
+ * returns: index on success
+ */
 int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {
 	// Check for valid arguments
 	if (file == NULL || arr == NULL || index < 0 || index > arr->size) {
@@ -149,11 +204,20 @@ int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {
 	return index;
 }
 
-// Get index for insert or for existing element depending on insert argument
-// Binary search algorithm used to determine index to return
-// insert != 0 - insert index on success, -1 file exists
-// insert == 0 - file index on success, -1 file not found
-// NOTE: Zero size files are appended to the end of the offset array
+/*
+ * Get index for insertion of a new file_t pointer, or for an existing element
+ * Binary search is used to traverse the sorted array
+ * Zero size files are appended to the end of offset arrays
+ *
+ * file: file_t struct with the appropriate field populated for the array
+ * 		 (offset if offset sorted array, or name if name sorted array)
+ * arr: address of arr_t struct containing a list of file_t pointers
+ * insert: whether the function should return an index for insertion, or the
+ * 		   index of an existing file_t
+ *
+ * returns: if insert != 0 => insertion index on success, -1 if file exists
+ * 			if insert == 0 => file index on success, -1 if file not found
+ */
 int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
 	// Check for valid arguments
 	if (file == NULL || arr == NULL) {
@@ -188,10 +252,7 @@ int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
 	while (1) {
 		m = (l + h) / 2;
 		cmp = cmp_key(file, list[m], arr);
-		
-		// TODO: REMOVE
-		// printf("%d %d %d %d %s\n", l, h, m, cmp, m_file->name);
-		
+
 		if (cmp < 0) {
 			// Check for low and middle index convergence
 			if (l >= m) {
@@ -228,7 +289,14 @@ int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
 	}
 }
 
-// Insert file_t* into array with sorting (index success, -1 file exists)
+/*
+ * Sorted insertion of a file_t struct into an array
+ *
+ * file: address of file_t being inserted into the array
+ * arr: address of arr_t struct containing a list of file_t pointers
+ *
+ * returns: index on success, -1 if file exists
+ */
 int32_t arr_insert_s(file_t* file, arr_t* arr) {
 	// Check for valid arguments
 	if (file == NULL || arr == NULL) {
@@ -250,12 +318,20 @@ int32_t arr_insert_s(file_t* file, arr_t* arr) {
 	return index;
 }
 
-// Decrease index of elements from index start to end
+/*
+ * Decrease the index of elements from start to end by 1, overwriting the
+ * address of a file_t pointer being removed
+ *
+ * start: lowest array index being shifted
+ * end: highest array index being shifted
+ * arr: address of arr_t struct containing a list of file_t pointers
+ */
 void arr_lshift(int32_t start, int32_t end, arr_t* arr) {
 	TYPE type = arr->type;
 	file_t** list = arr->list;
 	
-	// Iterate over array elements, decrementing the relevant index and shifting pointers
+	// Iterate over array elements, decrementing the relevant index
+	// and shifting pointers
 	for (int32_t i = start; i <= end; ++i) {
 		if (type == OFFSET) {
 			--list[i]->o_index;
@@ -266,8 +342,16 @@ void arr_lshift(int32_t start, int32_t end, arr_t* arr) {
 	}
 }
 
-// Remove file_t* at index, keeping elements adjacent (file_t* success)
-// NOTE: NO MEMORY IS FREE'D DURING THIS PROCESS
+/*
+ * Removes file_t pointer at index specified, ensuring that elements remain
+ * adjacent after removal
+ * NO MEMORY IS FREED DURING THIS PROCESS
+ *
+ * index: position in array to insert file_t pointer
+ * arr: address of arr_t struct containing a list of file_t pointers
+ *
+ * returns: file_t pointer removed on success
+ */
 file_t* arr_remove(int32_t index, arr_t* arr) {
 	// Check for valid arguments
 	if (arr == NULL || index < 0 || index >= arr->size) {
@@ -283,7 +367,7 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
 		exit(1);
 	}
 	
-	// Retrieve file_t* from array (assumed valid from checks above)
+	// Retrieve file_t* from array
 	file_t* f = arr_get(index, arr);
 	
 	// Shift elements to the left (lower index) if required
@@ -302,7 +386,14 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
 	return f;
 }
 
-// Remove file_t* with relevant key from array (file_t* success, NULL file not found)
+/*
+ * Sorted removal of a file_t struct from an array
+ *
+ * key: address of file_t with same key as file being removed
+ * arr: address of arr_t struct containing a list of file_t pointers
+ *
+ * returns: removed file_t* on success, NULL if file not found
+ */
 file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	// Check for valid arguments
 	if (key == NULL || arr == NULL) {
@@ -311,7 +402,8 @@ file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	}
 
 	// Check for valid key value
-	if ((arr->type == OFFSET && (key->offset < 0 || key->offset >= arr->fs->len[0])) ||
+	if ((arr->type == OFFSET && (key->offset < 0 ||
+		key->offset >= arr->fs->len[0])) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
 		perror("arr_remove_s: Invalid key");
 		exit(1);
@@ -333,7 +425,12 @@ file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	return f;
 }
 
-// Return file_t* at given index in arr
+/*
+ * Retrieves the file_t pointer at the given index of an array
+ *
+ * index: position of file_t* in array
+ * arr: address of arr_t struct containing a list of file_t pointers
+ */
 file_t* arr_get(int32_t index, arr_t* arr) {
 	// Check for valid arguments
 	if (index < 0 || arr == NULL || index >= arr->size) {
@@ -344,8 +441,16 @@ file_t* arr_get(int32_t index, arr_t* arr) {
 	return arr->list[index];
 }
 
-// Search through array for element with matching key value
-// (file_t* success, NULL file not found)
+/*
+ * Searches through the list of file_t pointers in an arr_t struct for an
+ * element with a matching key value
+ *
+ * key: address of a file_t struct with the appropriate field for the array
+ * 		type populated
+ * arr: address of arr_t struct containing a list of file_t pointers
+ *
+ * returns: file_t* of matching file in array on success, -1 if file not found
+ */
 file_t* arr_get_s(file_t* key, arr_t* arr) {
 	// Check for valid arguments
 	if (key == NULL || arr == NULL) {
@@ -354,7 +459,8 @@ file_t* arr_get_s(file_t* key, arr_t* arr) {
 	}
 	
 	// Check for valid key value
-	if ((arr->type == OFFSET && (key->offset < 0 || key->offset >= arr->fs->len[0])) ||
+	if ((arr->type == OFFSET && (key->offset < 0 ||
+		key->offset >= arr->fs->len[0])) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
 		perror("arr_remove_s: Invalid key");
 		exit(1);

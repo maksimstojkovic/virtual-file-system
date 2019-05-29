@@ -53,7 +53,6 @@ void write_dir_file(file_t* file, filesys_t* fs);
 
 void write_null_byte(uint8_t* f, int64_t offset, int64_t count);
 
-// TODO: REMOVE?
 void pwrite_null_byte(int fd, int64_t count, int64_t offset);
 
 #endif

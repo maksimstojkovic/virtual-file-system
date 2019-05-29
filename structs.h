@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 /*
- * Defined values
+ * Defined Values
  */
 
 #define MAX_FILE_DATA_LEN ((int64_t)4294967296)

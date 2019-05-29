@@ -113,7 +113,6 @@ void write_dir_file(file_t* file, filesys_t* fs) {
 	update_dir_length(file, fs);
 }
 
-// Writes count null bytes to a file at offset
 /*
  * Writes null bytes to a memory mapped file (mmap) at the offset specified
  *
@@ -138,7 +137,6 @@ void write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
 	memset(f + offset, '\0', count);
 }
 
-// Write count null bytes to a file descriptor at offset
 /*
  * Writes count null bytes to a file descriptor at offset
  *

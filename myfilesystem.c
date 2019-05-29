@@ -843,7 +843,6 @@ void compute_hash_block_helper(size_t block_offset, filesys_t* fs) {
 	}
 }
 
-// Update hashes for modified blocks in range specified
 /*
  * Update hashes for file_data blocks in the range specified
  *
@@ -877,8 +876,14 @@ void compute_hash_block(size_t block_offset, void * helper) {
 	UNLOCK(&fs->lock);
 }
 
-// Compare hashes for blocks in the range specified
-// Returns 0 on success, 1 on failure
+/*
+ * Compare hashes for blocks in the range specified
+ *
+ * offset: offset in file_data to start verification
+ * length: number of bytes to verify
+ *
+ * return: 0 on success, -1 on failed verification
+ */
 int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 	// Return 0 if length is 0
 	if (length <= 0) {
