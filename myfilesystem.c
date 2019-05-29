@@ -16,6 +16,20 @@
 // TODO: REMOVE ANY ARRAYS INITIALISED WITH VARIABLE VALUES AS LENGTH
 // TODO: TRY REPLACING POST-FIX INCREMENT (++) WITH PREFIX
 
+/*
+ * Filesystem Implementation
+ *
+ * This filesystem only uses one mutex lock for all read and write operations.
+ * Write operations require exclusive control of the filesystem as they have
+ * the potential to modify some or all of the underlying filesystem files
+ * (file_data, dir_table, hash_data). Additionally, the use of a mutex was
+ * considered more appropriate for read operations than a lock which allows
+ * parallel reads, as in the event that multiple threads attempt to read to the
+ * same buffer simultaneously, the integrity of the buffer is only guaranteed
+ * if both read operations are blocking. Hence only one mutex was used for the
+ * synchronisation of the filesystem.
+ */
+
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     // Allocate space for filesystem helper
 	filesys_t* fs = salloc(sizeof(*fs));
@@ -63,6 +77,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	fs->used = 0;
 	fs->tree_len = HASH_DATA_LEN / HASH_LEN;
 	fs->leaf_offset = fs->tree_len / 2;
+	UNUSED(fs->nproc);
 
 	// Read through dir_table for existing files
 	char name[NAME_LEN] = {0};

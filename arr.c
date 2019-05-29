@@ -474,17 +474,3 @@ file_t* arr_get_s(file_t* key, arr_t* arr) {
 	
 	return arr_get(index, arr);
 }
-
-//TODO: REMOVE HEADER AND CODE
-// Print array contents in sorted order (used for debugging)
-void arr_print(arr_t* arr) {
-	for (int32_t i = 0; i < arr->size; i++) {
-		file_t* f = arr_get(i, arr);
-		if (arr->type == OFFSET) {
-			printf("OFFSET[%d] - n:\"%s\" o:%lu l:%u dir:%d\n", i, f->name, f->offset, f->length, f->index);
-		} else {
-			printf("  NAME[%d] - n:\"%s\" o:%lu l:%u dir:%d\n", i, f->name, f->offset, f->length, f->index);
-		}
-	}
-}
-

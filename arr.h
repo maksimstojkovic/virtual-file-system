@@ -29,7 +29,4 @@ file_t* arr_get(int32_t index, arr_t* arr);
 
 file_t* arr_get_s(file_t* key, arr_t* arr);
 
-//TODO: REMOVE
-void arr_print(arr_t* arr);
-
 #endif
