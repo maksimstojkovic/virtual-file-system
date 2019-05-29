@@ -41,7 +41,6 @@ void* scalloc(size_t size) {
 	return m;
 }
 
-// Create new dynamically allocated file_t struct
 /*
  * Creates a new dynamically allocated file_t struct
  *
@@ -160,5 +159,3 @@ void pwrite_null_byte(int fd, int64_t offset, int64_t count) {
 		pwrite(fd, "", sizeof(char), offset + i);
 	}
 }
-
-
