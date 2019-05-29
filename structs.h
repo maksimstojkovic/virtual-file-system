@@ -61,6 +61,7 @@ typedef struct filesys_t {
 	pthread_t* tid;			// Array of thread IDs
 	int finalise_index;		// Index for finalising hashes in hash_data
 	int worker_count;		// Monitor for workers to start
+	int active_count;		// Number of workers active
 	int exit_count;			// Monitor for workers to exit
 	warg_t* wargs;			// Worker arguments for threads
 	mutex_t hash_mutex;		// Mutex to checking worker and exit monitors

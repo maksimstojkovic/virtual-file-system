@@ -162,6 +162,7 @@ void close_fs(void * helper) {
 	COND_BROADCAST(&fs->hash_cond);
 	UNLOCK(&fs->hash_mutex);
 
+	BARRIER_WAIT(&fs->hash_barrier);
 	for (int i = 0; i < fs->nthreads; ++i) {
 		pthread_join(fs->tid[i], NULL);
 	}
@@ -859,6 +860,12 @@ void* hash_worker(void* wargs) {
 	// Worker setup finished
 	BARRIER_WAIT(&fs->hash_barrier);
 
+	//TODO: REMOVE
+	printf("thread waited\n");
+
+	//TODO: NEED TO MAKE CHECK TO ENSURE THAT ALL THREADS HAVE REACHED COND
+	//TODO: ADD ACTIVE COUNT MONITOR TO COMPUTE HASH TREE AND WORKER FUNCTION AND CLOSEFS
+
 	// Loop until close_fs is called or program exists
 	while (1) {
 		LOCK(&fs->hash_mutex);
@@ -892,6 +899,9 @@ void* hash_worker(void* wargs) {
 		BARRIER_WAIT(&fs->hash_barrier);
 	}
 
+	// Wait for all workers to exit
+	BARRIER_WAIT(&fs->hash_barrier);
+
 	return NULL;
 }
 
@@ -899,40 +909,40 @@ void compute_hash_tree(void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
 	
-//	// Variables for bottom-to-top level traversal of hash tree
-//	uint8_t* hash_addr = fs->hash;
-//	int32_t n_index = fs->leaf_offset;
-//	int32_t n_count = 0;
-//	int32_t nodes_in_level = n_index + 1;
-//	uint8_t hash_cat[2 * HASH_LEN];
-//
-//	while (nodes_in_level > 0) {
-//		// Write hash of current node to hash_data
-//		hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LEN, fs);
-//
-//		if (++n_count < nodes_in_level) {
-//			++n_index;
-//		} else {
-//			// Move to next level once current level is completed
-//			nodes_in_level /= 2;
-//			n_index = nodes_in_level - 1;
-//			n_count = 0;
-//		}
-//	}
-
-	LOCK(&fs->hash_mutex);
-	fs->worker_count += fs->nthreads;
-	COND_BROADCAST(&fs->hash_cond);
-	UNLOCK(&fs->hash_mutex);
-
-	BARRIER_WAIT(&fs->hash_barrier);
-
+	// Variables for bottom-to-top level traversal of hash tree
 	uint8_t* hash_addr = fs->hash;
+	int32_t n_index = fs->leaf_offset;
+	int32_t n_count = 0;
+	int32_t nodes_in_level = n_index + 1;
 	uint8_t hash_cat[2 * HASH_LEN];
-	for (int i = fs->finalise_index; i >= 0; --i) {
-		// Finalise hashes unaffected by workers
-		hash_node(i, hash_cat, hash_addr + i * HASH_LEN, fs);
+
+	while (nodes_in_level > 0) {
+		// Write hash of current node to hash_data
+		hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LEN, fs);
+
+		if (++n_count < nodes_in_level) {
+			++n_index;
+		} else {
+			// Move to next level once current level is completed
+			nodes_in_level /= 2;
+			n_index = nodes_in_level - 1;
+			n_count = 0;
+		}
 	}
+
+//	LOCK(&fs->hash_mutex);
+//	fs->worker_count += fs->nthreads;
+//	COND_BROADCAST(&fs->hash_cond);
+//	UNLOCK(&fs->hash_mutex);
+//
+//	BARRIER_WAIT(&fs->hash_barrier);
+//
+//	uint8_t* hash_addr = fs->hash;
+//	uint8_t hash_cat[2 * HASH_LEN];
+//	for (int i = fs->finalise_index; i >= 0; --i) {
+//		// Finalise hashes unaffected by workers
+//		hash_node(i, hash_cat, hash_addr + i * HASH_LEN, fs);
+//	}
 
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 
