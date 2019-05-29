@@ -13,9 +13,6 @@
 #include "arr.h"
 #include "myfilesystem.h"
 
-// TODO: REMOVE ANY ARRAYS INITIALISED WITH VARIABLE VALUES AS LENGTH
-// TODO: TRY REPLACING POST-FIX INCREMENT (++) WITH PREFIX
-
 /*
  * Filesystem Implementation
  *
@@ -106,22 +103,12 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 			arr_insert_s(f, fs->o_list);
 			arr_insert_s(f, fs->n_list);
 			
-			// TODO: REMOVE
-			// printf("init_fs added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-			// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
-			
 			// Updating filesystem variables
 			fs->used += f->length;
 			fs->index[i] = 1;
 			++fs->index_count;
 		}
 	}
-
-	// TODO: REMOVE
-	// printf("init_fs f_len:%ld d_len:%ld h_len:%ld index_len:%d o_size:%d n_size:%d\n",
-	// 	   FILE_DATA_LEN, DIR_TABLE_LEN, HASH_DATA_LEN, fs->index_len, fs->o_list->size, fs->n_list->size);
-	// arr_print(fs->o_list);
-	// arr_print(fs->n_list);
 	
 	return fs;
 }
@@ -248,9 +235,6 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 int create_file(char * filename, size_t length, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
-	
-	// TODO: REMOVE
-	// printf("create_file creating \"%s\" of %lu bytes\n", filename, length);
 
 	// Return 1 if file already exists
 	file_t temp;
@@ -301,10 +285,6 @@ int create_file(char * filename, size_t length, void * helper) {
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
-	// TODO: REMOVE
-	// printf("create_file added \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
-	
 	UNLOCK(&fs->lock);
 	return 0;
 }
@@ -321,12 +301,6 @@ int create_file(char * filename, size_t length, void * helper) {
 int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 	int64_t hash_offset = -1;
 	int64_t old_length = file->length;
-	
-	// TODO: REMOVE
-//	printf("fs_len: %ld\n", FILE_DATA_LEN);
-//	printf("old offset: %lu length: %u\n", file->offset, file->length);
-//	printf("new length: %lu\n", length);
-//	printf("%d\n", length > old_length);
 	
 	// Find suitable space in file_data if length increased
 	if (length > old_length) {
@@ -412,9 +386,6 @@ int resize_file(char * filename, size_t length, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
 	
-	// TODO: REMOVE
-	// printf("resize_file resizing \"%s\" to %lu bytes\n", filename, length);
-	
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
@@ -452,10 +423,6 @@ int resize_file(char * filename, size_t length, void * helper) {
 	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
-	
-	// TODO: REMOVE
-	// printf("resize_file resized \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 
 	UNLOCK(&fs->lock);
 	return 0;
@@ -481,9 +448,6 @@ void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
  * returns: offset of first byte repacked if repack occurred, else -1
  */
 int64_t repack_helper(filesys_t* fs) {
-	// TODO: REMOVE
-//	printf("repack Repacking now\n");
-	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
 	
@@ -568,10 +532,6 @@ int delete_file(char * filename, void * helper) {
 	// Write null byte in dir_table name field
 	write_null_byte(fs->dir, f->index * META_LEN, 1);
 	
-	// TODO: REMOVE
-	// printf("delete_file removed \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
-	
 	free_file(f);
 	
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
@@ -583,10 +543,6 @@ int delete_file(char * filename, void * helper) {
 int rename_file(char * oldname, char * newname, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
-	
-	// TODO: REMOVE
-	// printf("rename_file renaming \"%s\" to \"%s\"\n",
-	// 	   oldname, newname);
 	
 	// Return 1 if oldname file does not exist or newname file already exist
 	file_t temp;
@@ -604,10 +560,6 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	
-	// TODO: REMOVE
-	// printf("rename_file renamed \"%s\" to \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   oldname, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
-	
 	UNLOCK(&fs->lock);
 	return 0;
 }
@@ -615,9 +567,6 @@ int rename_file(char * oldname, char * newname, void * helper) {
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
-	
-	// TODO: REMOVE
-	// printf("read_file reading \"%s\" %lu bytes at offset %lu\n", filename, count, offset);
 	
 	// Return 1 if file does not exist
 	file_t temp;
@@ -647,10 +596,6 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	
 	memcpy(buf, fs->file + f->offset + offset, count);
 	
-	// TODO: REMOVE
-	// printf("read_file read \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
-	
 	UNLOCK(&fs->lock);
 	return 0;
 }
@@ -658,10 +603,6 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
-	
-	// TODO: REMOVE
-	// printf("write_file writing to \"%s\" %lu bytes at offset %lu\n", filename, count, offset);
-	// printf("\"%s\" %lu bytes at offset %lu\n", filename, count, offset);
 	
 	// Return 1 if file does not exist
 	file_t temp;
@@ -709,10 +650,6 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
 	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
 	
-	// TODO: REMOVE
-	// printf("write_file wrote \"%s\" %lu bytes at offset %lu o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   f->name, count, offset, f->offset, f->length, f->index, f->o_index, f->n_index);
-	
 	UNLOCK(&fs->lock);
 	return 0;
 }
@@ -729,10 +666,6 @@ ssize_t file_size(char * filename, void * helper) {
 		UNLOCK(&fs->lock);
 		return -1;
 	}
-	
-	// TODO: REMOVE
-	// printf("file_size ret %u \"%s\" o:%lu l:%u dir:%d o_i:%d n_i:%d\n",
-	// 	   f->length, f->name, f->offset, f->length, f->index, f->o_index, f->n_index);
 	
 	// Return length of file
 	UNLOCK(&fs->lock);
