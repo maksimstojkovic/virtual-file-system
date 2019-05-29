@@ -45,9 +45,9 @@ void test(int (*test_function) (), char * function_name) {
 
 // Write blank data files for use with testing
 void gen_blank_files() {
-	pwrite_null_byte(file, LEN_F1, 0);
-	pwrite_null_byte(dir, LEN_F2, 0);
-	pwrite_null_byte(hash, LEN_F3, 0);
+	pwrite_null_byte(file, 0, LEN_F1);
+	pwrite_null_byte(dir, 0, LEN_F2);
+	pwrite_null_byte(hash, 0, LEN_F3);
 }
 /****************************/
 
