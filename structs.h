@@ -47,7 +47,7 @@ typedef struct arr_t {
 } arr_t;
 
 typedef struct filesys_t {
-	int32_t nproc;			// Number of processors available
+	int32_t n_processors;	// Number of processors available
 	mutex_t lock;			// Filesystem lock
 	int file_fd;			// file_data file descriptor
 	int dir_fd;				// dir_table file descriptor
