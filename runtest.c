@@ -172,6 +172,8 @@ int test_array_get() {
 		return 2;
 	}
 
+	// TODO: TEST RESIZING NORMAL FILE TO 0 BYTES AND
+
 	close_fs(fs);
 	return 0;
 }
@@ -188,11 +190,12 @@ int test_array_remove() {
 	f[3] = file_init("test2.txt", 0, 5, 2);
 	f[4] = file_init("test1.txt", 15, 10, 1);
 
-	file_t key[4];
+	file_t key[5];
 	update_file_offset(5, &key[0]);
-	update_file_name("zero1.txt", &key[1]);
-	update_file_offset(20, &key[2]);
-	update_file_name("nothing", &key[3]);
+	update_file_offset(20, &key[1]);
+	update_file_offset(MAX_FILE_DATA_LEN, &key[2]);
+	update_file_name("zero1.txt", &key[3]);
+	update_file_name("nothing", &key[4]);
 
 	file_t* o_expect[3] = {f[3], f[4], f[1]};
 	file_t* n_expect[3] = {f[4], f[3], f[1]};
@@ -205,7 +208,7 @@ int test_array_remove() {
 
 	// Remove files using key file_t structs
 	file_t* norm_f = arr_remove_s(&key[0], fs->o_list);
-	file_t* zero_f = arr_remove_s(&key[1], fs->n_list);
+	file_t* zero_f = arr_remove_s(&key[3], fs->n_list);
 	if (norm_f != f[0] || zero_f != f[2]) {
 		perror("array_remove: Removed incorrect files");
 		return 1;
@@ -219,8 +222,9 @@ int test_array_remove() {
 	}
 
 	// Attempt to remove files with invalid keys
-	if (arr_remove_s(&key[2], fs->o_list) != NULL ||
-		arr_remove_s(&key[3], fs->n_list) != NULL) {
+	if (arr_remove_s(&key[1], fs->o_list) != NULL ||
+		arr_remove_s(&key[2], fs->o_list) != NULL ||
+		arr_remove_s(&key[4], fs->n_list) != NULL) {
 		perror("array_remove: Invalid keys should fail");
 		return 3;
 	}
