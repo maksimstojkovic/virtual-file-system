@@ -15,7 +15,6 @@
 #include "myfilesystem.h"
 
 // TODO: Change all perror checks to assert
-// TODO: Check repack for shifting 0 size files
 
 /*
  * Filesystem Implementation
@@ -377,18 +376,6 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 		update_dir_length(file, fs);
 
 		fs->used += length - old_length;
-
-		// Update internal offset of files resized to 0 bytes
-		// File offset in dir_table is unchanged
-		if (length == 0) {
-			// Remove file from sorted offset list
-			arr_remove(file->o_index, fs->o_list);
-
-			update_file_offset(MAX_FILE_DATA_LEN, file);
-
-			// Re-insert file into sorted offset list
-			arr_sorted_insert(file, fs->o_list);
-		}
 	}
 
 	return hash_offset;
@@ -446,17 +433,19 @@ int resize_file(char * filename, size_t length, void * helper) {
  * new_offset: new offset in file data to move file contents to
  */
 void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
-	memmove(fs->file + new_offset, fs->file + file->offset, file->length);
-	
+	if (file->length > 0) {
+		memmove(fs->file + new_offset, fs->file + file->offset, file->length);
+	}
+
 	update_file_offset(new_offset, file);
 	update_dir_offset(file, fs);
 }
 
 /*
  * Helper for repacking files, independent of the filesystem lock state
- * All zero size_files have their offset changed to 0
+ * The order of files is maintained during repack
  *
- * returns: offset of first byte repacked if repack occurred, else -1
+ * returns: offset of first byte modified if repack occurred, else -1
  */
 int64_t repack_helper(filesys_t* fs) {
 	file_t** o_list = fs->o_list->list;
@@ -470,37 +459,29 @@ int64_t repack_helper(filesys_t* fs) {
 	// Variable for tracking blocks to hash
 	int64_t hash_offset = -1;
 
-	int32_t is_zero_size = o_list[0]->length == 0;
-	// Move first file to offset 0
-//	if (o_list[0]->offset > 0) {
-//		is_zero_size =  o_list[0]->length == 0;
-//		if (!is_zero_size) {
-//
-//		} else {
-//
-//		}
-//	}
-	if (!is_zero_size && o_list[0]->offset > 0) {
+
+	// Ensure first file at offset 0
+	uint64_t start_curr_file = o_list[0]->offset;
+	uint64_t end_prev_file = 0;
+	int is_zero_size = o_list[0]->length == 0;
+	if (start_curr_file > 0) {
 		repack_move(o_list[0], 0, fs);
-		hash_offset = 0;
-	} else if (is_zero_size && o_list[0]->offset > 0) {
-		// Only update dir_table entry for zero size file
-		// as internal offset should already be updated
-		update_dir_offset(o_list[0], fs);
+
+		if (!is_zero_size) {
+			hash_offset = 0;
+		}
 	}
 	
 	// Iterate over sorted offset array and move data when necessary
-	uint64_t start_curr_file;
-	uint64_t end_prev_file;
 	for (int32_t i = 1; i < size; ++i) {
-		is_zero_size = o_list[i]->length == 0;
 		start_curr_file = o_list[i]->offset;
 		end_prev_file = o_list[i - 1]->offset + o_list[i - 1]->length;
+		is_zero_size = o_list[i]->length == 0;
 
-		if (!is_zero_size && start_curr_file > end_prev_file) {
+		if (start_curr_file > end_prev_file) {
 			repack_move(o_list[i], end_prev_file, fs);
 			
-			if (hash_offset < 0) {
+			if (hash_offset < 0 && !is_zero_size) {
 				hash_offset = o_list[i]->offset;
 			}
 		}
