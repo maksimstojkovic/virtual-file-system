@@ -17,16 +17,16 @@ int32_t arr_insert(int32_t index, file_t* file, arr_t* arr);
 
 int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert);
 
-int32_t arr_insert_s(file_t* file, arr_t* arr);
+int32_t arr_sorted_insert(file_t* file, arr_t* arr);
 
 void arr_lshift(int32_t start, int32_t end, arr_t* arr);
 
 file_t* arr_remove(int32_t index, arr_t* arr);
 
-file_t* arr_remove_s(file_t* key, arr_t* arr);
+file_t* arr_remove_by_key(file_t* key, arr_t* arr);
 	
 file_t* arr_get(int32_t index, arr_t* arr);
 
-file_t* arr_get_s(file_t* key, arr_t* arr);
+file_t* arr_get_by_key(file_t* key, arr_t* arr);
 
 #endif

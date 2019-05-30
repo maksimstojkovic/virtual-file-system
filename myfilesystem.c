@@ -15,6 +15,7 @@
 #include "myfilesystem.h"
 
 // TODO: Change all perror checks to assert
+// TODO: Check repack for shifting 0 size files
 
 /*
  * Filesystem Implementation
@@ -71,7 +72,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	}
 
 	// Initialise filesystem variables
-	fs->nproc = n_processors;
+	fs->n_processors = n_processors;
 	fs->index_len = fs->dir_table_len / META_LEN;
 	fs->index_count = 0;
 	fs->index = scalloc(sizeof(*fs->index) * fs->index_len);
@@ -80,7 +81,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	fs->used = 0;
 	fs->tree_len = fs->hash_data_len / HASH_LEN;
 	fs->leaf_offset = fs->tree_len / 2;
-	UNUSED(fs->nproc);
+	UNUSED(fs->n_processors);
 
 	// Read through dir_table for existing files
 	char name[NAME_LEN] = {0};
@@ -110,8 +111,8 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 			
 			// Create file_t and add to sorted arrays
 			file_t* f = file_init(name, offset, length, i);
-			arr_insert_s(f, fs->o_list);
-			arr_insert_s(f, fs->n_list);
+			arr_sorted_insert(f, fs->o_list);
+			arr_sorted_insert(f, fs->n_list);
 			
 			// Updating filesystem variables
 			fs->used += f->length;
@@ -248,7 +249,7 @@ int create_file(char * filename, size_t length, void * helper) {
 	// Return 1 if file already exists
 	file_t temp;
 	update_file_name(filename, &temp);
-	if (arr_get_s(&temp, fs->n_list) != NULL) {
+	if (arr_get_by_key(&temp, fs->n_list) != NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
 	}
@@ -267,8 +268,8 @@ int create_file(char * filename, size_t length, void * helper) {
 
 	// Create new file_t struct and insert into both sorted lists
 	file_t* f = file_init(filename, offset, length, index);
-	arr_insert_s(f, fs->o_list);
-	arr_insert_s(f, fs->n_list);
+	arr_sorted_insert(f, fs->o_list);
+	arr_sorted_insert(f, fs->n_list);
 
 	// Write file metadata to dir_table and update index array
 	write_dir_file(f, fs);
@@ -334,7 +335,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			update_dir_offset(file, fs);
 
 			// Re-insert file into sorted offset list
-			arr_insert_s(file, fs->o_list);
+			arr_sorted_insert(file, fs->o_list);
 			
 		// Expansion of non-zero size files
 		} else {
@@ -365,7 +366,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 				update_dir_offset(file, fs);
 
 				// Re-insert file into sorted offset list
-				arr_insert_s(file, fs->o_list);
+				arr_sorted_insert(file, fs->o_list);
 			}
 		}
 	}
@@ -386,7 +387,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			update_file_offset(MAX_FILE_DATA_LEN, file);
 
 			// Re-insert file into sorted offset list
-			arr_insert_s(file, fs->o_list);
+			arr_sorted_insert(file, fs->o_list);
 		}
 	}
 
@@ -400,7 +401,7 @@ int resize_file(char * filename, size_t length, void * helper) {
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
-	file_t* f = arr_get_s(&temp, fs->n_list);
+	file_t* f = arr_get_by_key(&temp, fs->n_list);
 	if (f == NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
@@ -533,7 +534,7 @@ int delete_file(char * filename, void * helper) {
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
-	file_t* f = arr_get_s(&temp, fs->n_list);
+	file_t* f = arr_get_by_key(&temp, fs->n_list);
 	if (f == NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
@@ -565,10 +566,10 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	// Return 1 if oldname file does not exist or newname file already exist
 	file_t temp;
 	update_file_name(oldname, &temp);
-	file_t* f = arr_get_s(&temp, fs->n_list);
+	file_t* f = arr_get_by_key(&temp, fs->n_list);
 
 	update_file_name(newname, &temp);
-	if (f == NULL || arr_get_s(&temp, fs->n_list) != NULL) {
+	if (f == NULL || arr_get_by_key(&temp, fs->n_list) != NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
 	}
@@ -589,7 +590,7 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
-	file_t* f = arr_get_s(&temp, fs->n_list);
+	file_t* f = arr_get_by_key(&temp, fs->n_list);
 	if (f == NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
@@ -625,7 +626,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	// Return 1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
-	file_t* f = arr_get_s(&temp, fs->n_list);
+	file_t* f = arr_get_by_key(&temp, fs->n_list);
 	if (f == NULL) {
 		UNLOCK(&fs->lock);
 		return 1;
@@ -680,7 +681,7 @@ ssize_t file_size(char * filename, void * helper) {
 	// Return -1 if file does not exist
 	file_t temp;
 	update_file_name(filename, &temp);
-	file_t* f = arr_get_s(&temp, fs->n_list);
+	file_t* f = arr_get_by_key(&temp, fs->n_list);
 	if (f == NULL) {
 		UNLOCK(&fs->lock);
 		return -1;

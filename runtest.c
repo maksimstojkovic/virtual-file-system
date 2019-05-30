@@ -1,9 +1,12 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 #include "structs.h"
 #include "helper.h"
@@ -20,9 +23,9 @@
 static char* f1 = "file_data.bin";
 static char* f2 = "directory_table.bin";
 static char* f3 = "hash_data.bin";
-static int file;
-static int dir;
-static int hash;
+static int file_fd;
+static int dir_fd;
+static int hash_fd;
 
 static int error_count;
 
@@ -50,9 +53,9 @@ void test(int (*test_function) (), char * function_name) {
  * Used at the beginning of tests to ensure files are blank
  */
 void gen_blank_files() {
-	pwrite_null_byte(file, 0, LEN_F1);
-	pwrite_null_byte(dir, 0, LEN_F2);
-	pwrite_null_byte(hash, 0, LEN_F3);
+	pwrite_null_byte(file_fd, 0, LEN_F1);
+	pwrite_null_byte(dir_fd, 0, LEN_F2);
+	pwrite_null_byte(hash_fd, 0, LEN_F3);
 }
 
 /*
@@ -68,6 +71,13 @@ int success() {
 int failure() {
 	--error_count;
     return 1;
+}
+
+int test_helper_error_handling() {
+	assert(write_null_byte(NULL, 0, 0) == 0 &&
+	       pwrite_null_byte(file_fd, 0, 0) == 0 && "helper error");
+
+	return 0;
 }
 
 // Test initialising and freeing array for memory leaks
@@ -99,13 +109,13 @@ int test_array_insert() {
 
 	// Insert elements into arrays
 	for (int i = 0; i < 4; ++i) {
-		arr_insert_s(f[i], fs->o_list);
-		arr_insert_s(f[i], fs->n_list);
+		arr_sorted_insert(f[i], fs->o_list);
+		arr_sorted_insert(f[i], fs->n_list);
 	}
 
 	// Try inserting duplicate file
-	if (arr_insert_s(f[3], fs->o_list) != -1 ||
-		arr_insert_s(f[3], fs->n_list) != -1) {
+	if (arr_sorted_insert(f[3], fs->o_list) != -1 ||
+		arr_sorted_insert(f[3], fs->n_list) != -1) {
 		perror("array_insert: Duplicate insertion should fail");
 		return 1;
 	}
@@ -153,21 +163,21 @@ int test_array_get() {
 
 	// Insert elements into arrays
 	for (int i = 0; i < 7; ++i) {
-		arr_insert_s(f[i], fs->o_list);
-		arr_insert_s(f[i], fs->n_list);
+		arr_sorted_insert(f[i], fs->o_list);
+		arr_sorted_insert(f[i], fs->n_list);
 	}
 
 	// Successful get operations
-	if (arr_get_s(&key[0], fs->o_list) != f[4] ||
-		arr_get_s(&key[3], fs->n_list) != f[3]) {
+	if (arr_get_by_key(&key[0], fs->o_list) != f[4] ||
+		arr_get_by_key(&key[3], fs->n_list) != f[3]) {
 		perror("array_get: Incorrect file_t* retrieved");
 		return 1;
 	}
 
 	// File not found operations
-	if (arr_get_s(&key[1], fs->o_list) != NULL ||
-		arr_get_s(&key[2], fs->o_list) != NULL ||
-		arr_get_s(&key[4], fs->n_list) != NULL) {
+	if (arr_get_by_key(&key[1], fs->o_list) != NULL ||
+		arr_get_by_key(&key[2], fs->o_list) != NULL ||
+		arr_get_by_key(&key[4], fs->n_list) != NULL) {
 		perror("array_get: File should not be found");
 		return 1;
 	}
@@ -212,13 +222,13 @@ int test_array_remove() {
 
 	// Insert elements into arrays
 	for (int i = 0; i < 5; ++i) {
-		arr_insert_s(f[i], fs->o_list);
-		arr_insert_s(f[i], fs->n_list);
+		arr_sorted_insert(f[i], fs->o_list);
+		arr_sorted_insert(f[i], fs->n_list);
 	}
 
 	// Remove files using key file_t structs
-	file_t* norm_f = arr_remove_s(&key[0], fs->o_list);
-	file_t* zero_f = arr_remove_s(&key[3], fs->n_list);
+	file_t* norm_f = arr_remove_by_key(&key[0], fs->o_list);
+	file_t* zero_f = arr_remove_by_key(&key[3], fs->n_list);
 	if (norm_f != f[0] || zero_f != f[2]) {
 		perror("array_remove: Removed incorrect files");
 		return 1;
@@ -232,9 +242,9 @@ int test_array_remove() {
 	}
 
 	// Attempt to remove files with invalid keys
-	if (arr_remove_s(&key[1], fs->o_list) != NULL ||
-		arr_remove_s(&key[2], fs->o_list) != NULL ||
-		arr_remove_s(&key[4], fs->n_list) != NULL) {
+	if (arr_remove_by_key(&key[1], fs->o_list) != NULL ||
+		arr_remove_by_key(&key[2], fs->o_list) != NULL ||
+		arr_remove_by_key(&key[4], fs->n_list) != NULL) {
 		perror("array_remove: Invalid keys should fail");
 		return 1;
 	}
@@ -262,6 +272,42 @@ int test_array_remove() {
 int test_no_operation() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
+	close_fs(fs);
+	return 0;
+}
+
+// Test reading in zero size files in init_fs and close_fs for
+// invalid arguments
+int test_init_close_error_handling() {
+	// Pass NULL to close_fs
+	close_fs(NULL);
+
+	//Create blank filesystem files and create a file of 0 length at offset 0
+	gen_blank_files();
+	char* name = "zero_size_file";
+	pwrite(dir_fd, name, strlen(name), 0);
+	fsync(dir_fd);
+
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	// Read offset and length from dir_table
+	file_t dir_table_file;
+	pread(dir_fd, &dir_table_file.offset, sizeof(uint32_t), NAME_LEN);
+	pread(dir_fd, &dir_table_file.length, sizeof(uint32_t),
+			NAME_LEN + OFFSET_LEN);
+
+	// Retrieve file from internal filesystem structure
+	file_t key;
+	update_file_name(name, &key);
+	file_t* internal_file = arr_get_by_key(&key, fs->n_list);
+
+	if ((uint32_t)(dir_table_file.offset) != 0 || dir_table_file.length != 0 ||
+		internal_file->offset != MAX_FILE_DATA_LEN ||
+		internal_file->length != 0) {
+		perror("init_close_error_handling: Failed to read zero size file");
+		return 1;
+	}
+
 	close_fs(fs);
 	return 0;
 }
@@ -396,13 +442,13 @@ int test_resize_file_success() {
 	// Check offset and length of files
 	file_t f[3]; // file_t structs for test1.txt, text2.txt and zero1.txt
 	msync(fs->dir, fs->dir_table_len, MS_SYNC); // Ensure dir_table is synced
-	fsync(dir);
-	pread(dir, &f[0].offset, sizeof(uint32_t), NAME_LEN);
-	pread(dir, &f[0].length, sizeof(uint32_t), NAME_LEN + OFFSET_LEN);
-	pread(dir, &f[1].offset, sizeof(uint32_t), META_LEN + NAME_LEN);
-	pread(dir, &f[1].length, sizeof(uint32_t), META_LEN + NAME_LEN + OFFSET_LEN);
-	pread(dir, &f[2].offset, sizeof(uint32_t), 2 * META_LEN + NAME_LEN);
-	pread(dir, &f[2].length, sizeof(uint32_t), 2 * META_LEN + NAME_LEN + OFFSET_LEN);
+	fsync(dir_fd);
+	pread(dir_fd, &f[0].offset, sizeof(uint32_t), NAME_LEN);
+	pread(dir_fd, &f[0].length, sizeof(uint32_t), NAME_LEN + OFFSET_LEN);
+	pread(dir_fd, &f[1].offset, sizeof(uint32_t), META_LEN + NAME_LEN);
+	pread(dir_fd, &f[1].length, sizeof(uint32_t), META_LEN + NAME_LEN + OFFSET_LEN);
+	pread(dir_fd, &f[2].offset, sizeof(uint32_t), 2 * META_LEN + NAME_LEN);
+	pread(dir_fd, &f[2].length, sizeof(uint32_t), 2 * META_LEN + NAME_LEN + OFFSET_LEN);
 
 	// Compare dir_table values with expected
 	if ((uint32_t)f[0].offset != 0 || f[0].length != 0 ||
@@ -468,8 +514,8 @@ int test_hash_verify_invalid() {
 	}
 
 	// Modify hash_data.bin and sync
-	pwrite(hash, "132", 3, 0);
-	fsync(hash);
+	pwrite(hash_fd, "132", 3, 0);
+	fsync(hash_fd);
 	msync(fs->hash, fs->hash_data_len, MS_SYNC);
 
 	if (read_file("test1.txt", 0, 3, buff, fs) != 3) {
@@ -485,10 +531,10 @@ int main(int argc, char * argv[]) {
 	error_count = 0;
 
 	// Create blank files for tests to use
-	file = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-	dir = open(f2, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-	hash = open(f3, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-	if (file < 0 || dir < 0 || hash < 0) {
+	file_fd = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+	dir_fd = open(f2, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+	hash_fd = open(f3, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+	if (file_fd < 0 || dir_fd < 0 || hash_fd < 0) {
 		perror("main: Failed to open files");
 		exit(1);
 	}
@@ -498,6 +544,9 @@ int main(int argc, char * argv[]) {
     TEST(success);
     TEST(failure);
 
+    // Helper tests
+    TEST(test_helper_error_handling);
+
     // Array data structure tests
 	TEST(test_array_empty);
 	TEST(test_array_insert);
@@ -506,6 +555,7 @@ int main(int argc, char * argv[]) {
 
 	// Basic filesystem test
 	TEST(test_no_operation);
+	TEST(test_init_close_error_handling);
 
 	// create_file tests
 	TEST(test_create_file_success);  //TODO: Create repack cases
@@ -525,11 +575,11 @@ int main(int argc, char * argv[]) {
 
 	printf("Total Errors: %d\n", error_count);
 
-	close(file);
-	close(dir);
-	close(hash);
+	close(file_fd);
+	close(dir_fd);
+	close(hash_fd);
 
-    return 0;
+    return error_count;
 }
 
 

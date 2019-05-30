@@ -7,8 +7,6 @@
 #include "helper.h"
 #include "arr.h"
 
-// TODO: update _s functions with a more verbose name
-
 /*
  * Implementation of an array that sorts file_t structs based on name or offset
  *
@@ -274,7 +272,7 @@ int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
  *
  * returns: index on success, -1 if file exists
  */
-int32_t arr_insert_s(file_t* file, arr_t* arr) {
+int32_t arr_sorted_insert(file_t* file, arr_t* arr) {
 	assert(file != NULL && arr != NULL && "invalid args");
 	assert(arr->size < arr->capacity && "array full");
 	
@@ -354,7 +352,7 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
  * returns: removed file_t* on success
  * 			NULL if file not found or invalid key
  */
-file_t* arr_remove_s(file_t* key, arr_t* arr) {
+file_t* arr_remove_by_key(file_t* key, arr_t* arr) {
 	assert(key != NULL && arr != NULL && "invalid args");
 
 	// Check for valid key value
@@ -365,7 +363,7 @@ file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	}
 	
 	// Find file_t index in array (return NULL if file not found)
-	file_t* f = arr_get_s(key, arr);
+	file_t* f = arr_get_by_key(key, arr);
 	if (f == NULL) {
 		return NULL;
 	}
@@ -403,7 +401,7 @@ file_t* arr_get(int32_t index, arr_t* arr) {
  * returns: file_t* of matching file in array on success
  * 			NULL if file not found or invalid key
  */
-file_t* arr_get_s(file_t* key, arr_t* arr) {
+file_t* arr_get_by_key(file_t* key, arr_t* arr) {
 	assert(key != NULL && arr != NULL && "invalid args");
 	
 	// Check for valid key value
