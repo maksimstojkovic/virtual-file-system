@@ -8,6 +8,7 @@
  */
 
 // File length macros
+//TODO: change to fs->file_data_len, etc
 #define FILE_DATA_LEN (fs->len[0])
 #define DIR_TABLE_LEN (fs->len[1])
 #define HASH_DATA_LEN (fs->len[2])
@@ -18,8 +19,8 @@
 #define rc_index(n_index) ((2*(n_index))+2)
 
 // file_t offset and length update macros
-#define update_file_offset(offset,file) (((file)->offset)=(offset))
-#define update_file_length(length,file) (((file)->length)=(length))
+#define update_file_offset(off,file) (((file)->offset)=(off))
+#define update_file_length(len,file) (((file)->length)=(len))
 
 // dir_table name and length update macros
 #define update_dir_name(file,fs) \
@@ -50,8 +51,8 @@ void update_dir_offset(file_t* file, filesys_t* fs);
 
 void write_dir_file(file_t* file, filesys_t* fs);
 
-void write_null_byte(uint8_t* f, int64_t offset, int64_t count);
+uint64_t write_null_byte(uint8_t* f, int64_t offset, int64_t count);
 
-void pwrite_null_byte(int fd, int64_t count, int64_t offset);
+uint64_t pwrite_null_byte(int fd, int64_t count, int64_t offset);
 
 #endif

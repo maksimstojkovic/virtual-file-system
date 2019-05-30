@@ -300,6 +300,7 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 		return -EINVAL;
 	}
 
+	// TODO: check casting
 	// Update number of bytes to write based on filesystem space
 	size_t write_length;
 	if ((ssize_t)offset + length - f_size > FILESYSTEM->len[0] - FILESYSTEM->used) {

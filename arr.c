@@ -6,6 +6,8 @@
 #include "helper.h"
 #include "arr.h"
 
+// TODO: update _s functions with a more verbose name
+
 /*
  * Implementation of an array that sorts file_t structs based on name or offset
  *
@@ -55,9 +57,12 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 			// Check if file_t* b refers to a zero size file
 			// (zero size files should be found by name, not offset)
 			if (b->length > 0) {
-				return 0; // Valid non-zero size file found
+				// Valid non-zero size file found
+				return 0;
 			} else {
-				return -1; // Redirect search to lower indices
+				// Redirect search to lower indices for zero size files
+				// Should never happen as keys are checked in other methods
+				return -1;
 			}
 		}
 	} else {

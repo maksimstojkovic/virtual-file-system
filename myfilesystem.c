@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 #include "structs.h"
 #include "helper.h"
@@ -23,7 +24,7 @@
  * considered more appropriate for read operations than a lock which allows
  * parallel reads, as in the event that multiple threads attempt to read to the
  * same buffer simultaneously, the integrity of the buffer is only guaranteed
- * if both read operations are blocking. Hence only one mutex was used for the
+ * if both read operations are blocking. Hence, only one mutex was used for the
  * synchronisation of the filesystem.
  */
 
@@ -50,6 +51,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 		exit(1);
 	}
 
+	//TODO: Insert comment - comment about macros used for each?
 	FILE_DATA_LEN = s[0].st_size;
 	DIR_TABLE_LEN = s[1].st_size;
 	HASH_DATA_LEN = s[2].st_size;
@@ -95,6 +97,10 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 				offset = MAX_FILE_DATA_LEN;
 			} else {
 				memcpy(&offset, fs->dir + i * META_LEN + NAME_LEN,
+						sizeof(uint32_t));
+
+				// Ensure remaining bytes in offset uint64_t are 0
+				memset((uint8_t*)(&offset) + sizeof(uint32_t), 0,
 						sizeof(uint32_t));
 			}
 			
@@ -144,10 +150,8 @@ void close_fs(void * helper) {
  */
 int32_t new_file_index(filesys_t* fs) {
 	// Check for valid arguments
-	if (fs == NULL) {
-		perror("new_file_index: NULL filesystem");
-		exit(1);
-	}
+	// TODO: include + change to assert
+	assert(fs != NULL && "NULL filesystem");
 	
 	// Iterate over index array for dir_table
 	int32_t len = fs->index_len;
@@ -193,7 +197,8 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 		(o_list[0]->length > 0 && o_list[0]->offset >= length)) {
 		return 0;
 	}
-	
+
+	// TODO: Add checks for zero size files
 	// Check space between elements in offset list
 	uint64_t start_curr_file;
 	uint64_t end_prev_file;
@@ -329,6 +334,8 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			
 		// Expansion of non-zero size files
 		} else {
+			//TODO: Worker
+			// Local variables for readability
 			int32_t is_last = file->o_index == size - 1;
 			int32_t next_is_zero_size =
 					!is_last && list[file->o_index + 1]->length == 0;
@@ -411,8 +418,7 @@ int resize_file(char * filename, size_t length, void * helper) {
 	int64_t hash_offset = resize_file_helper(f, length, old_length, fs);
 
 	if (length > old_length) {
-		write_null_byte(fs->file, f->offset + old_length,
-				length - old_length);
+		write_null_byte(fs->file, f->offset + old_length, length - old_length);
 	}
 
 	// Update hash_data if size increased
@@ -458,9 +464,17 @@ int64_t repack_helper(filesys_t* fs) {
 	
 	// Variable for tracking blocks to hash
 	int64_t hash_offset = -1;
-	
+
+	int32_t is_zero_size = o_list[0]->length == 0;
 	// Move first file to offset 0
-	int32_t is_zero_size =  o_list[0]->length == 0;
+//	if (o_list[0]->offset > 0) {
+//		is_zero_size =  o_list[0]->length == 0;
+//		if (!is_zero_size) {
+//
+//		} else {
+//
+//		}
+//	}
 	if (!is_zero_size && o_list[0]->offset > 0) {
 		repack_move(o_list[0], 0, fs);
 		hash_offset = 0;
@@ -620,6 +634,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	}
 	
 	// Return 3 if insufficient space in file_data
+	// TODO: Check for casting case
 	if (fs->used + ((int64_t)offset + count - f->length) > FILE_DATA_LEN) {
 		UNLOCK(&fs->lock);
 		return 3;
@@ -691,6 +706,7 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 	uint64_t c = 0;
 	uint64_t d = 0;
 	for (uint64_t i = 0; i < size; ++i) {
+		// TODO: MIN_ONE -> MINUS_ONE
 		a = (a + buff[i]) % MAX_FILE_DATA_LEN_MIN_ONE;
 		b = (b + a) % MAX_FILE_DATA_LEN_MIN_ONE;
 		c = (c + b) % MAX_FILE_DATA_LEN_MIN_ONE;

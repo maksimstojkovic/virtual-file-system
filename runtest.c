@@ -114,12 +114,12 @@ int test_array_insert() {
 	for (int i = 0; i < 4; ++i) {
 		if (fs->o_list->list[i] != o_expect[i]) {
 			perror("array_insert: Incorrect offset insertion order");
-			return 2;
+			return 1;
 		}
 
 		if (fs->n_list->list[i] != n_expect[i]) {
 			perror("array_insert: Incorrect name insertion order");
-			return 3;
+			return 1;
 		}
 	}
 
@@ -169,10 +169,20 @@ int test_array_get() {
 		arr_get_s(&key[2], fs->o_list) != NULL ||
 		arr_get_s(&key[4], fs->n_list) != NULL) {
 		perror("array_get: File should not be found");
-		return 2;
+		return 1;
 	}
 
-	// TODO: TEST RESIZING NORMAL FILE TO 0 BYTES AND
+	// Test offset key value comparison for zero size file
+	file_t file_a;
+	file_t* file_b;
+	update_file_offset(MAX_FILE_DATA_LEN, &file_a);
+	file_b = file_init("offset.txt", new_file_offset(0, NULL, fs), 0, 7);
+
+	if (cmp_key(&file_a, file_b, fs->o_list) != -1) {
+		perror("array_get: Zero size file should redirect to lower indices");
+		return 1;
+	}
+	free(file_b);
 
 	close_fs(fs);
 	return 0;
@@ -218,7 +228,7 @@ int test_array_remove() {
 	if (arr_remove(norm_f->n_index, fs->n_list) != norm_f ||
 		arr_remove(zero_f->o_index, fs->o_list) != zero_f) {
 		perror("array_remove: Failed to remove opposing list entry");
-		return 2;
+		return 1;
 	}
 
 	// Attempt to remove files with invalid keys
@@ -226,19 +236,19 @@ int test_array_remove() {
 		arr_remove_s(&key[2], fs->o_list) != NULL ||
 		arr_remove_s(&key[4], fs->n_list) != NULL) {
 		perror("array_remove: Invalid keys should fail");
-		return 3;
+		return 1;
 	}
 
 	// Compare offset and name lists with expected
 	for (int i = 0; i < 3; ++i) {
 		if (fs->o_list->list[i] != o_expect[i]) {
 			perror("array_remove: Incorrect offset order after removal");
-			return 4;
+			return 1;
 		}
 
 		if (fs->n_list->list[i] != n_expect[i]) {
 			perror("array_remove: Incorrect name order after removal");
-			return 5;
+			return 1;
 		}
 	}
 
@@ -260,10 +270,27 @@ int test_no_operation() {
 int test_create_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	// Valid create operations
 	if (create_file("test1.txt", 50, fs) ||
 		create_file("test2.txt", 100, fs) ||
-		create_file("test3.txt", 150, fs)) {
+		create_file("test3.txt", 800, fs) ||
+		create_file("zero1.txt", 0, fs) ||
+		create_file("zero2.txt", 0, fs) ||
+		create_file("zero3.txt", 0, fs)) {
 		perror ("create_file_success: Create failed");
+		return 1;
+	}
+
+	// Create file with repack
+	// delete_file tests can be found below
+	if (delete_file("test2.txt", fs)) {
+		perror ("create_file_success: Delete operation failed");
+		return 1;
+	}
+
+	if (create_file("test4.txt", 150, fs)) {
+		perror ("create_file_success: Create with repack failed");
 		return 1;
 	}
 
@@ -301,18 +328,87 @@ int test_create_file_exists() {
 int test_create_file_no_space() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
 	if (create_file("test1.txt", 50, fs)) {
-		perror ("create_file_no_space: Create 1 failed");
+		perror ("create_file_no_space: Create failed");
 		return 1;
 	}
 
 	if (create_file("test2.txt", 975, fs) != 2) {
-		perror ("create_file_no_space: Create 2 should fail");
+		perror ("create_file_no_space: File too large, create should fail");
 		return 1;
 	}
 
 	if (create_file("test3.txt", 974, fs)) {
-		perror ("create_file_no_space: Create 3 failed");
+		perror ("create_file_no_space: Max size create failed");
+		return 1;
+	}
+
+	close_fs(fs);
+
+	// Check handling of full dir_table listing
+	gen_blank_files();
+	fs = init_fs(f1, f2, f3, 1);
+
+	char* names = "abcdefghij";
+
+	for (int i = 0; i < 10; ++i) {
+		create_file(names++, 0, fs);
+	}
+
+	if (create_file("dir_table_overload.txt", 0, fs) != 2) {
+		perror ("create_file_no_space: Directory_table should be full");
+		return 1;
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_resize_file_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	if (create_file("test1.txt", 50, fs) ||
+		create_file("test2.txt", 10, fs) ||
+		create_file("zero1.txt", 0, fs)) {
+		perror ("resize_file_success: Create failed");
+		return 1;
+	}
+
+	// Valid resize operations
+	if (resize_file("test2.txt", 50, fs) ||
+
+		// Resize with repacking
+		resize_file("test1.txt", 100, fs) ||
+		resize_file("test2.txt", 100, fs) ||
+
+		// Creates file with offset != 0 and length == 0
+		resize_file("test2.txt", 0, fs) ||
+
+		resize_file("test1.txt", 1024, fs) ||
+		resize_file("test1.txt", 0, fs) ||
+		resize_file("zero1.txt", 1024, fs)) {
+		perror ("resize_file_success: Resize failed");
+		return 1;
+	}
+
+	// Check offset and length of files
+	file_t f[3]; // file_t structs for test1.txt, text2.txt and zero1.txt
+	msync(fs->dir, DIR_TABLE_LEN, MS_SYNC); // Ensure dir_table is synced
+	fsync(dir);
+	pread(dir, &f[0].offset, sizeof(uint32_t), NAME_LEN);
+	pread(dir, &f[0].length, sizeof(uint32_t), NAME_LEN + OFFSET_LEN);
+	pread(dir, &f[1].offset, sizeof(uint32_t), META_LEN + NAME_LEN);
+	pread(dir, &f[1].length, sizeof(uint32_t), META_LEN + NAME_LEN + OFFSET_LEN);
+	pread(dir, &f[2].offset, sizeof(uint32_t), 2 * META_LEN + NAME_LEN);
+	pread(dir, &f[2].length, sizeof(uint32_t), 2 * META_LEN + NAME_LEN + OFFSET_LEN);
+
+	// Compare dir_table values with expected
+	if ((uint32_t)f[0].offset != 0 || f[0].length != 0 ||
+		(uint32_t)f[1].offset != 100 || f[1].length != 0 ||
+		(uint32_t)f[2].offset != 0 || f[2].length != 1024) {
+		perror ("resize_file_success: Incorrect dir_table values");
 		return 1;
 	}
 
@@ -328,17 +424,11 @@ int test_resize_file_no_space() {
 		return 1;
 	}
 
+	// Resize to length larger than filesystem
 	if (resize_file("test1.txt", 1025, fs) != 2) {
-		perror ("resize_file_no_space: Resize 1 should fail");
+		perror ("resize_file_no_space: Resize should fail");
 		return 1;
 	}
-
-	if (resize_file("test1.txt", 1024, fs)) {
-		perror ("resize_file_no_space: Resize 2 failed");
-		return 1;
-	}
-
-	// TODO: Check dir_table length here
 
 	close_fs(fs);
 	return 0;
@@ -379,6 +469,7 @@ int test_hash_verify_invalid() {
 
 	// Modify hash_data.bin and sync
 	pwrite(hash, "132", 3, 0);
+	fsync(hash);
 	msync(fs->hash, fs->len[2], MS_SYNC);
 
 	if (read_file("test1.txt", 0, 3, buff, fs) != 3) {
@@ -417,12 +508,14 @@ int main(int argc, char * argv[]) {
 	TEST(test_no_operation);
 
 	// create_file tests
-	TEST(test_create_file_success);
+	TEST(test_create_file_success);  //TODO: Create repack cases
 	TEST(test_create_file_exists);
 	TEST(test_create_file_no_space);
 
 	// resize_file tests
+	TEST(test_resize_file_success);
 	TEST(test_resize_file_no_space);
+	// TODO: TEST RESIZING NORMAL FILE TO 0 BYTES AND
 
 	// delete_file tests
 	TEST(test_delete_file_success);
