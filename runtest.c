@@ -69,13 +69,19 @@ int success() {
 
 // Helper function failure test
 int failure() {
-	--error_count;
+	--error_count; // Decrement as failure is expected
     return 1;
 }
 
 int test_helper_error_handling() {
+	// Pass count == 0 to null byte writing helpers
 	assert(write_null_byte(NULL, 0, 0) == 0 &&
-	       pwrite_null_byte(file_fd, 0, 0) == 0 && "helper error");
+	       pwrite_null_byte(file_fd, 0, 0) == 0 &&
+	       "null byte helpers should return 0 bytes written");
+
+	// Pass length == 0 to compute_hash_block_range
+	// Helper should return without assertion failure
+	compute_hash_block_range(0, 0, NULL);
 
 	return 0;
 }
@@ -171,7 +177,7 @@ int test_array_get() {
 		   arr_get_by_key(&key[4], fs->n_list) == NULL &&
 		   "file should not be found");
 
-	// Test offset key value comparison for zero size file
+	// Test offset key value comparison for zero size files
 	file_t file_a;
 	file_t* file_b;
 	update_file_offset(MAX_FILE_DATA_LEN, &file_a);
@@ -179,8 +185,13 @@ int test_array_get() {
 
 	assert(cmp_key(&file_a, file_b, fs->o_list) == -1 &&
 		   "newly created zero size file should redirect to lower indices");
-	free(file_b);
 
+	update_file_offset(50, &file_a);
+	update_file_offset(50, file_b);
+	assert(cmp_key(&file_a, file_b, fs->o_list) == 1 &&
+		   "resized zero size file should redirect to higher indices");
+
+	free(file_b);
 	close_fs(fs);
 	return 0;
 }
@@ -291,20 +302,32 @@ int test_create_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 
-	assert(!create_file("test1.txt", 50, fs) &&
+	assert(!create_file("zero1.txt", 0, fs) &&
+	       !create_file("zero2.txt", 0, fs) &&
+	       !create_file("test1.txt", 50, fs) &&
 		   !create_file("test2.txt", 100, fs) &&
 		   !create_file("test3.txt", 800, fs) &&
-		   !create_file("zero1.txt", 0, fs) &&
-		   !create_file("zero2.txt", 0, fs) &&
 		   !create_file("zero3.txt", 0, fs) &&
 		   "create failed");
 
-	// TODO: Adjust to repack (use calculator)
-	// Create file with repack
-	// delete_file tests can be found below
+	// delete_file to create a gap in file_data
 	assert(!delete_file("test2.txt", fs) && "delete failed");
 
-	assert(!create_file("test4.txt", 150, fs) && "create with repack failed");
+	// create_file in gap created
+	assert(!create_file("test4.txt", 20, fs) &&
+	       "create in contiguous block failed");
+
+	// Test create_file offset finder repack with NULL argument
+	assert(new_file_offset(150, NULL, fs) == 870 &&
+	       "offset finder unexpectedly failed");
+
+	// Create and delete files to require another repack on create
+	assert(!create_file("block.txt", 100, fs) &&
+	       !create_file("byte.txt", 1, fs) &&
+	       !delete_file("block.txt", fs) && "creating block gap failed");
+
+	// Create file with repack
+	assert(!create_file("test5.txt", 150, fs) && "create with repack failed");
 
 	close_fs(fs);
 	return 0;
@@ -389,7 +412,7 @@ int test_resize_file_success() {
 		   !resize_file("test2.txt", 0, fs) &&
 
 		   // Resize to file_data length
-		   !resize_file("test1.txt", LEN_F1, fs) &&
+		   !resize_file("test1.txt", LEN_F1, fs) && // Does not repack
 		   !resize_file("test1.txt", 0, fs) &&
 		   !resize_file("zero1.txt", LEN_F1, fs) &&
 		   "resize failed");
@@ -411,8 +434,8 @@ int test_resize_file_success() {
 	// Compare dir_table values with expected
 	// Casting used to compare only the first 4 bytes of uint64_t offset
 	assert((uint32_t)f[0].offset == 0 && f[0].length == 0 &&
-		   (uint32_t)f[1].offset == 0 && f[1].length == 0 &&
-		   (uint32_t)f[2].offset == 0 && f[2].length == 1024 &&
+		   (uint32_t)f[1].offset == 100 && f[1].length == 0 &&
+		   (uint32_t)f[2].offset == 0 && f[2].length == LEN_F1 &&
 		   "incorrect dir_table values");
 
 	close_fs(fs);
@@ -448,19 +471,151 @@ int test_resize_file_no_space() {
 	return 0;
 }
 
-int test_delete_file_success() {
+int test_repack_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 
-	assert(!create_file("test1.txt", 50, fs) && "create failed");
+	// Create and delete files to create gaps between files
+	assert(!create_file("test1.txt", 50, fs) &&
+		   !create_file("test2.txt", 10, fs) &&
+		   !create_file("test3.txt", 20, fs) &&
+		   !create_file("test4.txt", 40, fs) &&
+		   !create_file("zero1.txt", 0, fs) &&
+		   !delete_file("test1.txt", fs) &&
+		   !delete_file("test3.txt", fs) &&
+		   "failed to create file gaps");
 
-	assert(!delete_file("test1.txt", fs) && "delete failed");
+	repack(fs);
 
 	close_fs(fs);
 	return 0;
 }
 
-int test_hash_verify_invalid() {
+int test_delete_file_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("test1.txt", 50, fs) &&
+		   !create_file("test2.txt", 50, fs) && "create failed");
+
+	assert(!delete_file("test1.txt", fs) && "delete failed");
+
+	// Check remaining entry in filesystem
+	file_t* last = fs->n_list->list[0];
+	assert(strncmp(last->name, "test2.txt", NAME_LEN - 1) == 0 &&
+	       "incorrect file entry deleted");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_delete_file_does_not_exist() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("test1.txt", 50, fs) && "create failed");
+
+	assert(delete_file("test2.txt", fs) == 1 && "delete should failed");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_rename_file_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("bad.txt", 50, fs) && "create failed");
+
+	assert(!rename_file("bad.txt", "good.txt", fs) && "rename failed");
+
+	// Check name stored in filesystem
+	file_t* f = fs->n_list->list[0];
+	assert(strncmp(f->name, "good.txt", NAME_LEN - 1) == 0 &&
+		   "incorrect file entry name");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_rename_file_name_conflicts() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("bad.txt", 50, fs) &&
+	       !create_file("okay.txt", 50, fs) && "create failed");
+
+	// Test oldname file not found
+	assert(rename_file("worst.txt", "good.txt", fs) == 1 &&
+	       "file not found should fail");
+
+	// Test newname file already exists
+	assert(rename_file("bad.txt", "okay.txt", fs) == 1 &&
+		   "file already exists should fail");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_read_file_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("basic.txt", 50, fs) && "create failed");
+
+	// Write to file_data
+	char* write_buff = "content_to_read"; // String length of 15
+	pwrite(file_fd, write_buff, 15, 0);
+	fsync(file_fd);
+	msync(fs->file, fs->file_data_len, MS_SYNC);
+
+	compute_hash_block(0, fs);
+	msync(fs->hash, fs->hash_data_len, MS_SYNC);
+
+	char buff[16];
+
+	// Attempt to read 0 bytes
+	assert(!read_file("basic.txt", 0, 0, buff, fs) && "zero byte read failed");
+
+	// Attempt to read 15 bytes
+	assert(!read_file("basic.txt", 0, 15, buff, fs) && "read failed");
+	buff[15] = '\0';
+
+	assert(strcmp(buff, write_buff) == 0 && "incorrect buffer content");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_read_file_does_not_exist() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("basic.txt", 50, fs) && "create failed");
+
+	char buff[50];
+	assert(read_file("complex.txt", 0, 10, buff, fs) == 1 &&
+	       "file read should not exists");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_read_file_invalid_offset_count() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("basic.txt", 50, fs) && "create failed");
+
+	char buff[50];
+	assert(read_file("basic.txt", 45, 10, buff, fs) == 2 &&
+		   "cannot read 10 bytes at offset 45 from beginning of file");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_read_file_invalid_hash() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 
@@ -473,7 +628,7 @@ int test_hash_verify_invalid() {
 	assert(!write_file("test1.txt", 0, 3, buff, fs) &&
 		   "write failed");
 
-	// Modify hash_data.bin and sync
+	// Modify root hash value
 	pwrite(hash_fd, "132", 3, 0);
 	fsync(hash_fd);
 	msync(fs->hash, fs->hash_data_len, MS_SYNC);
@@ -482,6 +637,11 @@ int test_hash_verify_invalid() {
 		   "hash verification should fail");
 
 	close_fs(fs);
+	return 0;
+}
+
+int test_write_file_success() {
+
 	return 0;
 }
 
@@ -513,8 +673,10 @@ int main(int argc, char * argv[]) {
 	TEST(test_no_operation);
 	TEST(test_init_close_error_handling);
 
+	// TODO: parallel cases for each? at least read and write
+
 	// create_file tests
-	TEST(test_create_file_success);  //TODO: Create repack cases
+	TEST(test_create_file_success);
 	TEST(test_create_file_exists);
 	TEST(test_create_file_no_space);
 
@@ -523,11 +685,40 @@ int main(int argc, char * argv[]) {
 	TEST(test_resize_file_does_not_exist);
 	TEST(test_resize_file_no_space);
 
+	// repack tests
+	TEST(test_repack_success);
+
 	// delete_file tests
 	TEST(test_delete_file_success);
+	TEST(test_delete_file_does_not_exist);
 
-	// hash_verify tests
-	TEST(test_hash_verify_invalid);
+	// rename_file tests
+	TEST(test_rename_file_success);
+	TEST(test_rename_file_name_conflicts);
+
+	// read_file tests
+	TEST(test_read_file_success);
+	TEST(test_read_file_does_not_exist);
+	TEST(test_read_file_invalid_offset_count);
+	TEST(test_read_file_invalid_hash);
+
+	// TODO
+	// write_file tests
+	TEST(test_write_file_success);
+//	TEST(test_write_file_does_not_exist);
+//	TEST(test_write_file_invalid_offset_count);
+
+	// TODO
+	// file_size tests
+
+	// TODO
+	// fletcher tests
+
+	// TODO
+	// compute_hash_tree tests
+
+	// TODO
+	// compute_hash_block tests
 
 	printf("Total Errors: %d\n", error_count);
 

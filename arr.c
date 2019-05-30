@@ -54,15 +54,16 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
 			if (b->length > 0) {
 				// Valid non-zero size file found
 				return 0;
-			} else if (b->offset < MAX_FILE_DATA_LEN) {
-				// Redirect search to higher index if encountering file resized
-				// to 0 bytes, maintaining order in a sorted offset array
-				return 1;
 			} else {
-				// Redirect search to lower indices if encountering zero size
-				// which have never been written to, though this should never
-				// happen as keys are checked in other methods
-				return -1;
+				if (b->offset >= MAX_FILE_DATA_LEN) {
+					// Redirect search to lower indices if encountering newly
+					// created zero size file
+					return -1;
+				} else {
+					// Redirect search to higher indices if encountering file
+					// resized to 0 bytes
+					return 1;
+				}
 			}
 		}
 	} else {
@@ -108,7 +109,7 @@ void free_arr_list(arr_t* arr) {
 	
 	if (arr->size > 0) {
 		file_t** list = arr->list;
-		for (int32_t i = 0; i < arr->size; i++) {
+		for (int32_t i = 0; i < arr->size; ++i) {
 			free_file(list[i]);
 		}
 		

@@ -28,6 +28,8 @@
  * mutex was used for the synchronisation of the filesystem.
  */
 
+// TODO: Fix resize_helper boolean
+
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     // Allocate space for filesystem helper
 	filesys_t* fs = salloc(sizeof(*fs));
@@ -183,31 +185,64 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
+
+	// TODO: Add checks for zero size files
+	// Find offset of first non-zero size file
+	int32_t non_zero_file_index = -1;
+	uint64_t start_curr_file = 0;
+	uint64_t curr_file_len = 0;
+	uint64_t end_prev_file = 0;
+	for (int32_t i = 0; i < size; ++i) {
+		start_curr_file = o_list[i]->offset;
+		curr_file_len = o_list[i]->length;
+
+		// Break if newly created zero size files encountered
+		if (start_curr_file >= MAX_FILE_DATA_LEN) {
+			break;
+		}
+
+		// Non-zero size file found
+		if (curr_file_len > 0) {
+			non_zero_file_index = i;
+			break;
+		}
+	}
 	
-	// Return 0 if no files or only zero size files in filesystem,
-	// or if first non-zero size file offset is large enough
-	if (size <= 0 || o_list[0]->length == 0 ||
-		(o_list[0]->length > 0 && o_list[0]->offset >= length)) {
+	// Return 0 if no files, only zero size files, or if first non-zero size
+	// file offset is large enough
+	if (size <= 0 || non_zero_file_index < 0 ||
+		(non_zero_file_index >= 0 && start_curr_file >= length)) {
 		return 0;
 	}
 
-	// TODO: Add checks for zero size files
-	// Check space between elements in offset list
-	uint64_t start_curr_file;
-	uint64_t end_prev_file;
-
-	for (int32_t i = 1; i < size; ++i) {
+	// Increment index and check space between remaining
+	// elements in the offset array
+	for (int32_t i = non_zero_file_index + 1; i < size; ++i) {
 		start_curr_file = o_list[i]->offset;
-		end_prev_file = o_list[i - 1]->offset + o_list[i-1]->length;
+		curr_file_len = o_list[i]->length;
+		end_prev_file = o_list[i - 1]->offset + o_list[i - 1]->length;
+
+		// Break if newly created zero size files encountered
+		if (start_curr_file >= MAX_FILE_DATA_LEN) {
+			break;
+		}
+
+		// Update index of last non-zero size file
+		if (curr_file_len > 0) {
+			non_zero_file_index = i;
+		}
 
 		if (start_curr_file - end_prev_file >= length) {
 			return end_prev_file;
 		}
 	}
 	
-	// Check space between last element in offset list and end of file_data
+	// Check space between last non-zero size file in offset list and the end
+	// of file_data
 	uint64_t end_last_file =
-			o_list[size - 1]->offset + o_list[size - 1]->length;
+			o_list[non_zero_file_index]->offset +
+				o_list[non_zero_file_index]->length;
+
 	if (fs->file_data_len - end_last_file >= length) {
 		return end_last_file;
 	}
@@ -219,9 +254,8 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 		repack_helper(fs);
 	}
 	
-	// Return offset for space at end of file_data
-	end_last_file = o_list[size - 1]->offset + o_list[size - 1]->length;
-	return end_last_file;
+	// Return offset of first byte after bytes used in filesystem
+	return fs->used;
 }
 
 int create_file(char * filename, size_t length, void * helper) {
@@ -298,7 +332,8 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 	if (length > old_length) {
 		file_t** list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
-		
+
+		//TODO: update to check for first non-zero size file
 		// Expansion of zero size files
 		if (old_length == 0) {
 			// Remove the file from the sorted offset list
@@ -461,6 +496,11 @@ int64_t repack_helper(filesys_t* fs) {
 		end_prev_file = o_list[i - 1]->offset + o_list[i - 1]->length;
 		is_zero_size = o_list[i]->length == 0;
 
+		// Break if newly created zero size files encountered
+		if (start_curr_file >= MAX_FILE_DATA_LEN) {
+			break;
+		}
+
 		if (start_curr_file > end_prev_file) {
 			repack_move(o_list[i], end_prev_file, fs);
 			
@@ -577,6 +617,7 @@ int read_file(char * filename, size_t offset, size_t count, void * buf, void * h
 	
 	// Return 0 if no bytes to read
 	if (count == 0) {
+		UNLOCK(&fs->lock);
 		return 0;
 	}
 	
@@ -614,6 +655,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	
 	// Return 0 if no bytes to write
 	if (count == 0) {
+		UNLOCK(&fs->lock);
 		return 0;
 	}
 	
@@ -786,6 +828,8 @@ void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs) {
 	if (length <= 0) {
 		return;
 	}
+
+	assert(fs != NULL && "invalid args");
 	
 	// Determine first and last block modified
 	int64_t first_block = offset / BLOCK_LEN;
@@ -821,6 +865,8 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 	if (length <= 0) {
 		return 0;
 	}
+
+	assert(fs != NULL && "invalid args");
 	
 	// Determine first and last block to verify
 	int64_t first_block = offset / BLOCK_LEN;
@@ -830,7 +876,7 @@ int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {
 	int32_t n_index;
 	uint8_t curr_hash[HASH_LEN];
 	uint8_t hash_cat[2 * HASH_LEN];
-	for (int32_t i = first_block; i <= last_block; i++) {
+	for (int32_t i = first_block; i <= last_block; ++i) {
 		// Get leaf node index for block
 		n_index = fs->leaf_offset + i;
 		
