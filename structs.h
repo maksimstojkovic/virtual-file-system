@@ -24,6 +24,10 @@
 #define HASH_OFFSET_C (8)
 #define HASH_OFFSET_D (12)
 
+/*
+ * Structs
+ */
+
 typedef enum TYPE {OFFSET, NAME} TYPE;
 
 struct filesys_t;
