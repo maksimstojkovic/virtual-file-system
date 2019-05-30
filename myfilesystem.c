@@ -146,8 +146,7 @@ void close_fs(void * helper) {
  */
 int32_t new_file_index(filesys_t* fs) {
 	assert(fs != NULL && "invalid args");
-	assert(fs->index_count < fs->index_len && "dir_table full");
-	
+
 	// Iterate over index array for dir_table
 	int32_t index = -1;
 	int32_t len = fs->index_len;
@@ -159,7 +158,7 @@ int32_t new_file_index(filesys_t* fs) {
 		}
 	}
 
-	assert(index >= 0 && "failed to find index in dir_table");
+	assert(index >= 0 && "dir_table full");
 	return index;
 }
 
