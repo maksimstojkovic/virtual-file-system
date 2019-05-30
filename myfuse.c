@@ -10,12 +10,14 @@
 #include <stdio.h>
 #include <fuse.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "structs.h"
 #include "helper.h"
 #include "myfilesystem.h"
 
 // TODO: Check for line length
+// TODO: Check values from notes in part 3 of spec
 
 // Macro for casting filesystem struct
 #define FILESYSTEM ((filesys_t*)(fuse_get_context()->private_data))
@@ -24,16 +26,9 @@ char * file_data_file_name = NULL;
 char * directory_table_file_name = NULL;
 char * hash_data_file_name = NULL;
 
-void filesystem_exists() {
-	if (FILESYSTEM == NULL) {
-		perror("filesystem_exists: Filesystem does not exist");
-		exit(1);
-	}
-}
 
 int myfuse_getattr(const char * path, struct stat * result) {
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
     // Check for valid path
     if (strncmp(path, "/", 1) != 0) {
@@ -73,8 +68,7 @@ int myfuse_readdir(const char * path, void * buf, fuse_fill_dir_t filler, off_t 
 	UNUSED(offset);
 	UNUSED(fi);
 
-	// Check if filesystem exists
-    filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	if (strcmp(path, "/") == 0) {
 		// List filesystem files in alphabetical order using sorted name array
@@ -93,8 +87,7 @@ int myfuse_readdir(const char * path, void * buf, fuse_fill_dir_t filler, off_t 
 }
 
 int myfuse_unlink(const char * path) {
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	// Check for valid path
     if (path == NULL) {
@@ -121,8 +114,7 @@ int myfuse_unlink(const char * path) {
 }
 
 int myfuse_rename(const char * oldname, const char * newname) {
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	// Check for valid paths
     if (oldname == NULL || newname == NULL) {
@@ -152,8 +144,7 @@ int myfuse_rename(const char * oldname, const char * newname) {
 }
 
 int myfuse_truncate(const char * path, off_t length) {
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	// Check for valid path
 	if (path == NULL) {
@@ -187,8 +178,7 @@ int myfuse_truncate(const char * path, off_t length) {
 int myfuse_open(const char * path, struct fuse_file_info * fi) {
 	UNUSED(fi);
 
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	// Check for valid path
 	if (path == NULL) {
@@ -217,9 +207,8 @@ int myfuse_open(const char * path, struct fuse_file_info * fi) {
 
 int myfuse_read(const char * path, char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
 	UNUSED(fi);
-	
-	// Check if filesystem exists
-	filesystem_exists();
+
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 	
 	// Check for valid arguments
 	if (path == NULL || buf == NULL) {
@@ -271,8 +260,7 @@ int myfuse_read(const char * path, char * buf, size_t length, off_t offset, stru
 int myfuse_write(const char * path, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
 	UNUSED(fi);
 
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 	
 	// Check for valid arguments
 	if (path == NULL || buf == NULL) {
@@ -334,15 +322,17 @@ void * myfuse_init(struct fuse_conn_info * info) {
 	UNUSED(info);
 
     // Check for valid filesystem filenames
-	if (file_data_file_name == NULL || directory_table_file_name == NULL || hash_data_file_name == NULL) {
+	if (file_data_file_name == NULL ||
+		directory_table_file_name == NULL ||
+		hash_data_file_name == NULL) {
 	    return NULL;
 	}
 
-	return init_fs(file_data_file_name, directory_table_file_name, hash_data_file_name, 1);
+	return init_fs(file_data_file_name, directory_table_file_name,
+			hash_data_file_name, 1);
 }
 
 void myfuse_destroy(void * fs) {
-    // Check for valid argument
     if (fs == NULL) {
         return;
     }
@@ -354,8 +344,7 @@ int myfuse_create(const char * path, mode_t mode, struct fuse_file_info * fi) {
 	UNUSED(mode);
 	UNUSED(fi);
 
-	// Check if filesystem exists
-	filesystem_exists();
+	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	// Check for valid path
 	if (path == NULL) {

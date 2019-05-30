@@ -10,8 +10,8 @@
  * Defined Values
  */
 
-#define MAX_FILE_DATA_LEN ((int64_t)4294967296)	// 2^32
-#define MAX_FILE_DATA_LEN_MIN_ONE (4294967295)	// 2^32 - 1
+#define MAX_FILE_DATA_LEN ((int64_t)4294967296)		// 2^32
+#define MAX_FILE_DATA_LEN_MINUS_ONE (4294967295)	// 2^32 - 1
 #define BLOCK_LEN (256)
 
 #define MAX_NUM_FILES (65536)

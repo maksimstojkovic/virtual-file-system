@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Script for generating coverage data on filesystem
+
 cp *.h *.c cov
 
 cd cov

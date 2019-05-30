@@ -14,20 +14,18 @@
 #include "arr.h"
 #include "myfilesystem.h"
 
-// TODO: Change all perror checks to assert
-
 /*
  * Filesystem Implementation
  *
  * This filesystem only uses one mutex lock for all read and write operations.
  * Write operations require exclusive control of the filesystem as they have
  * the potential to modify some or all of the underlying filesystem files
- * (file_data, dir_table, hash_data). Additionally, the use of a mutex was
- * considered more appropriate for read operations than a lock which allows
+ * (file_data, dir_table, hash_data). Additionally, the use of a mutex during
+ * read operations was considered more appropriate than a lock which allows
  * parallel reads, as in the event that multiple threads attempt to read to the
  * same buffer simultaneously, the integrity of the buffer is only guaranteed
- * if both read operations are blocking. Hence, only one mutex was used for the
- * synchronisation of the filesystem.
+ * if both read operations are blocking and run in serialised. Hence, only one
+ * mutex was used for the synchronisation of the filesystem.
  */
 
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
@@ -41,34 +39,28 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	fs->file_fd = open(f1, O_RDWR);
 	fs->dir_fd = open(f2, O_RDWR);
 	fs->hash_fd = open(f3, O_RDWR);
-	if (fs->file_fd < 0 || fs->dir_fd < 0 || fs->hash_fd < 0) {
-		perror("init_fs: Failed open calls");
-		exit(1);
-	}
+	assert(fs->file_fd >= 0 && fs->dir_fd >= 0 &&
+	       fs->hash_fd >= 0 && "failed to open files");
 
 	// Store file lengths in filesystem
-	struct stat stat[3];
-	if (fstat(fs->file_fd, &stat[0]) ||
-		fstat(fs->dir_fd, &stat[1]) ||
-		fstat(fs->hash_fd, &stat[2])) {
-		perror("init_fs: Failed to get file lengths");
-		exit(1);
-	}
+	struct stat stats[3];
+	assert(!fstat(fs->file_fd, &stats[0]) &&
+		   !fstat(fs->dir_fd, &stats[1]) &&
+		   !fstat(fs->hash_fd, &stats[2]) && "failed to get file lengths");
 
-	//TODO: Insert comment - comment about macros used for each?
-	fs->file_data_len = stat[0].st_size;
-	fs->dir_table_len = stat[1].st_size;
-	fs->hash_data_len = stat[2].st_size;
+	fs->file_data_len = stats[0].st_size;
+	fs->dir_table_len = stats[1].st_size;
+	fs->hash_data_len = stats[2].st_size;
 	
 	// Map files to memory using mmap
-	fs->file = mmap(NULL, fs->file_data_len, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
-	fs->dir = mmap(NULL, fs->dir_table_len, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
-	fs->hash = mmap(NULL, fs->hash_data_len, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
-	if (fs->file == MAP_FAILED || fs->dir == MAP_FAILED ||
-		fs->hash == MAP_FAILED) {
-		perror("init_fs: Failed to map files to memory");
-		exit(1);
-	}
+	fs->file = mmap(NULL, fs->file_data_len, PROT_READ | PROT_WRITE,
+			MAP_SHARED, fs->file_fd, 0);
+	fs->dir = mmap(NULL, fs->dir_table_len, PROT_READ | PROT_WRITE,
+			MAP_SHARED, fs->dir_fd, 0);
+	fs->hash = mmap(NULL, fs->hash_data_len, PROT_READ | PROT_WRITE,
+			MAP_SHARED, fs->hash_fd, 0);
+	assert(fs->file != MAP_FAILED && fs->dir != MAP_FAILED &&
+		   fs->hash != MAP_FAILED && "mmap failed");
 
 	// Initialise filesystem variables
 	fs->n_processors = n_processors;
@@ -124,7 +116,7 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 }
 
 void close_fs(void * helper) {
-	// Check for valid argument
+	// Return if helper is NULL
 	if (helper == NULL) {
 		return;
 	}
@@ -153,22 +145,22 @@ void close_fs(void * helper) {
  * returns: Lowest empty index in dir_table
  */
 int32_t new_file_index(filesys_t* fs) {
-	// Check for valid arguments
-	// TODO: include + change to assert
-	assert(fs != NULL && "NULL filesystem");
+	assert(fs != NULL && "invalid args");
+	assert(fs->index_count < fs->index_len && "dir_table full");
 	
 	// Iterate over index array for dir_table
+	int32_t index = -1;
 	int32_t len = fs->index_len;
 	uint8_t* arr = fs->index;
 	for (int32_t i = 0; i < len; ++i) {
 		if (arr[i] == 0) {
-			return i;
+			index = i;
+			break;
 		}
 	}
 
-	// Should never be reached
-	perror("new_file_index: Filesystem full, no index available");
-	exit(1);
+	assert(index >= 0 && "failed to find index in dir_table");
+	return index;
 }
 
 /*
@@ -181,12 +173,10 @@ int32_t new_file_index(filesys_t* fs) {
  * returns: valid file_data offset for new file, repacking if required
  */
 uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
-	// Check for valid arguments
-	if (fs == NULL || length > fs->file_data_len) {
-		perror("new_file_offset: Invalid arguments");
-		exit(1);
-	}
-	
+	assert(fs != NULL && length <= fs->file_data_len && "invalid args");
+	assert(fs->used + length <= fs->file_data_len &&
+	       "insufficient space in file_data");
+
 	// Return max length of file_data for zero size files
 	if (length == 0) {
 		return MAX_FILE_DATA_LEN;
@@ -230,15 +220,9 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 		repack_helper(fs);
 	}
 	
-	// Check space at end of file_data
+	// Return offset for space at end of file_data
 	end_last_file = o_list[size - 1]->offset + o_list[size - 1]->length;
-	if (fs->file_data_len - end_last_file >= length) {
-		return end_last_file;
-	}
-
-	// Should never be reached
-	perror("new_file_offset: Unable to find valid offset");
-	exit(1);
+	return end_last_file;
 }
 
 int create_file(char * filename, size_t length, void * helper) {
@@ -566,6 +550,9 @@ int rename_file(char * oldname, char * newname, void * helper) {
 
 int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {
 	filesys_t* fs = (filesys_t*)helper;
+
+	// Filesystem mutex locked in read_file to ensure integrity of buffer
+	// during parallel reads to the same buffer
 	LOCK(&fs->lock);
 	
 	// Return 1 if file does not exist
@@ -674,11 +661,7 @@ ssize_t file_size(char * filename, void * helper) {
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
-	// Check for valid arguments
-	if (buf == NULL || output == NULL) {
-		perror("fletcher: Invalid arguments");
-		exit(1);
-	}
+	assert(buf != NULL && output != NULL && "invalid args");
 	
 	// Casting buffer to uint32_t for reading
 	uint32_t* buff = (uint32_t*)buf;
@@ -693,20 +676,20 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 	uint64_t d = 0;
 	for (uint64_t i = 0; i < size; ++i) {
 		// TODO: MIN_ONE -> MINUS_ONE
-		a = (a + buff[i]) % MAX_FILE_DATA_LEN_MIN_ONE;
-		b = (b + a) % MAX_FILE_DATA_LEN_MIN_ONE;
-		c = (c + b) % MAX_FILE_DATA_LEN_MIN_ONE;
-		d = (d + c) % MAX_FILE_DATA_LEN_MIN_ONE;
+		a = (a + buff[i]) % MAX_FILE_DATA_LEN_MINUS_ONE;
+		b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;
+		c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;
+		d = (d + c) % MAX_FILE_DATA_LEN_MINUS_ONE;
 	}
 	
 	// Hash last unsigned integer if required
 	if (rem != 0) {
 		uint32_t last = 0; // Initialised to zero for null byte padding
 		memcpy(&last, buff + size, sizeof(uint8_t) * rem);
-		a = (a + last) % MAX_FILE_DATA_LEN_MIN_ONE;
-		b = (b + a) % MAX_FILE_DATA_LEN_MIN_ONE;
-		c = (c + b) % MAX_FILE_DATA_LEN_MIN_ONE;
-		d = (d + c) % MAX_FILE_DATA_LEN_MIN_ONE;
+		a = (a + last) % MAX_FILE_DATA_LEN_MINUS_ONE;
+		b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;
+		c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;
+		d = (d + c) % MAX_FILE_DATA_LEN_MINUS_ONE;
 	}
 	
 	// Copy result to output buffer at required offset
