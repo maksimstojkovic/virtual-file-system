@@ -1,9 +1,3 @@
-/*
- * You are free to modify any part of this file.
- * The only requirement is that when it is run,
- * all your tests are automatically executed
- */
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -22,16 +16,23 @@
 #define LEN_F2 720
 #define LEN_F3 112
 
+// Static filesystem filenames and file descriptors
 static char* f1 = "file_data.bin";
 static char* f2 = "directory_table.bin";
 static char* f3 = "hash_data.bin";
+static int file;
+static int dir;
+static int hash;
 
-int file;
-int dir;
-int hash;
+static int error_count;
 
-/****************************/
-/* Helper function */
+/*
+ * Helper Functions
+ */
+
+/*
+ * Function for running filesystem tests and printing return values
+ */
 void test(int (*test_function) (), char * function_name) {
 	static long test_count = 1;
 	int ret = test_function();
@@ -39,23 +40,33 @@ void test(int (*test_function) (), char * function_name) {
 		printf("%3ld. Passed %s\n", test_count, function_name);
 	} else {
 		printf("%3ld. Failed %s returned %d\n", test_count, function_name, ret);
+		++error_count;
 	}
-	test_count++;
+	++test_count;
 }
 
-// Write blank data files for use with testing
+/*
+ * Function for writing null bytes to filesystem files
+ * Used at the beginning of tests to ensure files are blank
+ */
 void gen_blank_files() {
 	pwrite_null_byte(file, 0, LEN_F1);
 	pwrite_null_byte(dir, 0, LEN_F2);
 	pwrite_null_byte(hash, 0, LEN_F3);
 }
-/****************************/
 
+/*
+ * Filesystem Test Functions
+ */
+
+// Helper function success test
 int success() {
     return 0;
 }
 
+// Helper function failure test
 int failure() {
+	--error_count;
     return 1;
 }
 
@@ -70,60 +81,21 @@ int test_array_empty() {
 	return 0;
 }
 
-// Test get from array
-int test_array_get() {
-	gen_blank_files();
-	filesys_t* fs = init_fs(f1, f2, f3, 1);
-	file_t* f[5];
-	f[0] = file_init("test3.txt", 5, 10, 0);
-	f[1] = file_init("zero1.txt", new_file_offset(0, NULL, fs), 0, 3);
-	f[2] = file_init("zero2.txt", new_file_offset(0, NULL, fs), 0, 4);
-	f[3] = file_init("test2.txt", 0, 5, 2);
-	f[4] = file_init("test1.txt", 15, 10, 1);
-
-	file_t key[4];
-	update_file_offset(5, &key[0]);
-	update_file_name("zero1.txt", &key[1]);
-	update_file_offset(20, &key[2]);
-	update_file_name("nothing", &key[3]);
-
-	// Insert elements into arrays
-	for (int i = 0; i < 5; ++i) {
-		arr_insert_s(f[i], fs->o_list);
-		arr_insert_s(f[i], fs->n_list);
-	}
-
-	// Compare successful get operations
-	if (arr_get_s(&key[0], fs->o_list) != f[0] ||
-		arr_get_s(&key[1], fs->n_list) != f[1]) {
-		perror("array_get: Incorrect file_t* retrieved");
-		return 1;
-	}
-
-	// Compare file not found operations
-	if (arr_get_s(&key[2], fs->o_list) != NULL ||
-		arr_get_s(&key[3], fs->n_list) != NULL) {
-		perror("array_get: File should not be found");
-		return 2;
-	}
-
-	close_fs(fs);
-	return 0;
-}
-
-// Test sorted index insertion and right element shifting with normal
-// and zero size files
+// Test sorted index insertion and right index shifting
 int test_array_insert() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	// Normal and zero size files
 	file_t* f[4];
-	f[0] = file_init("test3.txt", 5, 10, 0);
-	f[1] = file_init("zero.txt", new_file_offset(0, NULL, fs), 0, 3);
+	f[0] = file_init("zero.txt", new_file_offset(0, NULL, fs), 0, 3);
+	f[1] = file_init("test3.txt", 5, 10, 0);
 	f[2] = file_init("test2.txt", 0, 5, 2);
 	f[3] = file_init("test1.txt", 15, 10, 1);
 
-	file_t* o_expect[4] = {f[2], f[0], f[3], f[1]};
-	file_t* n_expect[4] = {f[3], f[2], f[0], f[1]};
+	// Expected order in offset and name arrays
+	file_t* o_expect[4] = {f[2], f[1], f[3], f[0]};
+	file_t* n_expect[4] = {f[3], f[2], f[1], f[0]};
 
 	// Insert elements into arrays
 	for (int i = 0; i < 4; ++i) {
@@ -131,7 +103,7 @@ int test_array_insert() {
 		arr_insert_s(f[i], fs->n_list);
 	}
 
-	// Try inserting duplicate
+	// Try inserting duplicate file
 	if (arr_insert_s(f[3], fs->o_list) != -1 ||
 		arr_insert_s(f[3], fs->n_list) != -1) {
 		perror("array_insert: Duplicate insertion should fail");
@@ -149,6 +121,55 @@ int test_array_insert() {
 			perror("array_insert: Incorrect name insertion order");
 			return 3;
 		}
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
+// Test get and sorted get from array
+int test_array_get() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	// Test zero size files and normal files
+	// Arbitrary ordering used for dir_table indices
+	// Majority of zero size files used to test binary search handling
+	file_t* f[7];
+	f[0] = file_init("zero4.txt", new_file_offset(0, NULL, fs), 0, 3);
+	f[1] = file_init("zero3.txt", new_file_offset(0, NULL, fs), 0, 4);
+	f[2] = file_init("zero2.txt", new_file_offset(0, NULL, fs), 0, 6);
+	f[3] = file_init("zero1.txt", new_file_offset(0, NULL, fs), 0, 5);
+	f[4] = file_init("f3.txt", 5, 10, 0);
+	f[5] = file_init("f2.txt", 0, 5, 2);
+	f[6] = file_init("f1.txt", 15, 10, 1);
+
+	file_t key[5];
+	update_file_offset(5, &key[0]);
+	update_file_offset(20, &key[1]);
+	update_file_offset(MAX_FILE_DATA_LEN, &key[2]);
+	update_file_name("zero1.txt", &key[3]);
+	update_file_name("nothing", &key[4]);
+
+	// Insert elements into arrays
+	for (int i = 0; i < 7; ++i) {
+		arr_insert_s(f[i], fs->o_list);
+		arr_insert_s(f[i], fs->n_list);
+	}
+
+	// Successful get operations
+	if (arr_get_s(&key[0], fs->o_list) != f[4] ||
+		arr_get_s(&key[3], fs->n_list) != f[3]) {
+		perror("array_get: Incorrect file_t* retrieved");
+		return 1;
+	}
+
+	// File not found operations
+	if (arr_get_s(&key[1], fs->o_list) != NULL ||
+		arr_get_s(&key[2], fs->o_list) != NULL ||
+		arr_get_s(&key[4], fs->n_list) != NULL) {
+		perror("array_get: File should not be found");
+		return 2;
 	}
 
 	close_fs(fs);
@@ -182,17 +203,16 @@ int test_array_remove() {
 		arr_insert_s(f[i], fs->n_list);
 	}
 
-	// Remove files with valid keys
-	// Zero size files can only be found by name
-	file_t* test_f = arr_remove_s(&key[0], fs->o_list);
+	// Remove files using key file_t structs
+	file_t* norm_f = arr_remove_s(&key[0], fs->o_list);
 	file_t* zero_f = arr_remove_s(&key[1], fs->n_list);
-	if (test_f != f[0] || zero_f != f[2]) {
+	if (norm_f != f[0] || zero_f != f[2]) {
 		perror("array_remove: Removed incorrect files");
 		return 1;
 	}
 
 	// Remove corresponding entry in opposing list
-	if (arr_remove(test_f->n_index, fs->n_list) != test_f ||
+	if (arr_remove(norm_f->n_index, fs->n_list) != norm_f ||
 		arr_remove(zero_f->o_index, fs->o_list) != zero_f) {
 		perror("array_remove: Failed to remove opposing list entry");
 		return 2;
@@ -218,7 +238,7 @@ int test_array_remove() {
 		}
 	}
 
-	free(test_f);
+	free(norm_f);
 	free(zero_f);
 	close_fs(fs);
 	return 0;
@@ -367,6 +387,8 @@ int test_hash_verify_invalid() {
 }
 
 int main(int argc, char * argv[]) {
+	error_count = 0;
+
 	// Create blank files for tests to use
 	file = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	dir = open(f2, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -383,8 +405,8 @@ int main(int argc, char * argv[]) {
 
     // Array data structure tests
 	TEST(test_array_empty);
-	TEST(test_array_get);
 	TEST(test_array_insert);
+	TEST(test_array_get);
 	TEST(test_array_remove);
 
 	// Basic filesystem test
@@ -403,6 +425,8 @@ int main(int argc, char * argv[]) {
 
 	// hash_verify tests
 	TEST(test_hash_verify_invalid);
+
+	printf("Total Errors: %d\n", error_count);
 
 	close(file);
 	close(dir);

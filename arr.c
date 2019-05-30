@@ -392,7 +392,8 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
  * key: address of file_t with same key as file being removed
  * arr: address of arr_t struct containing a list of file_t pointers
  *
- * returns: removed file_t* on success, NULL if file not found
+ * returns: removed file_t* on success
+ * 			NULL if file not found or invalid key
  */
 file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	// Check for valid arguments
@@ -405,8 +406,7 @@ file_t* arr_remove_s(file_t* key, arr_t* arr) {
 	if ((arr->type == OFFSET && (key->offset < 0 ||
 		key->offset >= arr->fs->len[0])) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
-		perror("arr_remove_s: Invalid key");
-		exit(1);
+		return NULL;
 	}
 	
 	// Find file_t index in array (return NULL if file not found)
@@ -449,7 +449,8 @@ file_t* arr_get(int32_t index, arr_t* arr) {
  * 		type populated
  * arr: address of arr_t struct containing a list of file_t pointers
  *
- * returns: file_t* of matching file in array on success, -1 if file not found
+ * returns: file_t* of matching file in array on success
+ * 			NULL if file not found or invalid key
  */
 file_t* arr_get_s(file_t* key, arr_t* arr) {
 	// Check for valid arguments
@@ -462,8 +463,7 @@ file_t* arr_get_s(file_t* key, arr_t* arr) {
 	if ((arr->type == OFFSET && (key->offset < 0 ||
 		key->offset >= arr->fs->len[0])) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
-		perror("arr_remove_s: Invalid key");
-		exit(1);
+		return NULL;
 	}
 	
 	// Check if file exists (return NULL if file not found)
