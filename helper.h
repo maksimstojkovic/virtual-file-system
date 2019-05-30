@@ -13,14 +13,13 @@
 #define HASH_DATA_LEN (fs->len[2])
 
 // Parent and children index macros
-#define p_index(x) ((((x)%2)==1)?((x)/2):(((x)/2)-1))
-#define lc_index(x) ((2*(x))+1)
-#define rc_index(x) ((2*(x))+2)
+#define p_index(n_index) ((((n_index)%2)==1)?((n_index)/2):(((n_index)/2)-1))
+#define lc_index(n_index) ((2*(n_index))+1)
+#define rc_index(n_index) ((2*(n_index))+2)
 
-// TODO: CHECK FOR OFFSET AND LENGTH THAT PASSED VALUES ARE PROPERLY CASTED/RIGHT TYPE
 // file_t offset and length update macros
-#define update_file_offset(x,y) (((y)->offset)=(x))
-#define update_file_length(x,y) (((y)->length)=(x))
+#define update_file_offset(offset,file) (((file)->offset)=(offset))
+#define update_file_length(length,file) (((file)->length)=(length))
 
 // dir_table name and length update macros
 #define update_dir_name(file,fs) \
@@ -31,8 +30,8 @@
 	&file->length, sizeof(uint32_t)))
 
 // Macros for locking and unlocking synchronisation variables
-#define LOCK(x) pthread_mutex_lock(x)
-#define UNLOCK(x) pthread_mutex_unlock(x)
+#define LOCK(mutex) pthread_mutex_lock(mutex)
+#define UNLOCK(mutex) pthread_mutex_unlock(mutex)
 
 // Macro for suppressing unused variable warnings
 #define UNUSED(x) ((void)(x))
