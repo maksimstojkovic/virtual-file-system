@@ -118,11 +118,13 @@ void write_dir_file(file_t* file, filesys_t* fs) {
  * f: pointer to start of a memory mapped file
  * offset: offset from the beginning of the file to write null bytes at
  * count: number of null bytes to write
+ *
+ * returns: number of null bytes written
  */
-void write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
+uint64_t write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
 	// Return if no bytes to write
 	if (count <= 0) {
-		return;
+		return 0;
 	}
 	
 	// Check for invalid arguments
@@ -134,6 +136,7 @@ void write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
 	
 	// Write null bytes to file
 	memset(f + offset, '\0', count);
+	return count;
 }
 
 /*
@@ -142,11 +145,13 @@ void write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
  * fd: file descriptor to write to
  * offset: offset from the beginning of the file to write null bytes at
  * count: number of null bytes to write
+ *
+ * returns: number of null bytes written
  */
-void pwrite_null_byte(int fd, int64_t offset, int64_t count) {
+uint64_t pwrite_null_byte(int fd, int64_t offset, int64_t count) {
 	// Return if no bytes to write
 	if (count <= 0) {
-		return;
+		return 0;
 	}
 
 	// Check for valid arguments
@@ -158,4 +163,6 @@ void pwrite_null_byte(int fd, int64_t offset, int64_t count) {
 	for (int64_t i = 0; i < count; i++) {
 		pwrite(fd, "", sizeof(char), offset + i);
 	}
+
+	return count;
 }
