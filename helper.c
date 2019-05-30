@@ -32,10 +32,7 @@ void* salloc(size_t size) {
  */
 void* scalloc(size_t size) {
 	void* m = calloc(size, 1);
-	if (m == NULL) {
-		perror("scalloc: calloc failed");
-		exit(1);
-	}
+	assert(m != NULL && "calloc failed");
 	return m;
 }
 
@@ -124,13 +121,9 @@ uint64_t write_null_byte(uint8_t* f, int64_t offset, int64_t count) {
 	if (count <= 0) {
 		return 0;
 	}
-	
-	// Check for invalid arguments
-	if (count >= MAX_FILE_DATA_LEN || offset < 0 ||
-	   	offset >= MAX_FILE_DATA_LEN) {
-		perror("write_null_byte: Invalid arguments");
-		exit(1);
-	}
+
+	assert(count < MAX_FILE_DATA_LEN && offset >= 0 &&
+	       offset < MAX_FILE_DATA_LEN && "invalid args");
 	
 	// Write null bytes to file
 	memset(f + offset, '\0', count);
@@ -152,13 +145,10 @@ uint64_t pwrite_null_byte(int fd, int64_t offset, int64_t count) {
 		return 0;
 	}
 
-	// Check for valid arguments
-	if (fd < 0 || count > MAX_FILE_DATA_LEN || offset > MAX_FILE_DATA_LEN) {
-		perror("pwrite_null_byte: Invalid arguments");
-		exit(1);
-	}
+	assert(fd >= 0 && count <= MAX_FILE_DATA_LEN &&
+	       offset <= MAX_FILE_DATA_LEN && "invalid args");
 
-	for (int64_t i = 0; i < count; i++) {
+	for (int64_t i = 0; i < count; ++i) {
 		pwrite(fd, "", sizeof(char), offset + i);
 	}
 

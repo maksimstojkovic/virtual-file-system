@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "structs.h"
 #include "helper.h"
@@ -42,11 +43,7 @@
  * 			position of b
  */
 int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
-	// Check for valid arguments
-	if (a == NULL || b == NULL || arr == NULL) {
-		perror("cmp_key: Invalid arguments");
-		exit(1);
-	}
+	assert(a != NULL && b != NULL && arr != NULL && "invalid args");
 	
 	if (arr->type == OFFSET) {
 		if (a->offset < b->offset) {
@@ -83,12 +80,9 @@ int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {
  * 			See structs.h for more information about arr_t fields
  */
 arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {
-	// Check for valid arguments
-	if (capacity < 0 || capacity > MAX_NUM_FILES ||
-	   (type != OFFSET && type != NAME) || fs == NULL) {
-		perror("arr_init: Invalid arguments");
-		exit(1);
-	}
+	assert(capacity >= 0 && capacity <= MAX_NUM_FILES &&
+	      (type == OFFSET || type == NAME) &&
+	      fs != NULL && "invalid args");
 	
 	arr_t* arr = salloc(sizeof(*arr));
 	
@@ -107,11 +101,7 @@ arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {
  * arr: address of arr_t struct containing file_t pointers to free
  */
 void free_arr_list(arr_t* arr) {
-	// Check for valid arguments
-	if (arr == NULL) {
-		perror("free_arr_list: Invalid arguments");
-		exit(1);
-	}
+	assert(arr != NULL && "invalid args");
 	
 	if (arr->size > 0) {
 		file_t** list = arr->list;
@@ -132,11 +122,7 @@ void free_arr_list(arr_t* arr) {
  * arr: address of arr_t struct containing file_t pointers to free
  */
 void free_arr(arr_t* arr) {
-	// Check for valid arguments
-	if (arr == NULL) {
-		perror("free_arr: Invalid arguments");
-		exit(1);
-	}
+	assert(arr != NULL && "invalid args");
 	
 	free_arr_list(arr);
 	free(arr->list);
@@ -178,19 +164,9 @@ void arr_rshift(int32_t start, int32_t end, arr_t* arr) {
  * returns: index on success
  */
 int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {
-	// Check for valid arguments
-	if (file == NULL || arr == NULL || index < 0 || index > arr->size) {
-		perror("list_insert: Invalid arguments");
-		exit(1);
-	}
-	if (index < 0 || index > arr->size) {
-		perror("list_insert: Invalid index");
-		exit(1);
-	}
-	if (arr->size >= arr->capacity) {
-		perror("list_insert: List full");
-		exit(1);
-	}
+	assert(file != NULL && arr != NULL && index >= 0 &&
+	       index <= arr->size && "invalid args");
+	assert(arr->size < arr->capacity && "array full");
 	
 	// Shift elements to the right (higher index) if required
 	if (index < arr->size) {
@@ -224,11 +200,7 @@ int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {
  * 			if insert == 0 => file index on success, -1 if file not found
  */
 int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
-	// Check for valid arguments
-	if (file == NULL || arr == NULL) {
-		perror("arr_get_index: Invalid arguments");
-		exit(1);
-	}
+	assert(file != NULL && arr != NULL && "invalid args");
 	
 	// Cases when array is empty
 	if (arr->size == 0) {
@@ -303,15 +275,8 @@ int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {
  * returns: index on success, -1 if file exists
  */
 int32_t arr_insert_s(file_t* file, arr_t* arr) {
-	// Check for valid arguments
-	if (file == NULL || arr == NULL) {
-		perror("arr_insert_s: Invalid arguments");
-		exit(1);
-	}
-	if (arr->size >= arr->capacity) {
-		perror("list_insert: List full");
-		exit(1);
-	}
+	assert(file != NULL && arr != NULL && "invalid args");
+	assert(arr->size < arr->capacity && "array full");
 	
 	// Find insertion index
 	int32_t index = arr_get_index(file, arr, 1);
@@ -358,19 +323,8 @@ void arr_lshift(int32_t start, int32_t end, arr_t* arr) {
  * returns: file_t pointer removed on success
  */
 file_t* arr_remove(int32_t index, arr_t* arr) {
-	// Check for valid arguments
-	if (arr == NULL || index < 0 || index >= arr->size) {
-		perror("list_remove: Invalid arguments");
-		exit(1);
-	}
-	if (index < 0 || index >= arr->size) {
-		perror("list_remove: Invalid index");
-		exit(1);
-	}
-	if (arr->size <= 0) {
-		perror("list_insert: List empty");
-		exit(1);
-	}
+	assert(arr != NULL && index >= 0 && index < arr->size && "invalid args");
+	assert(arr->size > 0 && "array empty");
 	
 	// Retrieve file_t* from array
 	file_t* f = arr_get(index, arr);
@@ -401,11 +355,7 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
  * 			NULL if file not found or invalid key
  */
 file_t* arr_remove_s(file_t* key, arr_t* arr) {
-	// Check for valid arguments
-	if (key == NULL || arr == NULL) {
-		perror("arr_remove_s: Invalid arguments");
-		exit(1);
-	}
+	assert(key != NULL && arr != NULL && "invalid args");
 
 	// Check for valid key value
 	if ((arr->type == OFFSET && (key->offset < 0 ||
@@ -437,11 +387,7 @@ file_t* arr_remove_s(file_t* key, arr_t* arr) {
  * arr: address of arr_t struct containing a list of file_t pointers
  */
 file_t* arr_get(int32_t index, arr_t* arr) {
-	// Check for valid arguments
-	if (index < 0 || arr == NULL || index >= arr->size) {
-		perror("arr_get: Invalid arguments");
-		exit(1);
-	}
+	assert(index >= 0 && arr != NULL && index < arr->size && "invalid args");
 
 	return arr->list[index];
 }
@@ -458,11 +404,7 @@ file_t* arr_get(int32_t index, arr_t* arr) {
  * 			NULL if file not found or invalid key
  */
 file_t* arr_get_s(file_t* key, arr_t* arr) {
-	// Check for valid arguments
-	if (key == NULL || arr == NULL) {
-		perror("arr_get_s: Invalid arguments");
-		exit(1);
-	}
+	assert(key != NULL && arr != NULL && "invalid args");
 	
 	// Check for valid key value
 	if ((arr->type == OFFSET && (key->offset < 0 ||
