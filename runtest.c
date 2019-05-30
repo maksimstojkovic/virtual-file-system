@@ -13,11 +13,13 @@
 #include "arr.h"
 #include "myfilesystem.h"
 
+// Macro for running test functions
 #define TEST(x) test(x, #x)
 
-#define LEN_F1 1024
-#define LEN_F2 720
-#define LEN_F3 112
+// Defined file length values
+#define F1_LEN (1024) // file_data length
+#define F2_LEN (720) // dir_table length
+#define F3_LEN (112) // hash_data length
 
 // Static filesystem filenames and file descriptors
 static char* f1 = "file_data.bin";
@@ -53,9 +55,9 @@ void test(int (*test_function) (), char * function_name) {
  * Used at the beginning of tests to ensure files are blank
  */
 void gen_blank_files() {
-	pwrite_null_byte(file_fd, 0, LEN_F1);
-	pwrite_null_byte(dir_fd, 0, LEN_F2);
-	pwrite_null_byte(hash_fd, 0, LEN_F3);
+	pwrite_null_byte(file_fd, 0, F1_LEN);
+	pwrite_null_byte(dir_fd, 0, F2_LEN);
+	pwrite_null_byte(hash_fd, 0, F3_LEN);
 }
 
 /*
@@ -89,8 +91,8 @@ int test_helper_error_handling() {
 // Test initialising and freeing array for memory leaks
 int test_array_empty() {
 	filesys_t* fs = malloc(sizeof(*fs));
-	arr_t* o_list = arr_init(LEN_F2 / META_LEN, OFFSET, fs);
-	arr_t* n_list = arr_init(LEN_F2 / META_LEN, NAME, fs);
+	arr_t* o_list = arr_init(F2_LEN / META_LEN, OFFSET, fs);
+	arr_t* n_list = arr_init(F2_LEN / META_LEN, NAME, fs);
 	free_arr(o_list);
 	free_arr(n_list);
 	free(fs);
@@ -408,13 +410,13 @@ int test_resize_file_success() {
 	       !resize_file("test1.txt", 100, fs) &&
 		   !resize_file("test2.txt", 100, fs) &&
 
-		   // File with offset != 0 and length == 0
+		   // Resize to zero size file with offset != 0
 		   !resize_file("test2.txt", 0, fs) &&
 
 		   // Resize to file_data length
-		   !resize_file("test1.txt", LEN_F1, fs) && // Does not repack
+		   !resize_file("test1.txt", F1_LEN, fs) && // Does not repack
 		   !resize_file("test1.txt", 0, fs) &&
-		   !resize_file("zero1.txt", LEN_F1, fs) &&
+		   !resize_file("zero1.txt", F1_LEN, fs) &&
 		   "resize failed");
 
 	// Check offset and length of files
@@ -435,7 +437,7 @@ int test_resize_file_success() {
 	// Casting used to compare only the first 4 bytes of uint64_t offset
 	assert((uint32_t)f[0].offset == 0 && f[0].length == 0 &&
 		   (uint32_t)f[1].offset == 100 && f[1].length == 0 &&
-		   (uint32_t)f[2].offset == 0 && f[2].length == LEN_F1 &&
+		   (uint32_t)f[2].offset == 0 && f[2].length == F1_LEN &&
 		   "incorrect dir_table values");
 
 	close_fs(fs);
@@ -595,7 +597,7 @@ int test_read_file_does_not_exist() {
 
 	char buff[50];
 	assert(read_file("complex.txt", 0, 10, buff, fs) == 1 &&
-	       "file read should not exists");
+	       "file read from does not exists");
 
 	close_fs(fs);
 	return 0;
@@ -609,7 +611,7 @@ int test_read_file_invalid_offset_count() {
 
 	char buff[50];
 	assert(read_file("basic.txt", 45, 10, buff, fs) == 2 &&
-		   "cannot read 10 bytes at offset 45 from beginning of file");
+		   "cannot read 10 bytes at offset 45");
 
 	close_fs(fs);
 	return 0;
@@ -641,9 +643,189 @@ int test_read_file_invalid_hash() {
 }
 
 int test_write_file_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("simple.txt", 950, fs) &&
+		   !create_file("impossible.txt", 10, fs) &&
+	       !create_file("basic.txt", 50, fs) &&
+		   !create_file("complex.txt", 5, fs) && "create failed");
+
+	// Delete simple.txt to create space in filesystem
+	assert(!delete_file("simple.txt", fs) && "delete failed");
+
+	char* write_buff = "content_to_write"; // String length of 16
+	char buff[17];
+
+	// Write 0 bytes
+	assert(!write_file("basic.txt", 0, 0, write_buff, fs) &&
+	       "zero byte write failed");
+
+	// Write 16 bytes within file bounds
+	assert(!write_file("basic.txt", 0, 16, write_buff, fs) && "write failed");
+
+	// Resize complex.txt to zero size file
+	assert(!resize_file("complex.txt", 0, fs) && "resize failed");
+
+	// Write 16 bytes, expanding file bounds and repacking
+	assert(!write_file("basic.txt", 50, 16, write_buff, fs) &&
+	       "write extend failed");
+
+	assert(!read_file("basic.txt", 0, 16, buff, fs) && "read failed");
+	buff[16] = '\0';
+
+	assert(strcmp(buff, write_buff) == 0 && "incorrect buffer content");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_write_file_does_not_exist() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("basic.txt", 50, fs) && "create failed");
+
+	assert(write_file("complex.txt", 0, 0, "write_content", fs) == 1 &&
+		   "file written to does not exist");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_write_file_invalid_offset() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("basic.txt", 50, fs) &&
+		   !create_file("complex.txt", 100, fs) && "create failed");
+
+	assert(write_file("complex.txt", 101, 13, "write_content", fs) == 2 &&
+		   "offset beyond end of file");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_write_file_no_space() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("basic.txt", 50, fs) &&
+		   !create_file("complex.txt", 100, fs) && "create failed");
+
+	// Write 1 byte over the maximum possible write size
+	assert(write_file("complex.txt", 100, (F1_LEN - 150) + 1,
+		   "write_content", fs) == 3 &&
+		   "no space in filesystem for write operation");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_file_size_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("big.txt", 50, fs) &&
+		   !create_file("bigger.txt", 100, fs) && "create failed");
+
+	assert(file_size("big.txt", fs) == 50 &&
+	       file_size("bigger.txt", fs) == 100 &&
+	       "incorrect file sizes");
+
+	// Resize and rename file before checking size again
+	assert(!resize_file("bigger.txt", 1, fs) &&
+	       !rename_file("bigger.txt", "tiny.txt", fs) &&
+	       file_size("tiny.txt", fs) == 1 &&
+	       "incorrect file size after resize and rename");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_file_size_does_not_exist() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	assert(!create_file("big.txt", 50, fs) && "create failed");
+
+	assert(file_size("massive.txt", fs) == -1 &&
+		   "file does not exist");
+
+	close_fs(fs);
+	return 0;
+}
+
+int test_fletcher_success() {
+	// 4 * sizeof(uint32_t) = 16 bytes for hashing
+	// Least significant byte of input[3] == 32 (0x20)
+	uint32_t input[4] = {1000, 5361, 112, 20256};
+	uint32_t sixteen_byte_expected[4] = {26729, 40563, 62758, 94314};
+	uint32_t thirteen_byte_expected[4] = {6505, 20339, 42534, 74090};
+
+	uint32_t sixteen_byte_actual[4] = {0};
+	uint32_t thirteen_byte_actual[4] = {0};
+
+	fletcher((uint8_t*)input, 16, (uint8_t*)sixteen_byte_actual);
+	fletcher((uint8_t*)input, 13, (uint8_t*)thirteen_byte_actual);
+
+	// Compare fletcher output with expected values
+	for (int i = 0; i < 4; ++i) {
+		assert(sixteen_byte_actual[i] == sixteen_byte_expected[i] &&
+			   "sixteen byte fletcher hash incorrect");
+
+		assert(thirteen_byte_actual[i] == thirteen_byte_expected[i] &&
+			   "thirteen byte fletcher hash incorrect");
+	}
 
 	return 0;
 }
+
+int test_compute_hash_tree_success() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	// Modify file_data using write_file and save root hash
+	assert(!create_file("full_length.txt", 0, fs) && "create failed");
+
+	char* write_buff = "content_to_write"; // String length of 16
+	for (int i = 0; i < F1_LEN; i += 16) {
+		assert(!write_file("full_length.txt", i, 16, write_buff, fs) &&
+		       "write failed");
+	}
+	
+	uint8_t root_hash_expected[HASH_LEN];
+	pread(hash_fd, root_hash_expected, HASH_LEN, 0);
+
+	close_fs(fs);
+
+	// Reset filesystem, pwrite to file_data and call compute_hash_tree
+	gen_blank_files();
+	fs = init_fs(f1, f2, f3, 1);
+
+	for (int i = 0; i < F1_LEN; i += 16) {
+		pwrite(file_fd, write_buff, 16, i);
+	}
+
+	compute_hash_tree(fs);
+
+	// Copy root hash and compare with expected
+	uint8_t root_hash_actual[HASH_LEN];
+	pread(hash_fd, root_hash_actual, HASH_LEN, 0);
+
+	for (int i = 0; i < HASH_LEN; ++i) {
+		assert(root_hash_actual[i] == root_hash_expected[i] &&
+		       "root hashes do not match");
+	}
+
+	close_fs(fs);
+	return 0;
+}
+
+/*
+ * Main Method
+ */
 
 int main(int argc, char * argv[]) {
 	error_count = 0;
@@ -669,7 +851,7 @@ int main(int argc, char * argv[]) {
 	TEST(test_array_get);
 	TEST(test_array_remove);
 
-	// Basic filesystem test
+	// Basic filesystem tests
 	TEST(test_no_operation);
 	TEST(test_init_close_error_handling);
 
@@ -702,20 +884,22 @@ int main(int argc, char * argv[]) {
 	TEST(test_read_file_invalid_offset_count);
 	TEST(test_read_file_invalid_hash);
 
-	// TODO
 	// write_file tests
 	TEST(test_write_file_success);
-//	TEST(test_write_file_does_not_exist);
-//	TEST(test_write_file_invalid_offset_count);
+	TEST(test_write_file_does_not_exist);
+	TEST(test_write_file_invalid_offset);
+	TEST(test_write_file_no_space);
 
-	// TODO
 	// file_size tests
+	TEST(test_file_size_success);
+	TEST(test_file_size_does_not_exist);
 
-	// TODO
 	// fletcher tests
+	TEST(test_fletcher_success);
 
 	// TODO
 	// compute_hash_tree tests
+	TEST(test_compute_hash_tree_success);
 
 	// TODO
 	// compute_hash_block tests

@@ -186,7 +186,6 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	file_t** o_list = fs->o_list->list;
 	int32_t size = fs->o_list->size;
 
-	// TODO: Add checks for zero size files
 	// Find offset of first non-zero size file
 	int32_t non_zero_file_index = -1;
 	uint64_t start_curr_file = 0;
@@ -330,7 +329,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 	
 	// Find suitable space in file_data if length increased
 	if (length > old_length) {
-		file_t** list = fs->o_list->list;
+		file_t** o_list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
 
 		//TODO: update to check for first non-zero size file
@@ -341,8 +340,8 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			
 			// Check for space at beginning of file_data and repack if
 			// necessary (zero size files have an initial offset of 0)
-			if (fs->used > 0 && size >= 2 && list[0]->length != 0 &&
-				list[0]->offset >= length) {
+			if (fs->used > 0 && size >= 2 && o_list[0]->length != 0 &&
+					o_list[0]->offset >= length) {
 				update_file_offset(0, file);
 			} else {
 				hash_offset = repack_helper(fs);
@@ -356,18 +355,44 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			
 		// Expansion of non-zero size files
 		} else {
-			//TODO: Worker
-			// Local variables for readability
-			int32_t is_last = file->o_index == size - 1;
-			int32_t next_is_zero_size =
-					!is_last && list[file->o_index + 1]->length == 0;
-			int32_t fit_curr_offset = !is_last && !next_is_zero_size &&
-					list[file->o_index + 1]->offset - file->offset >= length;
-			int32_t fit_last_offset = (is_last || next_is_zero_size)&&
-					fs->file_data_len - file->offset >= length;
+			// Check if current offset has sufficient space
+			int requires_repack = 0;
 
-			// Repack if insufficient space in current position
-			if (!(fit_curr_offset || fit_last_offset)) {
+			// Find next non-zero size file in array
+			int32_t non_zero_file_index = -1;
+			uint64_t start_curr_file = 0;
+			uint64_t curr_file_len = 0;
+			for (int32_t i = file->o_index + 1; i < size; ++i) {
+				start_curr_file = o_list[i]->offset;
+				curr_file_len = o_list[i]->length;
+
+				// Break if newly created zero size files encountered
+				if (start_curr_file >= MAX_FILE_DATA_LEN) {
+					break;
+				}
+
+				// Non-zero size file found
+				if (curr_file_len > 0) {
+					non_zero_file_index = i;
+
+					// Determine if insufficient space from next file
+					if (start_curr_file - file->offset < length) {
+						requires_repack = 1;
+					}
+
+					break;
+				}
+			}
+
+			// If no non-zero size file follows, check if insufficient space
+			// space from end of file_data
+			if (non_zero_file_index < 0 &&
+				fs->file_data_len - file->offset < length) {
+				requires_repack = 1;
+			}
+
+			// Repack if required
+			if (requires_repack) {
 				uint8_t* temp = salloc(sizeof(*temp) * copy);
 				memcpy(temp, fs->file + file->offset, copy);
 				
@@ -429,6 +454,9 @@ int resize_file(char * filename, size_t length, void * helper) {
 
 	if (length > old_length) {
 		write_null_byte(fs->file, f->offset + old_length, length - old_length);
+		if (hash_offset < 0) {
+			hash_offset = f->offset + old_length;
+		}
 	}
 
 	// Update hash_data if size increased
@@ -716,7 +744,6 @@ void fletcher(uint8_t * buf, size_t length, uint8_t * output) {
 	uint64_t c = 0;
 	uint64_t d = 0;
 	for (uint64_t i = 0; i < size; ++i) {
-		// TODO: MIN_ONE -> MINUS_ONE
 		a = (a + buff[i]) % MAX_FILE_DATA_LEN_MINUS_ONE;
 		b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;
 		c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;
