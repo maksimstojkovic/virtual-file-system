@@ -29,6 +29,7 @@
  * of uint32_t.
  */
 
+// TODO: Check _s method descriptions to ensure they are up to date
 
 /*
  * Compares the key field of file_t structs based on array type

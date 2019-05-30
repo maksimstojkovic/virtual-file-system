@@ -32,11 +32,17 @@ static int hash_fd;
 static int error_count;
 
 /*
+ * TODO: Insert brief description about how tests are interleaved
+ * 		 to test specific scenarios and maximise coverage
+ */
+
+/*
  * Helper Functions
  */
 
 /*
- * Function for running filesystem tests and printing return values
+ * Runs filesystem tests, prints return values and updates
+ * the global error_count
  */
 void test(int (*test_function) (), char * function_name) {
 	static long test_count = 1;
@@ -51,8 +57,8 @@ void test(int (*test_function) (), char * function_name) {
 }
 
 /*
- * Function for writing null bytes to filesystem files
- * Used at the beginning of tests to ensure files are blank
+ * Writes null bytes to file_data, dir_table and hash_data
+ * Used at the beginning of tests to ensure filesystem is reset
  */
 void gen_blank_files() {
 	pwrite_null_byte(file_fd, 0, F1_LEN);
@@ -64,17 +70,18 @@ void gen_blank_files() {
  * Filesystem Test Functions
  */
 
-// Helper function success test
+// Tests success
 int success() {
     return 0;
 }
 
-// Helper function failure test
+// Tests failure
 int failure() {
 	--error_count; // Decrement as failure is expected
     return 1;
 }
 
+// Tests myfilesystem helpers for invalid arguments
 int test_helper_error_handling() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -95,9 +102,9 @@ int test_helper_error_handling() {
 	return 0;
 }
 
-// Test initialising and freeing array for memory leaks
+// Tests initialising and freeing arrays for memory leaks
 int test_array_empty() {
-	filesys_t* fs = malloc(sizeof(*fs));
+	filesys_t* fs = salloc(sizeof(*fs));
 	arr_t* o_list = arr_init(F2_LEN / META_LEN, OFFSET, fs);
 	arr_t* n_list = arr_init(F2_LEN / META_LEN, NAME, fs);
 	free_arr(o_list);
@@ -106,7 +113,7 @@ int test_array_empty() {
 	return 0;
 }
 
-// Test sorted index insertion and right index shifting
+// Tests sorted array insertion
 int test_array_insert() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -145,7 +152,7 @@ int test_array_insert() {
 	return 0;
 }
 
-// Test get and sorted get from array
+// Tests retrieval of array elements by key
 int test_array_get() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -205,8 +212,7 @@ int test_array_get() {
 	return 0;
 }
 
-// Test sorted removal and left element shifting with normal
-// and zero size files
+// Tests removal of array elements by key
 int test_array_remove() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -263,7 +269,7 @@ int test_array_remove() {
 	return 0;
 }
 
-// Test initialising and closing filesystem for memory leaks
+// Tests initialising and closing filesystem for memory leaks
 int test_no_operation() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -271,8 +277,8 @@ int test_no_operation() {
 	return 0;
 }
 
-// Test reading in zero size files in init_fs and close_fs for
-// invalid arguments
+// Tests init_fs and close_fs for invalid argument handling and reading in
+// zero size files on initialisation
 int test_init_close_error_handling() {
 	// Pass NULL to close_fs
 	close_fs(NULL);
@@ -306,7 +312,7 @@ int test_init_close_error_handling() {
 	return 0;
 }
 
-// Test create_file with a single insertion
+// Tests create_file with repacking
 int test_create_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -330,7 +336,7 @@ int test_create_file_success() {
 	assert(new_file_offset(150, NULL, fs) == 870 &&
 	       "offset finder unexpectedly failed");
 
-	// Create and delete files to require another repack on create
+	// Create and delete files such that a repack is required for test5.txt
 	assert(!create_file("block.txt", 100, fs) &&
 	       !create_file("byte.txt", 1, fs) &&
 	       !delete_file("block.txt", fs) && "creating block gap failed");
@@ -342,8 +348,8 @@ int test_create_file_success() {
 	return 0;
 }
 
-// Create a file, and attempt to create another with the same name
-// Also test init_fs reading in existing files
+// Attempts to create a duplicate file with the same name, and tests
+// reading in existing files within init_fs
 int test_create_file_exists() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -365,6 +371,8 @@ int test_create_file_exists() {
 	return 0;
 }
 
+// Tests behaviour of filesystem when file_data's length is exceeded,
+// and when dir_table is completely filled with file entries
 int test_create_file_no_space() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -399,6 +407,8 @@ int test_create_file_no_space() {
 	return 0;
 }
 
+// Tests resizing files with repacking and compares dir_table
+// values with expected values
 int test_resize_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -464,6 +474,7 @@ int test_resize_file_success() {
 	return 0;
 }
 
+// Attempts to resize files that do not exist
 int test_resize_file_does_not_exist() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -473,12 +484,13 @@ int test_resize_file_does_not_exist() {
 		   "create failed");
 
 	assert(resize_file("test3.txt", 50, fs) == 1 &&
-		   "file being resized should not exist");
+		   "file being resized does not exist");
 
 	close_fs(fs);
 	return 0;
 }
 
+// Attempts to resize files to a size larger than the filesystem
 int test_resize_file_no_space() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -493,6 +505,7 @@ int test_resize_file_no_space() {
 	return 0;
 }
 
+// Tests filesystem repack with zero size files appended
 int test_repack_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -509,10 +522,13 @@ int test_repack_success() {
 
 	repack(fs);
 
+	// TODO: Check filenames in o_list
+
 	close_fs(fs);
 	return 0;
 }
 
+// Tests the deletion of existing file
 int test_delete_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -531,6 +547,7 @@ int test_delete_file_success() {
 	return 0;
 }
 
+// Attempts to delete files that do not exist
 int test_delete_file_does_not_exist() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -543,6 +560,7 @@ int test_delete_file_does_not_exist() {
 	return 0;
 }
 
+// Tests the renaming of existing files
 int test_rename_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -560,6 +578,7 @@ int test_rename_file_success() {
 	return 0;
 }
 
+// Attempts to rename files with conflicting name arguments
 int test_rename_file_name_conflicts() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -579,6 +598,7 @@ int test_rename_file_name_conflicts() {
 	return 0;
 }
 
+// Tests reading data from file_data
 int test_read_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -609,6 +629,7 @@ int test_read_file_success() {
 	return 0;
 }
 
+// Attempts to read from a file which does not exist
 int test_read_file_does_not_exist() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -623,6 +644,7 @@ int test_read_file_does_not_exist() {
 	return 0;
 }
 
+// Attempts to read a file using an invalid offset and count
 int test_read_file_invalid_offset_count() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -637,6 +659,7 @@ int test_read_file_invalid_offset_count() {
 	return 0;
 }
 
+// Attempts to read a file after hash_data has been externally modified
 int test_read_file_invalid_hash() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -662,6 +685,7 @@ int test_read_file_invalid_hash() {
 	return 0;
 }
 
+// Tests writing to file_data with repacking
 int test_write_file_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -700,6 +724,7 @@ int test_write_file_success() {
 	return 0;
 }
 
+// Attempts to write to a file which does not exist
 int test_write_file_does_not_exist() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -713,6 +738,7 @@ int test_write_file_does_not_exist() {
 	return 0;
 }
 
+// Attempts to write to a file using an invalid offset
 int test_write_file_invalid_offset() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -727,6 +753,7 @@ int test_write_file_invalid_offset() {
 	return 0;
 }
 
+// Attempts to perform a write which exceeds the capacity of file_data
 int test_write_file_no_space() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -743,6 +770,7 @@ int test_write_file_no_space() {
 	return 0;
 }
 
+// Tests the retrieval of file sizes
 int test_file_size_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -764,6 +792,7 @@ int test_file_size_success() {
 	return 0;
 }
 
+// Attempts to find the size of a file which does not exist
 int test_file_size_does_not_exist() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -777,6 +806,7 @@ int test_file_size_does_not_exist() {
 	return 0;
 }
 
+// Tests the fletcher hash function using expected and actual values
 int test_fletcher_success() {
 	// 4 * sizeof(uint32_t) = 16 bytes for hashing
 	// Least significant byte of input[3] == 32 (0x20)
@@ -802,6 +832,8 @@ int test_fletcher_success() {
 	return 0;
 }
 
+// Tests compute_hash_tree for consistency with compute_hash_block
+// using write_file calls and external writes to file_data
 int test_compute_hash_tree_success() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
@@ -827,6 +859,8 @@ int test_compute_hash_tree_success() {
 	for (int i = 0; i < F1_LEN; i += 16) {
 		pwrite(file_fd, write_buff, 16, i);
 	}
+	fsync(file_fd);
+	msync(fs->hash, fs->hash_data_len, MS_SYNC);
 
 	compute_hash_tree(fs);
 
@@ -875,7 +909,7 @@ int main(int argc, char * argv[]) {
 	TEST(test_no_operation);
 	TEST(test_init_close_error_handling);
 
-	// TODO: parallel cases for each? at least read and write
+	// TODO: parallel cases for each? at least read and write?
 
 	// create_file tests
 	TEST(test_create_file_success);
@@ -917,12 +951,11 @@ int main(int argc, char * argv[]) {
 	// fletcher tests
 	TEST(test_fletcher_success);
 
-	// TODO
 	// compute_hash_tree tests
 	TEST(test_compute_hash_tree_success);
 
-	// TODO
-	// compute_hash_block tests
+	// compute_hash_block is effectively tested by other test functions, being
+	// used in methods such as create_file, resize_file, repack and write.
 
 	printf("Total Errors: %d\n", error_count);
 
