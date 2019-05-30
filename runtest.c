@@ -76,6 +76,12 @@ int failure() {
 }
 
 int test_helper_error_handling() {
+	gen_blank_files();
+	filesys_t* fs = init_fs(f1, f2, f3, 1);
+
+	// Pass empty filesystem to repack_helper
+	assert(repack_helper(fs) == -1 && "repack_helper failed");
+
 	// Pass count == 0 to null byte writing helpers
 	assert(write_null_byte(NULL, 0, 0) == 0 &&
 	       pwrite_null_byte(file_fd, 0, 0) == 0 &&
@@ -85,6 +91,7 @@ int test_helper_error_handling() {
 	// Helper should return without assertion failure
 	compute_hash_block_range(0, 0, NULL);
 
+	close_fs(fs);
 	return 0;
 }
 
@@ -358,13 +365,13 @@ int test_create_file_exists() {
 	return 0;
 }
 
-// Test create_file with insufficient filesystem space
 int test_create_file_no_space() {
 	gen_blank_files();
 	filesys_t* fs = init_fs(f1, f2, f3, 1);
 
 	assert(!create_file("test1.txt", 50, fs) && "create failed");
 
+	// Create file larger than file_data
 	assert(create_file("test2.txt", 975, fs) == 2 &&
 	       "creating file too large for file_data should fail");
 
@@ -399,30 +406,34 @@ int test_resize_file_success() {
 	assert(!create_file("test1.txt", 50, fs) &&
 		   !create_file("test2.txt", 10, fs) &&
 		   !create_file("zero1.txt", 0, fs) &&
+		   !create_file("zero2.txt", 0, fs) &&
 		   "create failed");
 
-	assert(!resize_file("test2.txt", 50, fs) &&
+	assert(!resize_file("test2.txt", 50, fs) && "resize failed");
 
-	       // Resize to same size
-	       !resize_file("test1.txt", 50, fs) &&
+	// Resize to same size
+	assert(!resize_file("test1.txt", 50, fs) && "resize to same size failed");
 
-	       // Resize with repack
-	       !resize_file("test1.txt", 100, fs) &&
-		   !resize_file("test2.txt", 100, fs) &&
+	// Resize with repack
+	assert(!resize_file("test1.txt", 100, fs) &&
+		   !resize_file("test2.txt", 100, fs) && "resize repack failed");
 
-		   // Resize to zero size file with offset != 0
-		   !resize_file("test2.txt", 0, fs) &&
+	// Resize to zero size file with offset != 0
+	assert(!resize_file("test2.txt", 0, fs) &&
+	       "resize to zero size non-zero offset failed");
 
-		   // Resize to file_data length
-		   !resize_file("test1.txt", F1_LEN, fs) && // Does not repack
+	// Max size resize
+	assert(!resize_file("test1.txt", F1_LEN, fs) && // Does not repack
 		   !resize_file("test1.txt", 0, fs) &&
 		   !resize_file("zero1.txt", F1_LEN, fs) &&
-		   "resize failed");
+		   "resize to file_data length failed");
 
 	// Check offset and length of files
 	file_t f[3]; // file_t structs for test1.txt, text2.txt and zero1.txt
 	msync(fs->dir, fs->dir_table_len, MS_SYNC); // Ensure dir_table is synced
 	fsync(dir_fd);
+
+	// Read from dir_table
 	pread(dir_fd, &f[0].offset, sizeof(uint32_t), NAME_LEN);
 	pread(dir_fd, &f[0].length, sizeof(uint32_t), NAME_LEN + OFFSET_LEN);
 	pread(dir_fd, &f[1].offset, sizeof(uint32_t), META_LEN + NAME_LEN);
@@ -439,6 +450,15 @@ int test_resize_file_success() {
 		   (uint32_t)f[1].offset == 100 && f[1].length == 0 &&
 		   (uint32_t)f[2].offset == 0 && f[2].length == F1_LEN &&
 		   "incorrect dir_table values");
+
+	// Resize files to create a gap such that zero2.txt requires
+	// a repack on expansion
+	assert(!resize_file("zero1.txt", 10, fs) &&
+		   !resize_file("test1.txt", 50, fs) &&
+		   !resize_file("zero1.txt", 0, fs) &&
+		   !resize_file("zero2.txt", 20, fs) &&
+		   "resize from zero size with repack failed");
+
 
 	close_fs(fs);
 	return 0;

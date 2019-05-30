@@ -28,7 +28,7 @@
  * mutex was used for the synchronisation of the filesystem.
  */
 
-// TODO: Fix resize_helper boolean
+// TODO: Review resize_helper paths
 
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     // Allocate space for filesystem helper
@@ -326,26 +326,50 @@ int create_file(char * filename, size_t length, void * helper) {
 int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs) {
 	int64_t hash_offset = -1;
 	int64_t old_length = file->length;
-	
+
 	// Find suitable space in file_data if length increased
 	if (length > old_length) {
 		file_t** o_list = fs->o_list->list;
 		int32_t size = fs->o_list->size;
+		int64_t old_offset = file->offset;
 
-		//TODO: update to check for first non-zero size file
+		int requires_repack = 0;
+		int32_t non_zero_file_index = -1;
+		uint64_t start_curr_file = 0;
+		uint64_t curr_file_len = 0;
+
 		// Expansion of zero size files
-		if (old_length == 0) {
+		if (old_offset >= MAX_FILE_DATA_LEN) {
 			// Remove the file from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
-			
-			// Check for space at beginning of file_data and repack if
-			// necessary (zero size files have an initial offset of 0)
-			if (fs->used > 0 && size >= 2 && o_list[0]->length != 0 &&
-					o_list[0]->offset >= length) {
-				update_file_offset(0, file);
-			} else {
+			size = fs->o_list->size;
+
+			// Find first non-zero size file in file_data
+			for (int32_t i = 0; i < size; ++i) {
+				start_curr_file = o_list[i]->offset;
+				curr_file_len = o_list[i]->length;
+
+				// Break if newly created zero size files encountered
+				if (start_curr_file >= MAX_FILE_DATA_LEN) {
+					break;
+				}
+
+				// Non-zero size file found
+				if (curr_file_len > 0) {
+					// Determine if insufficient space from file
+					if (start_curr_file < length) {
+						requires_repack = 1;
+					}
+
+					break;
+				}
+			}
+
+			if (requires_repack) {
 				hash_offset = repack_helper(fs);
 				update_file_offset(fs->used, file);
+			} else {
+				update_file_offset(0, file);
 			}
 
 			update_dir_offset(file, fs);
@@ -355,13 +379,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			
 		// Expansion of non-zero size files
 		} else {
-			// Check if current offset has sufficient space
-			int requires_repack = 0;
-
 			// Find next non-zero size file in array
-			int32_t non_zero_file_index = -1;
-			uint64_t start_curr_file = 0;
-			uint64_t curr_file_len = 0;
 			for (int32_t i = file->o_index + 1; i < size; ++i) {
 				start_curr_file = o_list[i]->offset;
 				curr_file_len = o_list[i]->length;
@@ -454,15 +472,15 @@ int resize_file(char * filename, size_t length, void * helper) {
 
 	if (length > old_length) {
 		write_null_byte(fs->file, f->offset + old_length, length - old_length);
+
+		// Update hash_data based on whether repack occurred
+		if (hash_offset >= 0) {
+			compute_hash_block_range(hash_offset, f->offset + length - hash_offset, fs);
+		} else {
+			compute_hash_block_range(f->offset + old_length, length - old_length, fs);
+		}
 	}
 
-	// Update hash_data based on whether repack occurred
-	if (hash_offset >= 0) {
-		compute_hash_block_range(hash_offset, f->offset + length - hash_offset, fs);
-	} else {
-		compute_hash_block_range(f->offset + old_length, length - old_length, fs);
-	}
-	
 	msync(fs->file, fs->file_data_len, MS_ASYNC);
 	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
 	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
