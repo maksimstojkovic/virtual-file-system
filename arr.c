@@ -409,7 +409,7 @@ file_t* arr_remove_s(file_t* key, arr_t* arr) {
 
 	// Check for valid key value
 	if ((arr->type == OFFSET && (key->offset < 0 ||
-		key->offset >= arr->fs->len[0])) ||
+		key->offset >= arr->fs->file_data_len)) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
 		return NULL;
 	}
@@ -466,7 +466,7 @@ file_t* arr_get_s(file_t* key, arr_t* arr) {
 	
 	// Check for valid key value
 	if ((arr->type == OFFSET && (key->offset < 0 ||
-		key->offset >= arr->fs->len[0])) ||
+		key->offset >= arr->fs->file_data_len)) ||
 		(arr->type == NAME  && key->name[0] == '\0')) {
 		return NULL;
 	}
