@@ -454,14 +454,13 @@ int resize_file(char * filename, size_t length, void * helper) {
 
 	if (length > old_length) {
 		write_null_byte(fs->file, f->offset + old_length, length - old_length);
-		if (hash_offset < 0) {
-			hash_offset = f->offset + old_length;
-		}
 	}
 
-	// Update hash_data if size increased
+	// Update hash_data based on whether repack occurred
 	if (hash_offset >= 0) {
 		compute_hash_block_range(hash_offset, f->offset + length - hash_offset, fs);
+	} else {
+		compute_hash_block_range(f->offset + old_length, length - old_length, fs);
 	}
 	
 	msync(fs->file, fs->file_data_len, MS_ASYNC);
