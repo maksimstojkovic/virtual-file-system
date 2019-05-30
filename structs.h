@@ -10,8 +10,8 @@
  * Defined Values
  */
 
-#define MAX_FILE_DATA_LEN ((int64_t)4294967296)
-#define MAX_FILE_DATA_LEN_MIN_ONE (4294967295)
+#define MAX_FILE_DATA_LEN ((int64_t)4294967296)	// 2^32
+#define MAX_FILE_DATA_LEN_MIN_ONE (4294967295)	// 2^32 - 1
 #define BLOCK_LEN (256)
 
 #define MAX_NUM_FILES (65536)
@@ -55,7 +55,9 @@ typedef struct filesys_t {
 	uint8_t* file;			// Pointer to mmap of file_data
 	uint8_t* dir;			// Pointer to mmap of dir_table
 	uint8_t* hash;			// Pointer to mmap of hash_data
-	int64_t len[3]; 		// Length of file_data, dir_table and hash_data
+	int64_t file_data_len;	// Length of file_data
+	int64_t dir_table_len;	// Length of dir_table
+	int64_t hash_data_len;	// Length of hash_data
 	arr_t* o_list;			// Array of files sorted by offset
 	arr_t* n_list;			// Array of files sorted by name
 	int64_t used;			// Memory used in file_data

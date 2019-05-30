@@ -14,6 +14,8 @@
 #include "arr.h"
 #include "myfilesystem.h"
 
+// TODO: Change all perror checks to assert
+
 /*
  * Filesystem Implementation
  *
@@ -45,21 +47,23 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 	}
 
 	// Store file lengths in filesystem
-	struct stat s[3];
-	if (fstat(fs->file_fd, &s[0]) || fstat(fs->dir_fd, &s[1]) || fstat(fs->hash_fd, &s[2])) {
+	struct stat stat[3];
+	if (fstat(fs->file_fd, &stat[0]) ||
+		fstat(fs->dir_fd, &stat[1]) ||
+		fstat(fs->hash_fd, &stat[2])) {
 		perror("init_fs: Failed to get file lengths");
 		exit(1);
 	}
 
 	//TODO: Insert comment - comment about macros used for each?
-	FILE_DATA_LEN = s[0].st_size;
-	DIR_TABLE_LEN = s[1].st_size;
-	HASH_DATA_LEN = s[2].st_size;
+	fs->file_data_len = stat[0].st_size;
+	fs->dir_table_len = stat[1].st_size;
+	fs->hash_data_len = stat[2].st_size;
 	
 	// Map files to memory using mmap
-	fs->file = mmap(NULL, FILE_DATA_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
-	fs->dir = mmap(NULL, DIR_TABLE_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
-	fs->hash = mmap(NULL, HASH_DATA_LEN, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
+	fs->file = mmap(NULL, fs->file_data_len, PROT_READ | PROT_WRITE, MAP_SHARED, fs->file_fd, 0);
+	fs->dir = mmap(NULL, fs->dir_table_len, PROT_READ | PROT_WRITE, MAP_SHARED, fs->dir_fd, 0);
+	fs->hash = mmap(NULL, fs->hash_data_len, PROT_READ | PROT_WRITE, MAP_SHARED, fs->hash_fd, 0);
 	if (fs->file == MAP_FAILED || fs->dir == MAP_FAILED ||
 		fs->hash == MAP_FAILED) {
 		perror("init_fs: Failed to map files to memory");
@@ -68,13 +72,13 @@ void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
 
 	// Initialise filesystem variables
 	fs->nproc = n_processors;
-	fs->index_len = DIR_TABLE_LEN / META_LEN;
+	fs->index_len = fs->dir_table_len / META_LEN;
 	fs->index_count = 0;
 	fs->index = scalloc(sizeof(*fs->index) * fs->index_len);
 	fs->o_list = arr_init(fs->index_len, OFFSET, fs);
 	fs->n_list = arr_init(fs->index_len, NAME, fs);
 	fs->used = 0;
-	fs->tree_len = HASH_DATA_LEN / HASH_LEN;
+	fs->tree_len = fs->hash_data_len / HASH_LEN;
 	fs->leaf_offset = fs->tree_len / 2;
 	UNUSED(fs->nproc);
 
@@ -127,9 +131,9 @@ void close_fs(void * helper) {
 	
 	filesys_t* fs = (filesys_t*)helper;
 	
-	munmap(fs->file, FILE_DATA_LEN);
-	munmap(fs->dir, DIR_TABLE_LEN);
-	munmap(fs->hash, HASH_DATA_LEN);
+	munmap(fs->file, fs->file_data_len);
+	munmap(fs->dir, fs->dir_table_len);
+	munmap(fs->hash, fs->hash_data_len);
 	
 	close(fs->file_fd);
 	close(fs->dir_fd);
@@ -178,7 +182,7 @@ int32_t new_file_index(filesys_t* fs) {
  */
 uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	// Check for valid arguments
-	if (fs == NULL || length > FILE_DATA_LEN) {
+	if (fs == NULL || length > fs->file_data_len) {
 		perror("new_file_offset: Invalid arguments");
 		exit(1);
 	}
@@ -215,7 +219,7 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	// Check space between last element in offset list and end of file_data
 	uint64_t end_last_file =
 			o_list[size - 1]->offset + o_list[size - 1]->length;
-	if (FILE_DATA_LEN - end_last_file >= length) {
+	if (fs->file_data_len - end_last_file >= length) {
 		return end_last_file;
 	}
 	
@@ -228,7 +232,7 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	
 	// Check space at end of file_data
 	end_last_file = o_list[size - 1]->offset + o_list[size - 1]->length;
-	if (FILE_DATA_LEN - end_last_file >= length) {
+	if (fs->file_data_len - end_last_file >= length) {
 		return end_last_file;
 	}
 
@@ -250,7 +254,7 @@ int create_file(char * filename, size_t length, void * helper) {
 	}
 	
 	// Return 2 if insufficient space in file_data or dir_table
-	if (fs->used + length > FILE_DATA_LEN ||
+	if (fs->used + length > fs->file_data_len ||
 		fs->index_count >= fs->index_len) {
 		UNLOCK(&fs->lock);
 		return 2;
@@ -286,9 +290,9 @@ int create_file(char * filename, size_t length, void * helper) {
 		}
 	}
 	
-	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
-	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
-	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
+	msync(fs->file, fs->file_data_len, MS_ASYNC);
+	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
+	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 	return 0;
@@ -342,7 +346,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			int32_t fit_curr_offset = !is_last && !next_is_zero_size &&
 					list[file->o_index + 1]->offset - file->offset >= length;
 			int32_t fit_last_offset = (is_last || next_is_zero_size)&&
-					FILE_DATA_LEN - file->offset >= length;
+					fs->file_data_len - file->offset >= length;
 
 			// Repack if insufficient space in current position
 			if (!(fit_curr_offset || fit_last_offset)) {
@@ -403,7 +407,7 @@ int resize_file(char * filename, size_t length, void * helper) {
 	}
 	
 	// Return 2 if insufficient space in file_data
-	if (fs->used + (length - f->length) > FILE_DATA_LEN) {
+	if (fs->used + (length - f->length) > fs->file_data_len) {
 		UNLOCK(&fs->lock);
 		return 2;
 	}
@@ -426,9 +430,9 @@ int resize_file(char * filename, size_t length, void * helper) {
 		compute_hash_block_range(hash_offset, f->offset + length - hash_offset, fs);
 	}
 	
-	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
-	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
-	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
+	msync(fs->file, fs->file_data_len, MS_ASYNC);
+	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
+	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
 
 	UNLOCK(&fs->lock);
 	return 0;
@@ -515,9 +519,9 @@ void repack(void * helper) {
 		compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 	}
 	
-	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
-	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
-	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
+	msync(fs->file, fs->file_data_len, MS_ASYNC);
+	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
+	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 }
@@ -548,7 +552,7 @@ int delete_file(char * filename, void * helper) {
 	
 	free_file(f);
 	
-	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
+	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 	return 0;
@@ -572,7 +576,7 @@ int rename_file(char * oldname, char * newname, void * helper) {
 	update_file_name(newname, f);
 	update_dir_name(f, fs);
 	
-	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
+	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 	return 0;
@@ -635,7 +639,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	
 	// Return 3 if insufficient space in file_data
 	// TODO: Check for casting case
-	if (fs->used + ((int64_t)offset + count - f->length) > FILE_DATA_LEN) {
+	if (fs->used + ((int64_t)offset + count - f->length) > fs->file_data_len) {
 		UNLOCK(&fs->lock);
 		return 3;
 	}
@@ -661,9 +665,9 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 		compute_hash_block_range(f->offset + offset, count, fs);
 	}
 	
-	msync(fs->file, FILE_DATA_LEN, MS_ASYNC);
-	msync(fs->dir, DIR_TABLE_LEN, MS_ASYNC);
-	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
+	msync(fs->file, fs->file_data_len, MS_ASYNC);
+	msync(fs->dir, fs->dir_table_len, MS_ASYNC);
+	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 	return 0;
@@ -777,7 +781,7 @@ void compute_hash_tree(void * helper) {
 		}
 	}
 
-	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
+	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
 
 	UNLOCK(&fs->lock);
 }
@@ -835,7 +839,7 @@ void compute_hash_block(size_t block_offset, void * helper) {
 	
 	compute_hash_block_helper(block_offset, fs);
 	
-	msync(fs->hash, HASH_DATA_LEN, MS_ASYNC);
+	msync(fs->hash, fs->hash_data_len, MS_ASYNC);
 	
 	UNLOCK(&fs->lock);
 }

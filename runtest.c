@@ -395,7 +395,7 @@ int test_resize_file_success() {
 
 	// Check offset and length of files
 	file_t f[3]; // file_t structs for test1.txt, text2.txt and zero1.txt
-	msync(fs->dir, DIR_TABLE_LEN, MS_SYNC); // Ensure dir_table is synced
+	msync(fs->dir, fs->dir_table_len, MS_SYNC); // Ensure dir_table is synced
 	fsync(dir);
 	pread(dir, &f[0].offset, sizeof(uint32_t), NAME_LEN);
 	pread(dir, &f[0].length, sizeof(uint32_t), NAME_LEN + OFFSET_LEN);
@@ -470,7 +470,7 @@ int test_hash_verify_invalid() {
 	// Modify hash_data.bin and sync
 	pwrite(hash, "132", 3, 0);
 	fsync(hash);
-	msync(fs->hash, fs->len[2], MS_SYNC);
+	msync(fs->hash, fs->hash_data_len, MS_SYNC);
 
 	if (read_file("test1.txt", 0, 3, buff, fs) != 3) {
 		perror ("hash_verify_invalid: Read should fail");

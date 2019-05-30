@@ -7,12 +7,6 @@
  * Macros
  */
 
-// File length macros
-//TODO: change to fs->file_data_len, etc
-#define FILE_DATA_LEN (fs->len[0])
-#define DIR_TABLE_LEN (fs->len[1])
-#define HASH_DATA_LEN (fs->len[2])
-
 // Parent and children index macros
 #define p_index(n_index) ((((n_index)%2)==1)?((n_index)/2):(((n_index)/2)-1))
 #define lc_index(n_index) ((2*(n_index))+1)

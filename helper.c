@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 #include "structs.h"
 #include "helper.h"
@@ -17,10 +18,7 @@
  */
 void* salloc(size_t size) {
 	void* m = malloc(size);
-	if (m == NULL) {
-		perror("salloc: malloc failed");
-		exit(1);
-	}
+	assert(m != NULL && "malloc failed");
 	return m;
 }
 
