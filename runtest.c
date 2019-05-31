@@ -29,19 +29,20 @@ static int file_fd;
 static int dir_fd;
 static int hash_fd;
 
-static int error_count;
-
 /*
  * Filesystem Test Functions
  *
  * This file contains a series of tests for methods listed in the filesystem
  * specification, in addition to helper methods and data structures
- * implemented. The primary focus of these tests was to ensure methods produced
- * the correct output, whilst maximising code coverage through edge case
- * testing with zero size files. During testing, HTML coverage reports were
- * generated using the "lcov.sh" script (HTML reports available in
- * "cov/cov-html/index.html"). However, since lcov is not available on Ed,
- * "gcov.sh" can also be used to output results from gcov.
+ * implemented. Above each test is a short comment describing specific aspects
+ * of implementation which are tested.
+ *
+ * The primary focus of these tests was to ensure methods produced the correct
+ * output, whilst maximising code coverage through edge case testing with zero
+ * size files. During testing, HTML coverage reports were generated using the
+ * "lcov.sh" script (HTML reports available in "cov/cov-html/index.html").
+ * However, since lcov is not available on Ed, "gcov.sh" can also be used to
+ * output results from gcov.
  */
 
 /*
@@ -56,10 +57,9 @@ void test(int (*test_function) (), char * function_name) {
 	static long test_count = 1;
 	int ret = test_function();
 	if (ret == 0) {
-		printf("%3ld. Passed %s\n", test_count, function_name);
+		printf("%ld. Passed %s\n", test_count, function_name);
 	} else {
-		printf("%3ld. Failed %s returned %d\n", test_count, function_name, ret);
-		++error_count;
+		printf("%ld. Failed %s returned %d\n", test_count, function_name, ret);
 	}
 	++test_count;
 }
@@ -85,7 +85,6 @@ int success() {
 
 // Tests failure
 int failure() {
-	--error_count; // Decrement as failure is expected
     return 1;
 }
 
@@ -291,7 +290,7 @@ int test_init_close_error_handling() {
 	// Pass NULL to close_fs
 	close_fs(NULL);
 
-	//Create blank filesystem files and create a file of 0 length at offset 0
+	// Reset filesystem and create a file of 0 length at offset 0
 	gen_blank_files();
 	char* name = "zero_size_file";
 	pwrite(dir_fd, name, strlen(name), 0);
@@ -530,7 +529,16 @@ int test_repack_success() {
 
 	repack(fs);
 
-	// TODO: Check filenames in o_list
+	// Check internal file offset
+	file_t** o_list = fs->o_list->list;
+	assert(fs->o_list->size == 3 && "incorrect number of files");
+
+	assert(
+		strcmp(o_list[0]->name, "test2.txt") == 0 && o_list[0]->offset == 0 &&
+		strcmp(o_list[1]->name, "test4.txt") == 0 && o_list[1]->offset == 10 &&
+		strcmp(o_list[2]->name, "zero1.txt") == 0 &&
+		o_list[2]->offset == MAX_FILE_DATA_LEN && "incorrect file offsets"
+	);
 
 	close_fs(fs);
 	return 0;
@@ -895,8 +903,6 @@ int test_compute_hash_tree_success() {
  */
 
 int main(int argc, char * argv[]) {
-	error_count = 0;
-
 	// Create blank files for tests to use
 	file_fd = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	dir_fd = open(f2, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -906,75 +912,89 @@ int main(int argc, char * argv[]) {
 	gen_blank_files();
 
 	// Default tests
+	printf("Default Tests\n");
     TEST(success);
     TEST(failure);
 
     // Helper tests
+	printf("\nHelper Tests\n");
     TEST(test_helper_error_handling);
 
     // Array data structure tests
+	printf("\nArray Data Structure Tests\n");
 	TEST(test_array_empty);
 	TEST(test_array_insert);
 	TEST(test_array_get);
 	TEST(test_array_remove);
 
 	// Basic filesystem tests
+	printf("\nBasic Filesystem Tests\n");
 	TEST(test_no_operation);
 	TEST(test_init_close_error_handling);
 
 	// create_file tests
+	printf("\ncreate_file Tests\n");
 	TEST(test_create_file_success);
 	TEST(test_create_file_exists);
 	TEST(test_create_file_no_space);
 
 	// resize_file tests
+	printf("\nresize_file Tests\n");
 	TEST(test_resize_file_success);
 	TEST(test_resize_file_does_not_exist);
 	TEST(test_resize_file_no_space);
 
 	// repack tests
+	printf("\nrepack Tests\n");
 	TEST(test_repack_success);
 
 	// delete_file tests
+	printf("\ndelete_file Tests\n");
 	TEST(test_delete_file_success);
 	TEST(test_delete_file_does_not_exist);
 
 	// rename_file tests
+	printf("\nrename_file Tests\n");
 	TEST(test_rename_file_success);
 	TEST(test_rename_file_name_conflicts);
 
 	// read_file tests
+	printf("\nread_file Tests\n");
 	TEST(test_read_file_success);
 	TEST(test_read_file_does_not_exist);
 	TEST(test_read_file_invalid_offset_count);
 	TEST(test_read_file_invalid_hash);
 
 	// write_file tests
+	printf("\nwrite_file Tests\n");
 	TEST(test_write_file_success);
 	TEST(test_write_file_does_not_exist);
 	TEST(test_write_file_invalid_offset);
 	TEST(test_write_file_no_space);
 
 	// file_size tests
+	printf("\nfile_size Tests\n");
 	TEST(test_file_size_success);
 	TEST(test_file_size_does_not_exist);
 
 	// fletcher tests
+	printf("\nfletcher Tests\n");
 	TEST(test_fletcher_success);
 
 	// compute_hash_tree tests
+	printf("\ncompute_hash_tree Tests\n");
 	TEST(test_compute_hash_tree_success);
 
 	// compute_hash_block is effectively tested by other test functions, being
 	// used in methods such as create_file, resize_file, repack and write.
 
-	printf("Total Errors: %d\n", error_count);
+	printf("\nAll Tests Passed\n");
 
 	close(file_fd);
 	close(dir_fd);
 	close(hash_fd);
 
-    return error_count;
+    return 0;
 }
 
 
