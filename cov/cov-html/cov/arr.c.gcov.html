@@ -1,0 +1,502 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>LCOV - lcov.info - cov/arr.c</title>
+  <link rel="stylesheet" type="text/css" href="../gcov.css">
+</head>
+
+<body>
+
+  <table width="100%" border=0 cellspacing=0 cellpadding=0>
+    <tr><td class="title">LCOV - code coverage report</td></tr>
+    <tr><td class="ruler"><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+
+    <tr>
+      <td width="100%">
+        <table cellpadding=1 border=0 width="100%">
+          <tr>
+            <td width="10%" class="headerItem">Current view:</td>
+            <td width="35%" class="headerValue"><a href="../index.html">top level</a> - <a href="index.html">cov</a> - arr.c<span style="font-size: 80%;"> (source / <a href="arr.c.func-sort-c.html">functions</a>)</span></td>
+            <td width="5%"></td>
+            <td width="15%"></td>
+            <td width="10%" class="headerCovTableHead">Hit</td>
+            <td width="10%" class="headerCovTableHead">Total</td>
+            <td width="15%" class="headerCovTableHead">Coverage</td>
+          </tr>
+          <tr>
+            <td class="headerItem">Test:</td>
+            <td class="headerValue">lcov.info</td>
+            <td></td>
+            <td class="headerItem">Lines:</td>
+            <td class="headerCovTableEntry">142</td>
+            <td class="headerCovTableEntry">142</td>
+            <td class="headerCovTableEntryHi">100.0 %</td>
+          </tr>
+          <tr>
+            <td class="headerItem">Date:</td>
+            <td class="headerValue">2019-05-31 21:07:46</td>
+            <td></td>
+            <td class="headerItem">Functions:</td>
+            <td class="headerCovTableEntry">13</td>
+            <td class="headerCovTableEntry">13</td>
+            <td class="headerCovTableEntryHi">100.0 %</td>
+          </tr>
+          <tr><td><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr><td class="ruler"><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+  </table>
+
+  <table cellpadding=0 cellspacing=0 border=0>
+    <tr>
+      <td><br></td>
+    </tr>
+    <tr>
+      <td>
+<pre class="sourceHeading">          Line data    Source code</pre>
+<pre class="source">
+<a name="1"><span class="lineNum">       1 </span>            : #include &lt;stdio.h&gt;</a>
+<span class="lineNum">       2 </span>            : #include &lt;stdlib.h&gt;
+<span class="lineNum">       3 </span>            : #include &lt;string.h&gt;
+<span class="lineNum">       4 </span>            : #include &lt;assert.h&gt;
+<span class="lineNum">       5 </span>            : 
+<span class="lineNum">       6 </span>            : #include &quot;structs.h&quot;
+<span class="lineNum">       7 </span>            : #include &quot;helper.h&quot;
+<span class="lineNum">       8 </span>            : #include &quot;arr.h&quot;
+<span class="lineNum">       9 </span>            : 
+<span class="lineNum">      10 </span>            : /*
+<span class="lineNum">      11 </span>            :  * Implementation of an array that sorts file_t structs based on name or offset
+<span class="lineNum">      12 </span>            :  *
+<span class="lineNum">      13 </span>            :  * The purpose of this array was to improve the efficiency of common operations
+<span class="lineNum">      14 </span>            :  * such as finding a file by name, and performing a filesystem repack. An array
+<span class="lineNum">      15 </span>            :  * sorted by name allows a binary search algorithm to be used for both the
+<span class="lineNum">      16 </span>            :  * insertion of new files, and retrieval of existing files. Additionally, by
+<span class="lineNum">      17 </span>            :  * iterating over an array sorted by offset, repack can be streamlined, as
+<span class="lineNum">      18 </span>            :  * opposed to sorting files during each individual repack.
+<span class="lineNum">      19 </span>            :  *
+<span class="lineNum">      20 </span>            :  * Zero size files are assigned an offset equal to the maximum size of
+<span class="lineNum">      21 </span>            :  * file_data (2^32), as it allows all new zero size files to be appended to end
+<span class="lineNum">      22 </span>            :  * of the offset array, minimising the cost of create_file. Comparison of files
+<span class="lineNum">      23 </span>            :  * using a key accounts for the insertion of zero size files at the end of the
+<span class="lineNum">      24 </span>            :  * offset array, redirecting the binary search to lower indices.
+<span class="lineNum">      25 </span>            :  *
+<span class="lineNum">      26 </span>            :  * Although internally these files have an offset of 2^32, the offset update
+<span class="lineNum">      27 </span>            :  * helper for dir_table writes 0 to the dir_table file, as expected by the
+<span class="lineNum">      28 </span>            :  * filesystem specifications. To accommodate this, uint64_t is used instead
+<span class="lineNum">      29 </span>            :  * of uint32_t.
+<span class="lineNum">      30 </span>            :  */
+<span class="lineNum">      31 </span>            : 
+<span class="lineNum">      32 </span>            : /*
+<span class="lineNum">      33 </span>            :  * Compares the key field of file_t structs based on array type
+<span class="lineNum">      34 </span>            :  *
+<span class="lineNum">      35 </span>            :  * a: first file_t being compared
+<span class="lineNum">      36 </span>            :  * b: second file_t being compared
+<span class="lineNum">      37 </span>            :  * arr: address of array, used to determine array sorting type
+<span class="lineNum">      38 </span>            :  *
+<span class="lineNum">      39 </span>            :  * returns: -1, 0, or 1, representing the position of a relative to the
+<a name="40"><span class="lineNum">      40 </span>            :  *                      position of b</a>
+<span class="lineNum">      41 </span>            :  */
+<span class="lineNum">      42 </span><span class="lineCov">        393 : int32_t cmp_key(file_t* a, file_t* b, arr_t* arr) {</span>
+<span class="lineNum">      43 </span><span class="lineCov">        393 :         assert(a != NULL &amp;&amp; b != NULL &amp;&amp; arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">      44 </span>            :         
+<span class="lineNum">      45 </span><span class="lineCov">        393 :         if (arr-&gt;type == OFFSET) {</span>
+<span class="lineNum">      46 </span><span class="lineCov">         71 :                 if (a-&gt;offset &lt; b-&gt;offset) {</span>
+<span class="lineNum">      47 </span><span class="lineCov">         28 :                         return -1;</span>
+<span class="lineNum">      48 </span><span class="lineCov">         43 :                 } else if (a-&gt;offset &gt; b-&gt;offset) {</span>
+<span class="lineNum">      49 </span><span class="lineCov">         37 :                         return 1;</span>
+<span class="lineNum">      50 </span>            :                 } else {
+<span class="lineNum">      51 </span>            :                         // Check if file_t* b refers to a zero size file
+<span class="lineNum">      52 </span>            :                         // (zero size files should be found by name, not offset)
+<span class="lineNum">      53 </span><span class="lineCov">          6 :                         if (b-&gt;length &gt; 0) {</span>
+<span class="lineNum">      54 </span>            :                                 // Valid non-zero size file found
+<span class="lineNum">      55 </span><span class="lineCov">          3 :                                 return 0;</span>
+<span class="lineNum">      56 </span>            :                         } else {
+<span class="lineNum">      57 </span><span class="lineCov">          3 :                                 if (b-&gt;offset &gt;= MAX_FILE_DATA_LEN) {</span>
+<span class="lineNum">      58 </span>            :                                         // Redirect search to lower indices if encountering newly
+<span class="lineNum">      59 </span>            :                                         // created zero size file
+<span class="lineNum">      60 </span><span class="lineCov">          1 :                                         return -1;</span>
+<span class="lineNum">      61 </span>            :                                 } else {
+<span class="lineNum">      62 </span>            :                                         // Redirect search to higher indices if encountering file
+<span class="lineNum">      63 </span>            :                                         // resized to 0 bytes
+<span class="lineNum">      64 </span><span class="lineCov">          2 :                                         return 1;</span>
+<span class="lineNum">      65 </span>            :                                 }
+<span class="lineNum">      66 </span>            :                         }
+<span class="lineNum">      67 </span>            :                 }
+<span class="lineNum">      68 </span>            :         } else {
+<span class="lineNum">      69 </span>            :                 // Only compare the first 63 characters of names
+<span class="lineNum">      70 </span><span class="lineCov">        322 :                 return strncmp(a-&gt;name, b-&gt;name, NAME_LEN - 1);</span>
+<span class="lineNum">      71 </span>            :         }
+<span class="lineNum">      72 </span>            : }
+<span class="lineNum">      73 </span>            : 
+<span class="lineNum">      74 </span>            : /*
+<span class="lineNum">      75 </span>            :  * Initialises an array with the fixed capacity and type specified
+<span class="lineNum">      76 </span>            :  * A fixed capacity is used as the size of dir_table does not change over time
+<span class="lineNum">      77 </span>            :  *
+<span class="lineNum">      78 </span>            :  * capacity: maximum number of file_t struct pointers in array
+<span class="lineNum">      79 </span>            :  * type: whether the array should be sorted by offset or name
+<span class="lineNum">      80 </span>            :  *
+<span class="lineNum">      81 </span>            :  * returns: address of dynamically allocated arr_t struct representing
+<span class="lineNum">      82 </span>            :  *                      the array
+<a name="83"><span class="lineNum">      83 </span>            :  *                      See structs.h for more information about arr_t fields</a>
+<span class="lineNum">      84 </span>            :  */
+<span class="lineNum">      85 </span><span class="lineCov">         64 : arr_t* arr_init(int32_t capacity, TYPE type, filesys_t* fs) {</span>
+<span class="lineNum">      86 </span><span class="lineCov">         64 :         assert(capacity &gt;= 0 &amp;&amp; capacity &lt;= MAX_NUM_FILES &amp;&amp;</span>
+<span class="lineNum">      87 </span>            :               (type == OFFSET || type == NAME) &amp;&amp;
+<span class="lineNum">      88 </span>            :               fs != NULL &amp;&amp; &quot;invalid args&quot;);
+<span class="lineNum">      89 </span>            :         
+<span class="lineNum">      90 </span><span class="lineCov">         64 :         arr_t* arr = salloc(sizeof(*arr));</span>
+<span class="lineNum">      91 </span>            :         
+<span class="lineNum">      92 </span><span class="lineCov">         64 :         arr-&gt;size = 0;</span>
+<span class="lineNum">      93 </span><span class="lineCov">         64 :         arr-&gt;capacity = capacity;</span>
+<span class="lineNum">      94 </span><span class="lineCov">         64 :         arr-&gt;type = type;</span>
+<span class="lineNum">      95 </span><span class="lineCov">         64 :         arr-&gt;fs = fs;</span>
+<span class="lineNum">      96 </span><span class="lineCov">         64 :         arr-&gt;list = salloc(sizeof(*arr-&gt;list) * capacity);</span>
+<span class="lineNum">      97 </span>            :         
+<span class="lineNum">      98 </span><span class="lineCov">         64 :         return arr;</span>
+<span class="lineNum">      99 </span>            : }
+<span class="lineNum">     100 </span>            : 
+<span class="lineNum">     101 </span>            : /*
+<span class="lineNum">     102 </span>            :  * Frees file_t structs pointed to by the array
+<span class="lineNum">     103 </span>            :  *
+<a name="104"><span class="lineNum">     104 </span>            :  * arr: address of arr_t struct containing file_t pointers to free</a>
+<span class="lineNum">     105 </span>            :  */
+<span class="lineNum">     106 </span><span class="lineCov">         64 : void free_arr_list(arr_t* arr) {</span>
+<span class="lineNum">     107 </span><span class="lineCov">         64 :         assert(arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     108 </span>            :         
+<span class="lineNum">     109 </span><span class="lineCov">         64 :         if (arr-&gt;size &gt; 0) {</span>
+<span class="lineNum">     110 </span><span class="lineCov">         28 :                 file_t** list = arr-&gt;list;</span>
+<span class="lineNum">     111 </span><span class="lineCov">         97 :                 for (int32_t i = 0; i &lt; arr-&gt;size; ++i) {</span>
+<span class="lineNum">     112 </span><span class="lineCov">         69 :                         free_file(list[i]);</span>
+<span class="lineNum">     113 </span>            :                 }
+<span class="lineNum">     114 </span>            :                 
+<span class="lineNum">     115 </span>            :                 // Prevent double free
+<span class="lineNum">     116 </span><span class="lineCov">         28 :                 arr-&gt;fs-&gt;o_list-&gt;size = 0;</span>
+<span class="lineNum">     117 </span><span class="lineCov">         28 :                 arr-&gt;fs-&gt;n_list-&gt;size = 0;</span>
+<span class="lineNum">     118 </span>            :         }
+<span class="lineNum">     119 </span><span class="lineCov">         64 : }</span>
+<span class="lineNum">     120 </span>            : 
+<span class="lineNum">     121 </span>            : /*
+<span class="lineNum">     122 </span>            :  * Frees arr_t struct files and file_t structs pointed to in the list
+<span class="lineNum">     123 </span>            :  * of the array
+<span class="lineNum">     124 </span>            :  *
+<a name="125"><span class="lineNum">     125 </span>            :  * arr: address of arr_t struct containing file_t pointers to free</a>
+<span class="lineNum">     126 </span>            :  */
+<span class="lineNum">     127 </span><span class="lineCov">         64 : void free_arr(arr_t* arr) {</span>
+<span class="lineNum">     128 </span><span class="lineCov">         64 :         assert(arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     129 </span>            :         
+<span class="lineNum">     130 </span><span class="lineCov">         64 :         free_arr_list(arr);</span>
+<span class="lineNum">     131 </span><span class="lineCov">         64 :         free(arr-&gt;list);</span>
+<span class="lineNum">     132 </span><span class="lineCov">         64 :         free(arr);</span>
+<span class="lineNum">     133 </span><span class="lineCov">         64 : }</span>
+<span class="lineNum">     134 </span>            : 
+<span class="lineNum">     135 </span>            : /*
+<span class="lineNum">     136 </span>            :  * Increase the index of elements from start to end by 1, creating
+<span class="lineNum">     137 </span>            :  * space for insertion
+<span class="lineNum">     138 </span>            :  *
+<span class="lineNum">     139 </span>            :  * start: lowest array index being shifted
+<span class="lineNum">     140 </span>            :  * end: highest array index being shifted
+<a name="141"><span class="lineNum">     141 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers</a>
+<span class="lineNum">     142 </span>            :  */
+<span class="lineNum">     143 </span><span class="lineCov">         39 : void arr_rshift(int32_t start, int32_t end, arr_t* arr) {</span>
+<span class="lineNum">     144 </span><span class="lineCov">         39 :         TYPE type = arr-&gt;type;</span>
+<span class="lineNum">     145 </span><span class="lineCov">         39 :         file_t** list = arr-&gt;list;</span>
+<span class="lineNum">     146 </span>            :         
+<span class="lineNum">     147 </span>            :         // Iterate over array elements, incrementing the relevant
+<span class="lineNum">     148 </span>            :         // index and shifting pointers
+<span class="lineNum">     149 </span><span class="lineCov">        148 :         for (int32_t i = end; i &gt;= start; --i) {</span>
+<span class="lineNum">     150 </span><span class="lineCov">        109 :                 if (type == OFFSET) {</span>
+<span class="lineNum">     151 </span><span class="lineCov">         45 :                         ++list[i]-&gt;o_index;</span>
+<span class="lineNum">     152 </span>            :                 } else {
+<span class="lineNum">     153 </span><span class="lineCov">         64 :                         ++list[i]-&gt;n_index;</span>
+<span class="lineNum">     154 </span>            :                 }
+<span class="lineNum">     155 </span><span class="lineCov">        109 :                 list[i + 1] = list[i];</span>
+<span class="lineNum">     156 </span>            :         }
+<span class="lineNum">     157 </span><span class="lineCov">         39 : }</span>
+<span class="lineNum">     158 </span>            : 
+<span class="lineNum">     159 </span>            : /*
+<span class="lineNum">     160 </span>            :  * Inserts file_t pointer at index specified, ensuring that elements remain
+<span class="lineNum">     161 </span>            :  * adjacent after insertion
+<span class="lineNum">     162 </span>            :  *
+<span class="lineNum">     163 </span>            :  * index: position in array to insert file_t pointer
+<span class="lineNum">     164 </span>            :  * file: file_t pointer being inserted into the array
+<span class="lineNum">     165 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers
+<span class="lineNum">     166 </span>            :  *
+<a name="167"><span class="lineNum">     167 </span>            :  * returns: index on success</a>
+<span class="lineNum">     168 </span>            :  */
+<span class="lineNum">     169 </span><span class="lineCov">        160 : int32_t arr_insert(int32_t index, file_t* file, arr_t* arr) {</span>
+<span class="lineNum">     170 </span><span class="lineCov">        160 :         assert(file != NULL &amp;&amp; arr != NULL &amp;&amp; index &gt;= 0 &amp;&amp;</span>
+<span class="lineNum">     171 </span>            :                index &lt;= arr-&gt;size &amp;&amp; &quot;invalid args&quot;);
+<span class="lineNum">     172 </span><span class="lineCov">        160 :         assert(arr-&gt;size &lt; arr-&gt;capacity &amp;&amp; &quot;array full&quot;);</span>
+<span class="lineNum">     173 </span>            :         
+<span class="lineNum">     174 </span>            :         // Shift elements to the right (higher index) if required
+<span class="lineNum">     175 </span><span class="lineCov">        160 :         if (index &lt; arr-&gt;size) {</span>
+<span class="lineNum">     176 </span><span class="lineCov">         39 :                 arr_rshift(index, arr-&gt;size - 1, arr);</span>
+<span class="lineNum">     177 </span>            :         }
+<span class="lineNum">     178 </span>            :         
+<span class="lineNum">     179 </span>            :         // Update list and file_t variables
+<span class="lineNum">     180 </span><span class="lineCov">        160 :         arr-&gt;list[index] = file;</span>
+<span class="lineNum">     181 </span><span class="lineCov">        160 :         ++arr-&gt;size;</span>
+<span class="lineNum">     182 </span><span class="lineCov">        160 :         if (arr-&gt;type == OFFSET) {</span>
+<span class="lineNum">     183 </span><span class="lineCov">         83 :                 file-&gt;o_index = index;</span>
+<span class="lineNum">     184 </span>            :         } else {
+<span class="lineNum">     185 </span><span class="lineCov">         77 :                 file-&gt;n_index = index;</span>
+<span class="lineNum">     186 </span>            :         }
+<span class="lineNum">     187 </span>            :         
+<span class="lineNum">     188 </span><span class="lineCov">        160 :         return index;</span>
+<span class="lineNum">     189 </span>            : }
+<span class="lineNum">     190 </span>            : 
+<span class="lineNum">     191 </span>            : /*
+<span class="lineNum">     192 </span>            :  * Get index for insertion of a new file_t pointer, or for an existing element
+<span class="lineNum">     193 </span>            :  * Binary search is used to traverse the sorted array
+<span class="lineNum">     194 </span>            :  * Zero size files are appended to the end of offset arrays
+<span class="lineNum">     195 </span>            :  *
+<span class="lineNum">     196 </span>            :  * file: file_t struct with the appropriate field populated for the array
+<span class="lineNum">     197 </span>            :  *               (offset if offset sorted array, or name if name sorted array)
+<span class="lineNum">     198 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers
+<span class="lineNum">     199 </span>            :  * insert: whether the function should return an index for insertion, or the
+<span class="lineNum">     200 </span>            :  *                 index of an existing file_t
+<span class="lineNum">     201 </span>            :  *
+<span class="lineNum">     202 </span>            :  * returns: if insert != 0 =&gt; insertion index on success, -1 if file exists
+<a name="203"><span class="lineNum">     203 </span>            :  *                      if insert == 0 =&gt; file index on success, -1 if file not found</a>
+<span class="lineNum">     204 </span>            :  */
+<span class="lineNum">     205 </span><span class="lineCov">        346 : int32_t arr_get_index(file_t* file, arr_t* arr, int32_t insert) {</span>
+<span class="lineNum">     206 </span><span class="lineCov">        346 :         assert(file != NULL &amp;&amp; arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     207 </span>            :         
+<span class="lineNum">     208 </span>            :         // Cases when array is empty
+<span class="lineNum">     209 </span><span class="lineCov">        346 :         if (arr-&gt;size == 0) {</span>
+<span class="lineNum">     210 </span><span class="lineCov">         80 :                 if (insert) {</span>
+<span class="lineNum">     211 </span><span class="lineCov">         57 :                         return 0;</span>
+<span class="lineNum">     212 </span>            :                 } else {
+<span class="lineNum">     213 </span><span class="lineCov">         23 :                         return -1;</span>
+<span class="lineNum">     214 </span>            :                 }
+<span class="lineNum">     215 </span>            :         }
+<span class="lineNum">     216 </span>            :         
+<span class="lineNum">     217 </span>            :         // Append zero size_files to end of offset array
+<span class="lineNum">     218 </span><span class="lineCov">        266 :         if (insert &amp;&amp; arr-&gt;type == OFFSET &amp;&amp; file-&gt;length == 0) {</span>
+<span class="lineNum">     219 </span><span class="lineCov">         21 :                 return arr-&gt;size;</span>
+<span class="lineNum">     220 </span>            :         }
+<span class="lineNum">     221 </span>            :         
+<span class="lineNum">     222 </span><span class="lineCov">        245 :         int32_t size = arr-&gt;size;</span>
+<span class="lineNum">     223 </span><span class="lineCov">        245 :         file_t** list = arr-&gt;list;</span>
+<span class="lineNum">     224 </span>            :         
+<span class="lineNum">     225 </span>            :         // Index variables for low, high and middle index of binary search
+<span class="lineNum">     226 </span><span class="lineCov">        245 :         int32_t l = 0;</span>
+<span class="lineNum">     227 </span><span class="lineCov">        245 :         int32_t h = size - 1;</span>
+<span class="lineNum">     228 </span><span class="lineCov">        245 :         int32_t m = 0;</span>
+<span class="lineNum">     229 </span><span class="lineCov">        245 :         int32_t cmp = 0;</span>
+<span class="lineNum">     230 </span>            :         
+<span class="lineNum">     231 </span>            :         // Loop until file_t found, or low and high converge with the middle index
+<span class="lineNum">     232 </span>            :         while (1) {
+<span class="lineNum">     233 </span><span class="lineCov">        537 :                 m = (l + h) / 2;</span>
+<span class="lineNum">     234 </span><span class="lineCov">        391 :                 cmp = cmp_key(file, list[m], arr);</span>
+<span class="lineNum">     235 </span>            : 
+<span class="lineNum">     236 </span><span class="lineCov">        391 :                 if (cmp &lt; 0) {</span>
+<span class="lineNum">     237 </span>            :                         // Check for low and middle index convergence
+<span class="lineNum">     238 </span><span class="lineCov">         91 :                         if (l &gt;= m) {</span>
+<span class="lineNum">     239 </span><span class="lineCov">         39 :                                 if (insert) {</span>
+<span class="lineNum">     240 </span><span class="lineCov">         31 :                                         return m; // Insert at current index</span>
+<span class="lineNum">     241 </span>            :                                 } else {
+<span class="lineNum">     242 </span><span class="lineCov">          8 :                                         return -1; // File not found</span>
+<span class="lineNum">     243 </span>            :                                 }
+<span class="lineNum">     244 </span>            :                         }
+<span class="lineNum">     245 </span>            :                         
+<span class="lineNum">     246 </span>            :                         // Update high index for next iteration
+<span class="lineNum">     247 </span><span class="lineCov">         52 :                         h = m - 1;</span>
+<span class="lineNum">     248 </span>            :                         
+<span class="lineNum">     249 </span><span class="lineCov">        300 :                 } else if (cmp &gt; 0) {</span>
+<span class="lineNum">     250 </span>            :                         // Check for high and middle index convergence
+<span class="lineNum">     251 </span><span class="lineCov">        187 :                         if (h &lt;= m) {</span>
+<span class="lineNum">     252 </span><span class="lineCov">         93 :                                 if (insert) {</span>
+<span class="lineNum">     253 </span><span class="lineCov">         51 :                                         return m + 1; // Insert at next index</span>
+<span class="lineNum">     254 </span>            :                                 } else {
+<span class="lineNum">     255 </span><span class="lineCov">         42 :                                         return -1; // File not found</span>
+<span class="lineNum">     256 </span>            :                                 }
+<span class="lineNum">     257 </span>            :                         }
+<span class="lineNum">     258 </span>            :                         
+<span class="lineNum">     259 </span>            :                         // Update low index for next iteration
+<span class="lineNum">     260 </span><span class="lineCov">         94 :                         l = m + 1;</span>
+<span class="lineNum">     261 </span>            :                         
+<span class="lineNum">     262 </span>            :                 } else {
+<span class="lineNum">     263 </span><span class="lineCov">        113 :                         if (insert) {</span>
+<span class="lineNum">     264 </span><span class="lineCov">          2 :                                 return -1; // File exists</span>
+<span class="lineNum">     265 </span>            :                         } else {
+<span class="lineNum">     266 </span><span class="lineCov">        111 :                                 return m; // Return index of file found</span>
+<span class="lineNum">     267 </span>            :                         }
+<span class="lineNum">     268 </span>            :                 }
+<span class="lineNum">     269 </span>            :         }
+<span class="lineNum">     270 </span>            : }
+<span class="lineNum">     271 </span>            : 
+<span class="lineNum">     272 </span>            : /*
+<span class="lineNum">     273 </span>            :  * Sorted insertion of a file_t struct into an array
+<span class="lineNum">     274 </span>            :  *
+<span class="lineNum">     275 </span>            :  * file: address of file_t being inserted into the array
+<span class="lineNum">     276 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers
+<span class="lineNum">     277 </span>            :  *
+<a name="278"><span class="lineNum">     278 </span>            :  * returns: index on success, -1 if file exists</a>
+<span class="lineNum">     279 </span>            :  */
+<span class="lineNum">     280 </span><span class="lineCov">        162 : int32_t arr_sorted_insert(file_t* file, arr_t* arr) {</span>
+<span class="lineNum">     281 </span><span class="lineCov">        162 :         assert(file != NULL &amp;&amp; arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     282 </span><span class="lineCov">        162 :         assert(arr-&gt;size &lt; arr-&gt;capacity &amp;&amp; &quot;array full&quot;);</span>
+<span class="lineNum">     283 </span>            :         
+<span class="lineNum">     284 </span>            :         // Find insertion index
+<span class="lineNum">     285 </span><span class="lineCov">        162 :         int32_t index = arr_get_index(file, arr, 1);</span>
+<span class="lineNum">     286 </span><span class="lineCov">        162 :         if (index &lt; 0) {</span>
+<span class="lineNum">     287 </span><span class="lineCov">          2 :                 return -1; // File exists</span>
+<span class="lineNum">     288 </span>            :         }
+<span class="lineNum">     289 </span>            : 
+<span class="lineNum">     290 </span><span class="lineCov">        160 :         arr_insert(index, file, arr);</span>
+<span class="lineNum">     291 </span><span class="lineCov">        160 :         return index;</span>
+<span class="lineNum">     292 </span>            : }
+<span class="lineNum">     293 </span>            : 
+<span class="lineNum">     294 </span>            : /*
+<span class="lineNum">     295 </span>            :  * Decrease the index of elements from start to end by 1, overwriting the
+<span class="lineNum">     296 </span>            :  * address of a file_t pointer being removed
+<span class="lineNum">     297 </span>            :  *
+<span class="lineNum">     298 </span>            :  * start: lowest array index being shifted
+<span class="lineNum">     299 </span>            :  * end: highest array index being shifted
+<a name="300"><span class="lineNum">     300 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers</a>
+<span class="lineNum">     301 </span>            :  */
+<span class="lineNum">     302 </span><span class="lineCov">         19 : void arr_lshift(int32_t start, int32_t end, arr_t* arr) {</span>
+<span class="lineNum">     303 </span><span class="lineCov">         19 :         TYPE type = arr-&gt;type;</span>
+<span class="lineNum">     304 </span><span class="lineCov">         19 :         file_t** list = arr-&gt;list;</span>
+<span class="lineNum">     305 </span>            :         
+<span class="lineNum">     306 </span>            :         // Iterate over array elements, decrementing the relevant index
+<span class="lineNum">     307 </span>            :         // and shifting pointers
+<span class="lineNum">     308 </span><span class="lineCov">         69 :         for (int32_t i = start; i &lt;= end; ++i) {</span>
+<span class="lineNum">     309 </span><span class="lineCov">         50 :                 if (type == OFFSET) {</span>
+<span class="lineNum">     310 </span><span class="lineCov">         30 :                         --list[i]-&gt;o_index;</span>
+<span class="lineNum">     311 </span>            :                 } else {
+<span class="lineNum">     312 </span><span class="lineCov">         20 :                         --list[i]-&gt;n_index;</span>
+<span class="lineNum">     313 </span>            :                 }
+<span class="lineNum">     314 </span><span class="lineCov">         50 :                 list[i - 1] = list[i];</span>
+<span class="lineNum">     315 </span>            :         }
+<span class="lineNum">     316 </span><span class="lineCov">         19 : }</span>
+<span class="lineNum">     317 </span>            : 
+<span class="lineNum">     318 </span>            : /*
+<span class="lineNum">     319 </span>            :  * Removes file_t pointer at index specified, ensuring that elements remain
+<span class="lineNum">     320 </span>            :  * adjacent after removal
+<span class="lineNum">     321 </span>            :  * NO MEMORY IS FREED DURING THIS PROCESS
+<span class="lineNum">     322 </span>            :  *
+<span class="lineNum">     323 </span>            :  * index: position in array to insert file_t pointer
+<span class="lineNum">     324 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers
+<span class="lineNum">     325 </span>            :  *
+<a name="326"><span class="lineNum">     326 </span>            :  * returns: file_t pointer removed on success</a>
+<span class="lineNum">     327 </span>            :  */
+<span class="lineNum">     328 </span><span class="lineCov">         22 : file_t* arr_remove(int32_t index, arr_t* arr) {</span>
+<span class="lineNum">     329 </span><span class="lineCov">         22 :         assert(arr != NULL &amp;&amp; index &gt;= 0 &amp;&amp; index &lt; arr-&gt;size &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     330 </span><span class="lineCov">         22 :         assert(arr-&gt;size &gt; 0 &amp;&amp; &quot;array empty&quot;);</span>
+<span class="lineNum">     331 </span>            :         
+<span class="lineNum">     332 </span>            :         // Retrieve file_t* from array
+<span class="lineNum">     333 </span><span class="lineCov">         22 :         file_t* f = arr_get(index, arr);</span>
+<span class="lineNum">     334 </span>            :         
+<span class="lineNum">     335 </span>            :         // Shift elements to the left (lower index) if required
+<span class="lineNum">     336 </span><span class="lineCov">         22 :         if (index &lt; arr-&gt;size - 1) {</span>
+<span class="lineNum">     337 </span><span class="lineCov">         19 :                 arr_lshift(index + 1, arr-&gt;size - 1, arr);</span>
+<span class="lineNum">     338 </span>            :         }
+<span class="lineNum">     339 </span>            :         
+<span class="lineNum">     340 </span>            :         // Update list and file_t variables
+<span class="lineNum">     341 </span><span class="lineCov">         22 :         arr-&gt;size--;</span>
+<span class="lineNum">     342 </span><span class="lineCov">         22 :         if (arr-&gt;type == OFFSET) {</span>
+<span class="lineNum">     343 </span><span class="lineCov">         14 :                 f-&gt;o_index = -1;</span>
+<span class="lineNum">     344 </span>            :         } else {
+<span class="lineNum">     345 </span><span class="lineCov">          8 :                 f-&gt;n_index = -1;</span>
+<span class="lineNum">     346 </span>            :         }
+<span class="lineNum">     347 </span>            :         
+<span class="lineNum">     348 </span><span class="lineCov">         22 :         return f;</span>
+<span class="lineNum">     349 </span>            : }
+<span class="lineNum">     350 </span>            : 
+<span class="lineNum">     351 </span>            : /*
+<span class="lineNum">     352 </span>            :  * Removal of a file_t struct from an array using a key
+<span class="lineNum">     353 </span>            :  *
+<span class="lineNum">     354 </span>            :  * key: address of file_t with same key as file being removed
+<span class="lineNum">     355 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers
+<span class="lineNum">     356 </span>            :  *
+<span class="lineNum">     357 </span>            :  * returns: removed file_t* on success
+<a name="358"><span class="lineNum">     358 </span>            :  *                      NULL if file not found or invalid key</a>
+<span class="lineNum">     359 </span>            :  */
+<span class="lineNum">     360 </span><span class="lineCov">          5 : file_t* arr_remove_by_key(file_t* key, arr_t* arr) {</span>
+<span class="lineNum">     361 </span><span class="lineCov">          5 :         assert(key != NULL &amp;&amp; arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     362 </span>            : 
+<span class="lineNum">     363 </span>            :         // Check for valid key value
+<span class="lineNum">     364 </span><span class="lineCov">          8 :         if ((arr-&gt;type == OFFSET &amp;&amp; (key-&gt;offset &lt; 0 ||</span>
+<span class="lineNum">     365 </span><span class="lineCov">          7 :                 key-&gt;offset &gt;= arr-&gt;fs-&gt;file_data_len)) ||</span>
+<span class="lineNum">     366 </span><span class="lineCov">          6 :                 (arr-&gt;type == NAME  &amp;&amp; key-&gt;name[0] == '\0')) {</span>
+<span class="lineNum">     367 </span><span class="lineCov">          1 :                 return NULL;</span>
+<span class="lineNum">     368 </span>            :         }
+<span class="lineNum">     369 </span>            :         
+<span class="lineNum">     370 </span>            :         // Find file_t index in array (return NULL if file not found)
+<span class="lineNum">     371 </span><span class="lineCov">          4 :         file_t* f = arr_get_by_key(key, arr);</span>
+<span class="lineNum">     372 </span><span class="lineCov">          4 :         if (f == NULL) {</span>
+<span class="lineNum">     373 </span><span class="lineCov">          2 :                 return NULL;</span>
+<span class="lineNum">     374 </span>            :         }
+<span class="lineNum">     375 </span>            : 
+<span class="lineNum">     376 </span>            :         // Remove depending on type of array
+<span class="lineNum">     377 </span><span class="lineCov">          2 :         if (arr-&gt;type == OFFSET) {</span>
+<span class="lineNum">     378 </span><span class="lineCov">          1 :                 arr_remove(f-&gt;o_index, arr);</span>
+<span class="lineNum">     379 </span>            :         } else {
+<span class="lineNum">     380 </span><span class="lineCov">          1 :                 arr_remove(f-&gt;n_index, arr);</span>
+<span class="lineNum">     381 </span>            :         }
+<span class="lineNum">     382 </span>            :         
+<span class="lineNum">     383 </span><span class="lineCov">          2 :         return f;</span>
+<span class="lineNum">     384 </span>            : }
+<span class="lineNum">     385 </span>            : 
+<span class="lineNum">     386 </span>            : /*
+<span class="lineNum">     387 </span>            :  * Retrieves the file_t pointer at the given index of an array
+<span class="lineNum">     388 </span>            :  *
+<span class="lineNum">     389 </span>            :  * index: position of file_t* in array
+<a name="390"><span class="lineNum">     390 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers</a>
+<span class="lineNum">     391 </span>            :  */
+<span class="lineNum">     392 </span><span class="lineCov">        133 : file_t* arr_get(int32_t index, arr_t* arr) {</span>
+<span class="lineNum">     393 </span><span class="lineCov">        133 :         assert(index &gt;= 0 &amp;&amp; arr != NULL &amp;&amp; index &lt; arr-&gt;size &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     394 </span>            : 
+<span class="lineNum">     395 </span><span class="lineCov">        133 :         return arr-&gt;list[index];</span>
+<span class="lineNum">     396 </span>            : }
+<span class="lineNum">     397 </span>            : 
+<span class="lineNum">     398 </span>            : /*
+<span class="lineNum">     399 </span>            :  * Searches through the list of file_t pointers in an arr_t struct for an
+<span class="lineNum">     400 </span>            :  * element with a matching key value
+<span class="lineNum">     401 </span>            :  *
+<span class="lineNum">     402 </span>            :  * key: address of a file_t struct with the appropriate field for the array
+<span class="lineNum">     403 </span>            :  *              type populated
+<span class="lineNum">     404 </span>            :  * arr: address of arr_t struct containing a list of file_t pointers
+<span class="lineNum">     405 </span>            :  *
+<span class="lineNum">     406 </span>            :  * returns: file_t* of matching file in array on success
+<a name="407"><span class="lineNum">     407 </span>            :  *                      NULL if file not found or invalid key</a>
+<span class="lineNum">     408 </span>            :  */
+<span class="lineNum">     409 </span><span class="lineCov">        185 : file_t* arr_get_by_key(file_t* key, arr_t* arr) {</span>
+<span class="lineNum">     410 </span><span class="lineCov">        185 :         assert(key != NULL &amp;&amp; arr != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     411 </span>            :         
+<span class="lineNum">     412 </span>            :         // Check for valid key value
+<span class="lineNum">     413 </span><span class="lineCov">        190 :         if ((arr-&gt;type == OFFSET &amp;&amp; (key-&gt;offset &lt; 0 ||</span>
+<span class="lineNum">     414 </span><span class="lineCov">        189 :                 key-&gt;offset &gt;= arr-&gt;fs-&gt;file_data_len)) ||</span>
+<span class="lineNum">     415 </span><span class="lineCov">        364 :                 (arr-&gt;type == NAME  &amp;&amp; key-&gt;name[0] == '\0')) {</span>
+<span class="lineNum">     416 </span><span class="lineCov">          1 :                 return NULL;</span>
+<span class="lineNum">     417 </span>            :         }
+<span class="lineNum">     418 </span>            :         
+<span class="lineNum">     419 </span>            :         // Check if file exists (return NULL if file not found)
+<span class="lineNum">     420 </span><span class="lineCov">        184 :         int32_t index = arr_get_index(key, arr, 0);</span>
+<span class="lineNum">     421 </span><span class="lineCov">        184 :         if (index &lt; 0) {</span>
+<span class="lineNum">     422 </span><span class="lineCov">         73 :                 return NULL;</span>
+<span class="lineNum">     423 </span>            :         }
+<span class="lineNum">     424 </span>            :         
+<span class="lineNum">     425 </span><span class="lineCov">        111 :         return arr_get(index, arr);</span>
+<span class="lineNum">     426 </span>            : }
+</pre>
+      </td>
+    </tr>
+  </table>
+  <br>
+
+  <table width="100%" border=0 cellspacing=0 cellpadding=0>
+    <tr><td class="ruler"><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+    <tr><td class="versionInfo">Generated by: <a href="http://ltp.sourceforge.net/coverage/lcov.php" target="_parent">LCOV version 1.13</a></td></tr>
+  </table>
+  <br>
+
+</body>
+</html>

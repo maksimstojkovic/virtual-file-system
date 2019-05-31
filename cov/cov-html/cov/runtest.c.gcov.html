@@ -1,0 +1,1056 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>LCOV - lcov.info - cov/runtest.c</title>
+  <link rel="stylesheet" type="text/css" href="../gcov.css">
+</head>
+
+<body>
+
+  <table width="100%" border=0 cellspacing=0 cellpadding=0>
+    <tr><td class="title">LCOV - code coverage report</td></tr>
+    <tr><td class="ruler"><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+
+    <tr>
+      <td width="100%">
+        <table cellpadding=1 border=0 width="100%">
+          <tr>
+            <td width="10%" class="headerItem">Current view:</td>
+            <td width="35%" class="headerValue"><a href="../index.html">top level</a> - <a href="index.html">cov</a> - runtest.c<span style="font-size: 80%;"> (source / <a href="runtest.c.func-sort-c.html">functions</a>)</span></td>
+            <td width="5%"></td>
+            <td width="15%"></td>
+            <td width="10%" class="headerCovTableHead">Hit</td>
+            <td width="10%" class="headerCovTableHead">Total</td>
+            <td width="15%" class="headerCovTableHead">Coverage</td>
+          </tr>
+          <tr>
+            <td class="headerItem">Test:</td>
+            <td class="headerValue">lcov.info</td>
+            <td></td>
+            <td class="headerItem">Lines:</td>
+            <td class="headerCovTableEntry">427</td>
+            <td class="headerCovTableEntry">427</td>
+            <td class="headerCovTableEntryHi">100.0 %</td>
+          </tr>
+          <tr>
+            <td class="headerItem">Date:</td>
+            <td class="headerValue">2019-05-31 21:07:46</td>
+            <td></td>
+            <td class="headerItem">Functions:</td>
+            <td class="headerCovTableEntry">35</td>
+            <td class="headerCovTableEntry">35</td>
+            <td class="headerCovTableEntryHi">100.0 %</td>
+          </tr>
+          <tr><td><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr><td class="ruler"><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+  </table>
+
+  <table cellpadding=0 cellspacing=0 border=0>
+    <tr>
+      <td><br></td>
+    </tr>
+    <tr>
+      <td>
+<pre class="sourceHeading">          Line data    Source code</pre>
+<pre class="source">
+<a name="1"><span class="lineNum">       1 </span>            : #include &lt;stdio.h&gt;</a>
+<span class="lineNum">       2 </span>            : #include &lt;stdlib.h&gt;
+<span class="lineNum">       3 </span>            : #include &lt;string.h&gt;
+<span class="lineNum">       4 </span>            : #include &lt;sys/types.h&gt;
+<span class="lineNum">       5 </span>            : #include &lt;sys/stat.h&gt;
+<span class="lineNum">       6 </span>            : #include &lt;fcntl.h&gt;
+<span class="lineNum">       7 </span>            : #include &lt;unistd.h&gt;
+<span class="lineNum">       8 </span>            : #include &lt;sys/mman.h&gt;
+<span class="lineNum">       9 </span>            : #include &lt;assert.h&gt;
+<span class="lineNum">      10 </span>            : 
+<span class="lineNum">      11 </span>            : #include &quot;structs.h&quot;
+<span class="lineNum">      12 </span>            : #include &quot;helper.h&quot;
+<span class="lineNum">      13 </span>            : #include &quot;arr.h&quot;
+<span class="lineNum">      14 </span>            : #include &quot;myfilesystem.h&quot;
+<span class="lineNum">      15 </span>            : 
+<span class="lineNum">      16 </span>            : // Macro for running test functions
+<span class="lineNum">      17 </span>            : #define TEST(x) test(x, #x)
+<span class="lineNum">      18 </span>            : 
+<span class="lineNum">      19 </span>            : // Defined file length values
+<span class="lineNum">      20 </span>            : #define F1_LEN (1024) // file_data length
+<span class="lineNum">      21 </span>            : #define F2_LEN (720) // dir_table length
+<span class="lineNum">      22 </span>            : #define F3_LEN (112) // hash_data length
+<span class="lineNum">      23 </span>            : 
+<span class="lineNum">      24 </span>            : // Static filesystem filenames and file descriptors
+<span class="lineNum">      25 </span>            : static char* f1 = &quot;file_data.bin&quot;;
+<span class="lineNum">      26 </span>            : static char* f2 = &quot;directory_table.bin&quot;;
+<span class="lineNum">      27 </span>            : static char* f3 = &quot;hash_data.bin&quot;;
+<span class="lineNum">      28 </span>            : static int file_fd;
+<span class="lineNum">      29 </span>            : static int dir_fd;
+<span class="lineNum">      30 </span>            : static int hash_fd;
+<span class="lineNum">      31 </span>            : 
+<span class="lineNum">      32 </span>            : static int error_count;
+<span class="lineNum">      33 </span>            : 
+<span class="lineNum">      34 </span>            : /*
+<span class="lineNum">      35 </span>            :  * Filesystem Test Functions
+<span class="lineNum">      36 </span>            :  *
+<span class="lineNum">      37 </span>            :  * This file contains a series of tests for methods listed in the filesystem
+<span class="lineNum">      38 </span>            :  * specification, in addition to helper methods and data structures
+<span class="lineNum">      39 </span>            :  * implemented. The primary focus of these tests was to ensure methods produced
+<span class="lineNum">      40 </span>            :  * the correct output, whilst maximising code coverage through edge case
+<span class="lineNum">      41 </span>            :  * testing with zero size files. During testing, HTML coverage reports were
+<span class="lineNum">      42 </span>            :  * generated using the &quot;lcov.sh&quot; script (HTML reports available in
+<span class="lineNum">      43 </span>            :  * &quot;cov/cov-html/index.html&quot;). However, since lcov is not available on Ed,
+<span class="lineNum">      44 </span>            :  * &quot;gcov.sh&quot; can also be used to output results from gcov.
+<span class="lineNum">      45 </span>            :  */
+<span class="lineNum">      46 </span>            : 
+<span class="lineNum">      47 </span>            : /*
+<span class="lineNum">      48 </span>            :  * Helper Functions
+<span class="lineNum">      49 </span>            :  */
+<span class="lineNum">      50 </span>            : 
+<span class="lineNum">      51 </span>            : /*
+<span class="lineNum">      52 </span>            :  * Runs filesystem tests, prints return values and updates
+<a name="53"><span class="lineNum">      53 </span>            :  * the global error_count</a>
+<span class="lineNum">      54 </span>            :  */
+<span class="lineNum">      55 </span><span class="lineCov">         32 : void test(int (*test_function) (), char * function_name) {</span>
+<span class="lineNum">      56 </span>            :         static long test_count = 1;
+<span class="lineNum">      57 </span><span class="lineCov">         32 :         int ret = test_function();</span>
+<span class="lineNum">      58 </span><span class="lineCov">         32 :         if (ret == 0) {</span>
+<span class="lineNum">      59 </span><span class="lineCov">         31 :                 printf(&quot;%3ld. Passed %s\n&quot;, test_count, function_name);</span>
+<span class="lineNum">      60 </span>            :         } else {
+<span class="lineNum">      61 </span><span class="lineCov">          1 :                 printf(&quot;%3ld. Failed %s returned %d\n&quot;, test_count, function_name, ret);</span>
+<span class="lineNum">      62 </span><span class="lineCov">          1 :                 ++error_count;</span>
+<span class="lineNum">      63 </span>            :         }
+<span class="lineNum">      64 </span><span class="lineCov">         32 :         ++test_count;</span>
+<span class="lineNum">      65 </span><span class="lineCov">         32 : }</span>
+<span class="lineNum">      66 </span>            : 
+<span class="lineNum">      67 </span>            : /*
+<span class="lineNum">      68 </span>            :  * Writes null bytes to file_data, dir_table and hash_data
+<a name="69"><span class="lineNum">      69 </span>            :  * Used at the beginning of tests to ensure filesystem is reset</a>
+<span class="lineNum">      70 </span>            :  */
+<span class="lineNum">      71 </span><span class="lineCov">         31 : void gen_blank_files() {</span>
+<span class="lineNum">      72 </span><span class="lineCov">         31 :         pwrite_null_byte(file_fd, 0, F1_LEN);</span>
+<span class="lineNum">      73 </span><span class="lineCov">         31 :         pwrite_null_byte(dir_fd, 0, F2_LEN);</span>
+<span class="lineNum">      74 </span><span class="lineCov">         31 :         pwrite_null_byte(hash_fd, 0, F3_LEN);</span>
+<span class="lineNum">      75 </span><span class="lineCov">         31 : }</span>
+<span class="lineNum">      76 </span>            : 
+<span class="lineNum">      77 </span>            : /*
+<span class="lineNum">      78 </span>            :  * Filesystem Test Functions
+<span class="lineNum">      79 </span>            :  */
+<a name="80"><span class="lineNum">      80 </span>            : </a>
+<span class="lineNum">      81 </span>            : // Tests success
+<span class="lineNum">      82 </span><span class="lineCov">          1 : int success() {</span>
+<span class="lineNum">      83 </span><span class="lineCov">          1 :     return 0;</span>
+<span class="lineNum">      84 </span>            : }
+<a name="85"><span class="lineNum">      85 </span>            : </a>
+<span class="lineNum">      86 </span>            : // Tests failure
+<span class="lineNum">      87 </span><span class="lineCov">          1 : int failure() {</span>
+<span class="lineNum">      88 </span><span class="lineCov">          1 :         --error_count; // Decrement as failure is expected</span>
+<span class="lineNum">      89 </span><span class="lineCov">          1 :     return 1;</span>
+<span class="lineNum">      90 </span>            : }
+<a name="91"><span class="lineNum">      91 </span>            : </a>
+<span class="lineNum">      92 </span>            : // Tests myfilesystem helpers for invalid arguments
+<span class="lineNum">      93 </span><span class="lineCov">          1 : int test_helper_error_handling() {</span>
+<span class="lineNum">      94 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">      95 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">      96 </span>            : 
+<span class="lineNum">      97 </span>            :         // Pass empty filesystem to repack_helper
+<span class="lineNum">      98 </span><span class="lineCov">          1 :         assert(repack_helper(fs) == -1 &amp;&amp; &quot;repack_helper failed&quot;);</span>
+<span class="lineNum">      99 </span>            : 
+<span class="lineNum">     100 </span>            :         // Pass count == 0 to null byte writing helpers
+<span class="lineNum">     101 </span><span class="lineCov">          1 :         assert(write_null_byte(NULL, 0, 0) == 0 &amp;&amp;</span>
+<span class="lineNum">     102 </span>            :                pwrite_null_byte(file_fd, 0, 0) == 0 &amp;&amp;
+<span class="lineNum">     103 </span>            :                &quot;null byte helpers should return 0 bytes written&quot;);
+<span class="lineNum">     104 </span>            : 
+<span class="lineNum">     105 </span>            :         // Pass length == 0 to compute_hash_block_range
+<span class="lineNum">     106 </span>            :         // Helper should return without assertion failure
+<span class="lineNum">     107 </span><span class="lineCov">          1 :         compute_hash_block_range(0, 0, NULL);</span>
+<span class="lineNum">     108 </span>            : 
+<span class="lineNum">     109 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     110 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     111 </span>            : }
+<a name="112"><span class="lineNum">     112 </span>            : </a>
+<span class="lineNum">     113 </span>            : // Tests initialising and freeing arrays for memory leaks
+<span class="lineNum">     114 </span><span class="lineCov">          1 : int test_array_empty() {</span>
+<span class="lineNum">     115 </span><span class="lineCov">          1 :         filesys_t* fs = salloc(sizeof(*fs));</span>
+<span class="lineNum">     116 </span><span class="lineCov">          1 :         arr_t* o_list = arr_init(F2_LEN / META_LEN, OFFSET, fs);</span>
+<span class="lineNum">     117 </span><span class="lineCov">          1 :         arr_t* n_list = arr_init(F2_LEN / META_LEN, NAME, fs);</span>
+<span class="lineNum">     118 </span><span class="lineCov">          1 :         free_arr(o_list);</span>
+<span class="lineNum">     119 </span><span class="lineCov">          1 :         free_arr(n_list);</span>
+<span class="lineNum">     120 </span><span class="lineCov">          1 :         free(fs);</span>
+<span class="lineNum">     121 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     122 </span>            : }
+<a name="123"><span class="lineNum">     123 </span>            : </a>
+<span class="lineNum">     124 </span>            : // Tests sorted array insertion
+<span class="lineNum">     125 </span><span class="lineCov">          1 : int test_array_insert() {</span>
+<span class="lineNum">     126 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     127 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     128 </span>            : 
+<span class="lineNum">     129 </span>            :         // Normal and zero size files
+<span class="lineNum">     130 </span><span class="lineCov">          1 :         file_t* f[4];</span>
+<span class="lineNum">     131 </span><span class="lineCov">          1 :         f[0] = file_init(&quot;zero.txt&quot;, new_file_offset(0, NULL, fs), 0, 3);</span>
+<span class="lineNum">     132 </span><span class="lineCov">          1 :         f[1] = file_init(&quot;test3.txt&quot;, 5, 10, 0);</span>
+<span class="lineNum">     133 </span><span class="lineCov">          1 :         f[2] = file_init(&quot;test2.txt&quot;, 0, 5, 2);</span>
+<span class="lineNum">     134 </span><span class="lineCov">          1 :         f[3] = file_init(&quot;test1.txt&quot;, 15, 10, 1);</span>
+<span class="lineNum">     135 </span>            : 
+<span class="lineNum">     136 </span>            :         // Expected order in offset and name arrays
+<span class="lineNum">     137 </span><span class="lineCov">          1 :         file_t* o_expect[4] = {f[2], f[1], f[3], f[0]};</span>
+<span class="lineNum">     138 </span><span class="lineCov">          1 :         file_t* n_expect[4] = {f[3], f[2], f[1], f[0]};</span>
+<span class="lineNum">     139 </span>            : 
+<span class="lineNum">     140 </span>            :         // Insert elements into arrays
+<span class="lineNum">     141 </span><span class="lineCov">          5 :         for (int i = 0; i &lt; 4; ++i) {</span>
+<span class="lineNum">     142 </span><span class="lineCov">          4 :                 arr_sorted_insert(f[i], fs-&gt;o_list);</span>
+<span class="lineNum">     143 </span><span class="lineCov">          4 :                 arr_sorted_insert(f[i], fs-&gt;n_list);</span>
+<span class="lineNum">     144 </span>            :         }
+<span class="lineNum">     145 </span>            : 
+<span class="lineNum">     146 </span>            :         // Try inserting duplicate file
+<span class="lineNum">     147 </span><span class="lineCov">          1 :         assert(arr_sorted_insert(f[3], fs-&gt;o_list) == -1 &amp;&amp;</span>
+<span class="lineNum">     148 </span>            :                arr_sorted_insert(f[3], fs-&gt;n_list) == -1 &amp;&amp;
+<span class="lineNum">     149 </span>            :                &quot;duplicate insertion should fail&quot;);
+<span class="lineNum">     150 </span>            : 
+<span class="lineNum">     151 </span>            :         // Compare offset and name lists with expected
+<span class="lineNum">     152 </span><span class="lineCov">          5 :         for (int i = 0; i &lt; 4; ++i) {</span>
+<span class="lineNum">     153 </span><span class="lineCov">          4 :                 assert(fs-&gt;o_list-&gt;list[i] == o_expect[i] &amp;&amp;</span>
+<span class="lineNum">     154 </span>            :                        &quot;offset list insertion order incorrect&quot;);
+<span class="lineNum">     155 </span><span class="lineCov">          4 :                 assert(fs-&gt;n_list-&gt;list[i] == n_expect[i] &amp;&amp;</span>
+<span class="lineNum">     156 </span>            :                            &quot;name list insertion order incorrect&quot;);
+<span class="lineNum">     157 </span>            :         }
+<span class="lineNum">     158 </span>            : 
+<span class="lineNum">     159 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     160 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     161 </span>            : }
+<a name="162"><span class="lineNum">     162 </span>            : </a>
+<span class="lineNum">     163 </span>            : // Tests retrieval of array elements by key
+<span class="lineNum">     164 </span><span class="lineCov">          1 : int test_array_get() {</span>
+<span class="lineNum">     165 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     166 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     167 </span>            : 
+<span class="lineNum">     168 </span>            :         // Test zero size files and normal files
+<span class="lineNum">     169 </span>            :         // Arbitrary ordering used for dir_table indices
+<span class="lineNum">     170 </span>            :         // Majority of zero size files used to test binary search handling
+<span class="lineNum">     171 </span><span class="lineCov">          1 :         file_t* f[7];</span>
+<span class="lineNum">     172 </span><span class="lineCov">          1 :         f[0] = file_init(&quot;zero4.txt&quot;, new_file_offset(0, NULL, fs), 0, 3);</span>
+<span class="lineNum">     173 </span><span class="lineCov">          1 :         f[1] = file_init(&quot;zero3.txt&quot;, new_file_offset(0, NULL, fs), 0, 4);</span>
+<span class="lineNum">     174 </span><span class="lineCov">          1 :         f[2] = file_init(&quot;zero2.txt&quot;, new_file_offset(0, NULL, fs), 0, 6);</span>
+<span class="lineNum">     175 </span><span class="lineCov">          1 :         f[3] = file_init(&quot;zero1.txt&quot;, new_file_offset(0, NULL, fs), 0, 5);</span>
+<span class="lineNum">     176 </span><span class="lineCov">          1 :         f[4] = file_init(&quot;f3.txt&quot;, 5, 10, 0);</span>
+<span class="lineNum">     177 </span><span class="lineCov">          1 :         f[5] = file_init(&quot;f2.txt&quot;, 0, 5, 2);</span>
+<span class="lineNum">     178 </span><span class="lineCov">          1 :         f[6] = file_init(&quot;f1.txt&quot;, 15, 10, 1);</span>
+<span class="lineNum">     179 </span>            : 
+<span class="lineNum">     180 </span><span class="lineCov">          1 :         file_t key[5];</span>
+<span class="lineNum">     181 </span><span class="lineCov">          1 :         update_file_offset(5, &amp;key[0]);</span>
+<span class="lineNum">     182 </span><span class="lineCov">          1 :         update_file_offset(20, &amp;key[1]);</span>
+<span class="lineNum">     183 </span><span class="lineCov">          1 :         update_file_offset(MAX_FILE_DATA_LEN, &amp;key[2]);</span>
+<span class="lineNum">     184 </span><span class="lineCov">          1 :         update_file_name(&quot;zero1.txt&quot;, &amp;key[3]);</span>
+<span class="lineNum">     185 </span><span class="lineCov">          1 :         update_file_name(&quot;nothing&quot;, &amp;key[4]);</span>
+<span class="lineNum">     186 </span>            : 
+<span class="lineNum">     187 </span>            :         // Insert elements into arrays
+<span class="lineNum">     188 </span><span class="lineCov">          8 :         for (int i = 0; i &lt; 7; ++i) {</span>
+<span class="lineNum">     189 </span><span class="lineCov">          7 :                 arr_sorted_insert(f[i], fs-&gt;o_list);</span>
+<span class="lineNum">     190 </span><span class="lineCov">          7 :                 arr_sorted_insert(f[i], fs-&gt;n_list);</span>
+<span class="lineNum">     191 </span>            :         }
+<span class="lineNum">     192 </span>            : 
+<span class="lineNum">     193 </span>            :         // Successful get operations
+<span class="lineNum">     194 </span><span class="lineCov">          1 :         assert(arr_get_by_key(&amp;key[0], fs-&gt;o_list) == f[4] &amp;&amp;</span>
+<span class="lineNum">     195 </span>            :                    arr_get_by_key(&amp;key[3], fs-&gt;n_list) == f[3] &amp;&amp;
+<span class="lineNum">     196 </span>            :                    &quot;incorrect file_t* retrieved&quot;);
+<span class="lineNum">     197 </span>            : 
+<span class="lineNum">     198 </span>            :         // File not found operations
+<span class="lineNum">     199 </span><span class="lineCov">          1 :         assert(arr_get_by_key(&amp;key[1], fs-&gt;o_list) == NULL &amp;&amp;</span>
+<span class="lineNum">     200 </span>            :                    arr_get_by_key(&amp;key[2], fs-&gt;o_list) == NULL &amp;&amp;
+<span class="lineNum">     201 </span>            :                    arr_get_by_key(&amp;key[4], fs-&gt;n_list) == NULL &amp;&amp;
+<span class="lineNum">     202 </span>            :                    &quot;file should not be found&quot;);
+<span class="lineNum">     203 </span>            : 
+<span class="lineNum">     204 </span>            :         // Test offset key value comparison for zero size files
+<span class="lineNum">     205 </span><span class="lineCov">          1 :         file_t file_a;</span>
+<span class="lineNum">     206 </span>            :         file_t* file_b;
+<span class="lineNum">     207 </span><span class="lineCov">          1 :         update_file_offset(MAX_FILE_DATA_LEN, &amp;file_a);</span>
+<span class="lineNum">     208 </span><span class="lineCov">          1 :         file_b = file_init(&quot;offset.txt&quot;, new_file_offset(0, NULL, fs), 0, 7);</span>
+<span class="lineNum">     209 </span>            : 
+<span class="lineNum">     210 </span><span class="lineCov">          1 :         assert(cmp_key(&amp;file_a, file_b, fs-&gt;o_list) == -1 &amp;&amp;</span>
+<span class="lineNum">     211 </span>            :                    &quot;newly created zero size file should redirect to lower indices&quot;);
+<span class="lineNum">     212 </span>            : 
+<span class="lineNum">     213 </span><span class="lineCov">          1 :         update_file_offset(50, &amp;file_a);</span>
+<span class="lineNum">     214 </span><span class="lineCov">          1 :         update_file_offset(50, file_b);</span>
+<span class="lineNum">     215 </span><span class="lineCov">          1 :         assert(cmp_key(&amp;file_a, file_b, fs-&gt;o_list) == 1 &amp;&amp;</span>
+<span class="lineNum">     216 </span>            :                    &quot;resized zero size file should redirect to higher indices&quot;);
+<span class="lineNum">     217 </span>            : 
+<span class="lineNum">     218 </span><span class="lineCov">          1 :         free(file_b);</span>
+<span class="lineNum">     219 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     220 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     221 </span>            : }
+<a name="222"><span class="lineNum">     222 </span>            : </a>
+<span class="lineNum">     223 </span>            : // Tests removal of array elements by key
+<span class="lineNum">     224 </span><span class="lineCov">          1 : int test_array_remove() {</span>
+<span class="lineNum">     225 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     226 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     227 </span><span class="lineCov">          1 :         file_t* f[5];</span>
+<span class="lineNum">     228 </span><span class="lineCov">          1 :         f[0] = file_init(&quot;test3.txt&quot;, 5, 10, 0);</span>
+<span class="lineNum">     229 </span><span class="lineCov">          1 :         f[1] = file_init(&quot;zero2.txt&quot;, new_file_offset(0, NULL, fs), 0, 3);</span>
+<span class="lineNum">     230 </span><span class="lineCov">          1 :         f[2] = file_init(&quot;zero1.txt&quot;, new_file_offset(0, NULL, fs), 0, 4);</span>
+<span class="lineNum">     231 </span><span class="lineCov">          1 :         f[3] = file_init(&quot;test2.txt&quot;, 0, 5, 2);</span>
+<span class="lineNum">     232 </span><span class="lineCov">          1 :         f[4] = file_init(&quot;test1.txt&quot;, 15, 10, 1);</span>
+<span class="lineNum">     233 </span>            : 
+<span class="lineNum">     234 </span><span class="lineCov">          1 :         file_t key[5];</span>
+<span class="lineNum">     235 </span><span class="lineCov">          1 :         update_file_offset(5, &amp;key[0]);</span>
+<span class="lineNum">     236 </span><span class="lineCov">          1 :         update_file_offset(20, &amp;key[1]);</span>
+<span class="lineNum">     237 </span><span class="lineCov">          1 :         update_file_offset(MAX_FILE_DATA_LEN, &amp;key[2]);</span>
+<span class="lineNum">     238 </span><span class="lineCov">          1 :         update_file_name(&quot;zero1.txt&quot;, &amp;key[3]);</span>
+<span class="lineNum">     239 </span><span class="lineCov">          1 :         update_file_name(&quot;nothing&quot;, &amp;key[4]);</span>
+<span class="lineNum">     240 </span>            : 
+<span class="lineNum">     241 </span><span class="lineCov">          1 :         file_t* o_expect[3] = {f[3], f[4], f[1]};</span>
+<span class="lineNum">     242 </span><span class="lineCov">          1 :         file_t* n_expect[3] = {f[4], f[3], f[1]};</span>
+<span class="lineNum">     243 </span>            : 
+<span class="lineNum">     244 </span>            :         // Insert elements into arrays
+<span class="lineNum">     245 </span><span class="lineCov">          6 :         for (int i = 0; i &lt; 5; ++i) {</span>
+<span class="lineNum">     246 </span><span class="lineCov">          5 :                 arr_sorted_insert(f[i], fs-&gt;o_list);</span>
+<span class="lineNum">     247 </span><span class="lineCov">          5 :                 arr_sorted_insert(f[i], fs-&gt;n_list);</span>
+<span class="lineNum">     248 </span>            :         }
+<span class="lineNum">     249 </span>            : 
+<span class="lineNum">     250 </span>            :         // Remove files using key file_t structs
+<span class="lineNum">     251 </span><span class="lineCov">          1 :         file_t* norm_f = arr_remove_by_key(&amp;key[0], fs-&gt;o_list);</span>
+<span class="lineNum">     252 </span><span class="lineCov">          1 :         file_t* zero_f = arr_remove_by_key(&amp;key[3], fs-&gt;n_list);</span>
+<span class="lineNum">     253 </span><span class="lineCov">          1 :         assert(norm_f == f[0] &amp;&amp; zero_f == f[2] &amp;&amp; &quot;removed incorrect files&quot;);</span>
+<span class="lineNum">     254 </span>            : 
+<span class="lineNum">     255 </span>            :         // Remove corresponding entry in opposing list
+<span class="lineNum">     256 </span><span class="lineCov">          1 :         assert(arr_remove(norm_f-&gt;n_index, fs-&gt;n_list) == norm_f &amp;&amp;</span>
+<span class="lineNum">     257 </span>            :                    arr_remove(zero_f-&gt;o_index, fs-&gt;o_list) == zero_f &amp;&amp;
+<span class="lineNum">     258 </span>            :                    &quot;failed to remove opposing list entry&quot;);
+<span class="lineNum">     259 </span>            : 
+<span class="lineNum">     260 </span>            :         // Attempt to remove files with invalid keys
+<span class="lineNum">     261 </span><span class="lineCov">          1 :         assert(arr_remove_by_key(&amp;key[1], fs-&gt;o_list) == NULL &amp;&amp;</span>
+<span class="lineNum">     262 </span>            :                    arr_remove_by_key(&amp;key[2], fs-&gt;o_list) == NULL &amp;&amp;
+<span class="lineNum">     263 </span>            :                    arr_remove_by_key(&amp;key[4], fs-&gt;n_list) == NULL &amp;&amp;
+<span class="lineNum">     264 </span>            :                    &quot;invalid keys should return NULL&quot;);
+<span class="lineNum">     265 </span>            : 
+<span class="lineNum">     266 </span>            :         // Compare offset and name lists with expected
+<span class="lineNum">     267 </span><span class="lineCov">          4 :         for (int i = 0; i &lt; 3; ++i) {</span>
+<span class="lineNum">     268 </span><span class="lineCov">          3 :                 assert(fs-&gt;o_list-&gt;list[i] == o_expect[i] &amp;&amp;</span>
+<span class="lineNum">     269 </span>            :                            &quot;incorrect offset order after removal&quot;);
+<span class="lineNum">     270 </span><span class="lineCov">          3 :                 assert(fs-&gt;n_list-&gt;list[i] == n_expect[i] &amp;&amp;</span>
+<span class="lineNum">     271 </span>            :                            &quot;incorrect name order after removal&quot;);
+<span class="lineNum">     272 </span>            :         }
+<span class="lineNum">     273 </span>            : 
+<span class="lineNum">     274 </span><span class="lineCov">          1 :         free(norm_f);</span>
+<span class="lineNum">     275 </span><span class="lineCov">          1 :         free(zero_f);</span>
+<span class="lineNum">     276 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     277 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     278 </span>            : }
+<a name="279"><span class="lineNum">     279 </span>            : </a>
+<span class="lineNum">     280 </span>            : // Tests initialising and closing filesystem for memory leaks
+<span class="lineNum">     281 </span><span class="lineCov">          1 : int test_no_operation() {</span>
+<span class="lineNum">     282 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     283 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     284 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     285 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     286 </span>            : }
+<span class="lineNum">     287 </span>            : 
+<a name="288"><span class="lineNum">     288 </span>            : // Tests init_fs and close_fs for invalid argument handling and reading in</a>
+<span class="lineNum">     289 </span>            : // zero size files on initialisation
+<span class="lineNum">     290 </span><span class="lineCov">          1 : int test_init_close_error_handling() {</span>
+<span class="lineNum">     291 </span>            :         // Pass NULL to close_fs
+<span class="lineNum">     292 </span><span class="lineCov">          1 :         close_fs(NULL);</span>
+<span class="lineNum">     293 </span>            : 
+<span class="lineNum">     294 </span>            :         //Create blank filesystem files and create a file of 0 length at offset 0
+<span class="lineNum">     295 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     296 </span><span class="lineCov">          1 :         char* name = &quot;zero_size_file&quot;;</span>
+<span class="lineNum">     297 </span><span class="lineCov">          1 :         pwrite(dir_fd, name, strlen(name), 0);</span>
+<span class="lineNum">     298 </span><span class="lineCov">          1 :         fsync(dir_fd);</span>
+<span class="lineNum">     299 </span>            : 
+<span class="lineNum">     300 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     301 </span>            : 
+<span class="lineNum">     302 </span>            :         // Read offset and length from dir_table
+<span class="lineNum">     303 </span><span class="lineCov">          1 :         file_t dir_table_file;</span>
+<span class="lineNum">     304 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;dir_table_file.offset, sizeof(uint32_t), NAME_LEN);</span>
+<span class="lineNum">     305 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;dir_table_file.length, sizeof(uint32_t),</span>
+<span class="lineNum">     306 </span>            :                         NAME_LEN + OFFSET_LEN);
+<span class="lineNum">     307 </span>            : 
+<span class="lineNum">     308 </span>            :         // Retrieve file from internal filesystem structure
+<span class="lineNum">     309 </span><span class="lineCov">          1 :         file_t key;</span>
+<span class="lineNum">     310 </span><span class="lineCov">          1 :         update_file_name(name, &amp;key);</span>
+<span class="lineNum">     311 </span><span class="lineCov">          1 :         file_t* internal_file = arr_get_by_key(&amp;key, fs-&gt;n_list);</span>
+<span class="lineNum">     312 </span>            : 
+<span class="lineNum">     313 </span>            :         // Casting used to compare only the first 4 bytes of uint64_t offset
+<span class="lineNum">     314 </span><span class="lineCov">          1 :         assert((uint32_t)(dir_table_file.offset) == 0 &amp;&amp;</span>
+<span class="lineNum">     315 </span>            :                dir_table_file.length == 0 &amp;&amp;
+<span class="lineNum">     316 </span>            :                    internal_file-&gt;offset == MAX_FILE_DATA_LEN &amp;&amp;
+<span class="lineNum">     317 </span>            :                    internal_file-&gt;length == 0 &amp;&amp; &quot;failed to read zero size file&quot;);
+<span class="lineNum">     318 </span>            : 
+<span class="lineNum">     319 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     320 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     321 </span>            : }
+<a name="322"><span class="lineNum">     322 </span>            : </a>
+<span class="lineNum">     323 </span>            : // Tests create_file with repacking
+<span class="lineNum">     324 </span><span class="lineCov">          1 : int test_create_file_success() {</span>
+<span class="lineNum">     325 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     326 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     327 </span>            : 
+<span class="lineNum">     328 </span><span class="lineCov">          1 :         assert(!create_file(&quot;zero1.txt&quot;, 0, fs) &amp;&amp;</span>
+<span class="lineNum">     329 </span>            :                !create_file(&quot;zero2.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     330 </span>            :                !create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;
+<span class="lineNum">     331 </span>            :                    !create_file(&quot;test2.txt&quot;, 100, fs) &amp;&amp;
+<span class="lineNum">     332 </span>            :                    !create_file(&quot;test3.txt&quot;, 800, fs) &amp;&amp;
+<span class="lineNum">     333 </span>            :                    !create_file(&quot;zero3.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     334 </span>            :                    &quot;create failed&quot;);
+<span class="lineNum">     335 </span>            : 
+<span class="lineNum">     336 </span>            :         // delete_file to create a gap in file_data
+<span class="lineNum">     337 </span><span class="lineCov">          1 :         assert(!delete_file(&quot;test2.txt&quot;, fs) &amp;&amp; &quot;delete failed&quot;);</span>
+<span class="lineNum">     338 </span>            : 
+<span class="lineNum">     339 </span>            :         // create_file in gap created
+<span class="lineNum">     340 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test4.txt&quot;, 20, fs) &amp;&amp;</span>
+<span class="lineNum">     341 </span>            :                &quot;create in contiguous block failed&quot;);
+<span class="lineNum">     342 </span>            : 
+<span class="lineNum">     343 </span>            :         // Test create_file offset finder repack with NULL argument
+<span class="lineNum">     344 </span><span class="lineCov">          1 :         assert(new_file_offset(150, NULL, fs) == 870 &amp;&amp;</span>
+<span class="lineNum">     345 </span>            :                &quot;offset finder unexpectedly failed&quot;);
+<span class="lineNum">     346 </span>            : 
+<span class="lineNum">     347 </span>            :         // Create and delete files such that a repack is required for test5.txt
+<span class="lineNum">     348 </span><span class="lineCov">          1 :         assert(!create_file(&quot;block.txt&quot;, 100, fs) &amp;&amp;</span>
+<span class="lineNum">     349 </span>            :                !create_file(&quot;byte.txt&quot;, 1, fs) &amp;&amp;
+<span class="lineNum">     350 </span>            :                !delete_file(&quot;block.txt&quot;, fs) &amp;&amp; &quot;creating block gap failed&quot;);
+<span class="lineNum">     351 </span>            : 
+<span class="lineNum">     352 </span>            :         // Create file with repack
+<span class="lineNum">     353 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test5.txt&quot;, 150, fs) &amp;&amp; &quot;create with repack failed&quot;);</span>
+<span class="lineNum">     354 </span>            : 
+<span class="lineNum">     355 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     356 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     357 </span>            : }
+<span class="lineNum">     358 </span>            : 
+<a name="359"><span class="lineNum">     359 </span>            : // Attempts to create a duplicate file with the same name, and tests</a>
+<span class="lineNum">     360 </span>            : // reading in existing files within init_fs
+<span class="lineNum">     361 </span><span class="lineCov">          1 : int test_create_file_exists() {</span>
+<span class="lineNum">     362 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     363 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     364 </span>            : 
+<span class="lineNum">     365 </span><span class="lineCov">          1 :         assert(!create_file(&quot;document.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     366 </span>            : 
+<span class="lineNum">     367 </span><span class="lineCov">          1 :         assert(create_file(&quot;document.txt&quot;, 20, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     368 </span>            :                &quot;creating duplicate should fail&quot;);
+<span class="lineNum">     369 </span>            : 
+<span class="lineNum">     370 </span>            :         // Close and re-initialise file system, before attempting to
+<span class="lineNum">     371 </span>            :         // create duplicate
+<span class="lineNum">     372 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     373 </span><span class="lineCov">          1 :         fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     374 </span>            : 
+<span class="lineNum">     375 </span><span class="lineCov">          1 :         assert(create_file(&quot;document.txt&quot;, 20, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     376 </span>            :                    &quot;creating duplicate after re-initialising should fail&quot;);
+<span class="lineNum">     377 </span>            : 
+<span class="lineNum">     378 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     379 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     380 </span>            : }
+<span class="lineNum">     381 </span>            : 
+<a name="382"><span class="lineNum">     382 </span>            : // Tests behaviour of filesystem when file_data's length is exceeded,</a>
+<span class="lineNum">     383 </span>            : // and when dir_table is completely filled with file entries
+<span class="lineNum">     384 </span><span class="lineCov">          1 : int test_create_file_no_space() {</span>
+<span class="lineNum">     385 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     386 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     387 </span>            : 
+<span class="lineNum">     388 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     389 </span>            : 
+<span class="lineNum">     390 </span>            :         // Create file larger than file_data
+<span class="lineNum">     391 </span><span class="lineCov">          1 :         assert(create_file(&quot;test2.txt&quot;, 975, fs) == 2 &amp;&amp;</span>
+<span class="lineNum">     392 </span>            :                &quot;creating file too large for file_data should fail&quot;);
+<span class="lineNum">     393 </span>            : 
+<span class="lineNum">     394 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test3.txt&quot;, 974, fs) &amp;&amp;</span>
+<span class="lineNum">     395 </span>            :                    &quot;max size create failed&quot;);
+<span class="lineNum">     396 </span>            : 
+<span class="lineNum">     397 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     398 </span>            : 
+<span class="lineNum">     399 </span>            :         // Check handling of full dir_table listing
+<span class="lineNum">     400 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     401 </span><span class="lineCov">          1 :         fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     402 </span>            : 
+<span class="lineNum">     403 </span>            :         // Pointer to static array for assigning different names to files
+<span class="lineNum">     404 </span><span class="lineCov">          1 :         char* names = &quot;abcdefghij&quot;;</span>
+<span class="lineNum">     405 </span>            : 
+<span class="lineNum">     406 </span><span class="lineCov">         11 :         for (int i = 0; i &lt; 10; ++i) {</span>
+<span class="lineNum">     407 </span>            :                 // Increment pointer after create file to change name of next file
+<span class="lineNum">     408 </span><span class="lineCov">         10 :                 create_file(names++, 0, fs);</span>
+<span class="lineNum">     409 </span>            :         }
+<span class="lineNum">     410 </span>            : 
+<span class="lineNum">     411 </span><span class="lineCov">          1 :         assert(create_file(&quot;dir_table_overload.txt&quot;, 0, fs) == 2 &amp;&amp;</span>
+<span class="lineNum">     412 </span>            :                    &quot;dir_table should be full&quot;);
+<span class="lineNum">     413 </span>            : 
+<span class="lineNum">     414 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     415 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     416 </span>            : }
+<span class="lineNum">     417 </span>            : 
+<a name="418"><span class="lineNum">     418 </span>            : // Tests resizing files with repacking and compares dir_table</a>
+<span class="lineNum">     419 </span>            : // values with expected values
+<span class="lineNum">     420 </span><span class="lineCov">          1 : int test_resize_file_success() {</span>
+<span class="lineNum">     421 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     422 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     423 </span>            : 
+<span class="lineNum">     424 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     425 </span>            :                    !create_file(&quot;test2.txt&quot;, 10, fs) &amp;&amp;
+<span class="lineNum">     426 </span>            :                    !create_file(&quot;zero1.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     427 </span>            :                    !create_file(&quot;zero2.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     428 </span>            :                    &quot;create failed&quot;);
+<span class="lineNum">     429 </span>            : 
+<span class="lineNum">     430 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;test2.txt&quot;, 50, fs) &amp;&amp; &quot;resize failed&quot;);</span>
+<span class="lineNum">     431 </span>            : 
+<span class="lineNum">     432 </span>            :         // Resize to same size
+<span class="lineNum">     433 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp; &quot;resize to same size failed&quot;);</span>
+<span class="lineNum">     434 </span>            : 
+<span class="lineNum">     435 </span>            :         // Resize with repack
+<span class="lineNum">     436 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;test1.txt&quot;, 100, fs) &amp;&amp;</span>
+<span class="lineNum">     437 </span>            :                    !resize_file(&quot;test2.txt&quot;, 100, fs) &amp;&amp; &quot;resize repack failed&quot;);
+<span class="lineNum">     438 </span>            : 
+<span class="lineNum">     439 </span>            :         // Resize to zero size file with offset != 0
+<span class="lineNum">     440 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;test2.txt&quot;, 0, fs) &amp;&amp;</span>
+<span class="lineNum">     441 </span>            :                &quot;resize to zero size non-zero offset failed&quot;);
+<span class="lineNum">     442 </span>            : 
+<span class="lineNum">     443 </span>            :         // Max size resize
+<span class="lineNum">     444 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;test1.txt&quot;, F1_LEN, fs) &amp;&amp; // Does not repack</span>
+<span class="lineNum">     445 </span>            :                    !resize_file(&quot;test1.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     446 </span>            :                    !resize_file(&quot;zero1.txt&quot;, F1_LEN, fs) &amp;&amp;
+<span class="lineNum">     447 </span>            :                    &quot;resize to file_data length failed&quot;);
+<span class="lineNum">     448 </span>            : 
+<span class="lineNum">     449 </span>            :         // Check offset and length of files
+<span class="lineNum">     450 </span><span class="lineCov">          1 :         file_t f[3]; // file_t structs for test1.txt, text2.txt and zero1.txt</span>
+<span class="lineNum">     451 </span><span class="lineCov">          1 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_SYNC); // Ensure dir_table is synced</span>
+<span class="lineNum">     452 </span><span class="lineCov">          1 :         fsync(dir_fd);</span>
+<span class="lineNum">     453 </span>            : 
+<span class="lineNum">     454 </span>            :         // Read from dir_table
+<span class="lineNum">     455 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;f[0].offset, sizeof(uint32_t), NAME_LEN);</span>
+<span class="lineNum">     456 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;f[0].length, sizeof(uint32_t), NAME_LEN + OFFSET_LEN);</span>
+<span class="lineNum">     457 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;f[1].offset, sizeof(uint32_t), META_LEN + NAME_LEN);</span>
+<span class="lineNum">     458 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;f[1].length, sizeof(uint32_t),</span>
+<span class="lineNum">     459 </span>            :                         META_LEN + NAME_LEN + OFFSET_LEN);
+<span class="lineNum">     460 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;f[2].offset, sizeof(uint32_t),</span>
+<span class="lineNum">     461 </span>            :                         2 * META_LEN + NAME_LEN);
+<span class="lineNum">     462 </span><span class="lineCov">          1 :         pread(dir_fd, &amp;f[2].length, sizeof(uint32_t),</span>
+<span class="lineNum">     463 </span>            :                         2 * META_LEN + NAME_LEN + OFFSET_LEN);
+<span class="lineNum">     464 </span>            : 
+<span class="lineNum">     465 </span>            :         // Compare dir_table values with expected
+<span class="lineNum">     466 </span>            :         // Casting used to compare only the first 4 bytes of uint64_t offset
+<span class="lineNum">     467 </span><span class="lineCov">          1 :         assert((uint32_t)f[0].offset == 0 &amp;&amp; f[0].length == 0 &amp;&amp;</span>
+<span class="lineNum">     468 </span>            :                    (uint32_t)f[1].offset == 100 &amp;&amp; f[1].length == 0 &amp;&amp;
+<span class="lineNum">     469 </span>            :                    (uint32_t)f[2].offset == 0 &amp;&amp; f[2].length == F1_LEN &amp;&amp;
+<span class="lineNum">     470 </span>            :                    &quot;incorrect dir_table values&quot;);
+<span class="lineNum">     471 </span>            : 
+<span class="lineNum">     472 </span>            :         // Resize files to create a gap such that zero2.txt requires
+<span class="lineNum">     473 </span>            :         // a repack on expansion
+<span class="lineNum">     474 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;zero1.txt&quot;, 10, fs) &amp;&amp;</span>
+<span class="lineNum">     475 </span>            :                    !resize_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;
+<span class="lineNum">     476 </span>            :                    !resize_file(&quot;zero1.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     477 </span>            :                    !resize_file(&quot;zero2.txt&quot;, 20, fs) &amp;&amp;
+<span class="lineNum">     478 </span>            :                    &quot;resize from zero size with repack failed&quot;);
+<span class="lineNum">     479 </span>            : 
+<span class="lineNum">     480 </span>            : 
+<span class="lineNum">     481 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     482 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     483 </span>            : }
+<a name="484"><span class="lineNum">     484 </span>            : </a>
+<span class="lineNum">     485 </span>            : // Attempts to resize files that do not exist
+<span class="lineNum">     486 </span><span class="lineCov">          1 : int test_resize_file_does_not_exist() {</span>
+<span class="lineNum">     487 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     488 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     489 </span>            : 
+<span class="lineNum">     490 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     491 </span>            :                    !create_file(&quot;test2.txt&quot;, 10, fs) &amp;&amp;
+<span class="lineNum">     492 </span>            :                    &quot;create failed&quot;);
+<span class="lineNum">     493 </span>            : 
+<span class="lineNum">     494 </span><span class="lineCov">          1 :         assert(resize_file(&quot;test3.txt&quot;, 50, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     495 </span>            :                    &quot;file being resized does not exist&quot;);
+<span class="lineNum">     496 </span>            : 
+<span class="lineNum">     497 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     498 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     499 </span>            : }
+<a name="500"><span class="lineNum">     500 </span>            : </a>
+<span class="lineNum">     501 </span>            : // Attempts to resize files to a size larger than the filesystem
+<span class="lineNum">     502 </span><span class="lineCov">          1 : int test_resize_file_no_space() {</span>
+<span class="lineNum">     503 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     504 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     505 </span>            : 
+<span class="lineNum">     506 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     507 </span>            : 
+<span class="lineNum">     508 </span>            :         // Resize to length larger than filesystem
+<span class="lineNum">     509 </span><span class="lineCov">          1 :         assert(resize_file(&quot;test1.txt&quot;, 1025, fs) == 2 &amp;&amp;</span>
+<span class="lineNum">     510 </span>            :                    &quot;resize larger than file_data should fail&quot;);
+<span class="lineNum">     511 </span>            : 
+<span class="lineNum">     512 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     513 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     514 </span>            : }
+<a name="515"><span class="lineNum">     515 </span>            : </a>
+<span class="lineNum">     516 </span>            : // Tests filesystem repack with zero size files appended
+<span class="lineNum">     517 </span><span class="lineCov">          1 : int test_repack_success() {</span>
+<span class="lineNum">     518 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     519 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     520 </span>            : 
+<span class="lineNum">     521 </span>            :         // Create and delete files to create gaps between files
+<span class="lineNum">     522 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     523 </span>            :                    !create_file(&quot;test2.txt&quot;, 10, fs) &amp;&amp;
+<span class="lineNum">     524 </span>            :                    !create_file(&quot;test3.txt&quot;, 20, fs) &amp;&amp;
+<span class="lineNum">     525 </span>            :                    !create_file(&quot;test4.txt&quot;, 40, fs) &amp;&amp;
+<span class="lineNum">     526 </span>            :                    !create_file(&quot;zero1.txt&quot;, 0, fs) &amp;&amp;
+<span class="lineNum">     527 </span>            :                    !delete_file(&quot;test1.txt&quot;, fs) &amp;&amp;
+<span class="lineNum">     528 </span>            :                    !delete_file(&quot;test3.txt&quot;, fs) &amp;&amp;
+<span class="lineNum">     529 </span>            :                    &quot;failed to create file gaps&quot;);
+<span class="lineNum">     530 </span>            : 
+<span class="lineNum">     531 </span><span class="lineCov">          1 :         repack(fs);</span>
+<span class="lineNum">     532 </span>            : 
+<span class="lineNum">     533 </span>            :         // TODO: Check filenames in o_list
+<span class="lineNum">     534 </span>            : 
+<span class="lineNum">     535 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     536 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     537 </span>            : }
+<a name="538"><span class="lineNum">     538 </span>            : </a>
+<span class="lineNum">     539 </span>            : // Tests the deletion of existing file
+<span class="lineNum">     540 </span><span class="lineCov">          1 : int test_delete_file_success() {</span>
+<span class="lineNum">     541 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     542 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     543 </span>            : 
+<span class="lineNum">     544 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     545 </span>            :                    !create_file(&quot;test2.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);
+<span class="lineNum">     546 </span>            : 
+<span class="lineNum">     547 </span><span class="lineCov">          1 :         assert(!delete_file(&quot;test1.txt&quot;, fs) &amp;&amp; &quot;delete failed&quot;);</span>
+<span class="lineNum">     548 </span>            : 
+<span class="lineNum">     549 </span>            :         // Check remaining entry in filesystem
+<span class="lineNum">     550 </span><span class="lineCov">          1 :         file_t* last = fs-&gt;n_list-&gt;list[0];</span>
+<span class="lineNum">     551 </span><span class="lineCov">          1 :         assert(strncmp(last-&gt;name, &quot;test2.txt&quot;, NAME_LEN - 1) == 0 &amp;&amp;</span>
+<span class="lineNum">     552 </span>            :                &quot;incorrect file entry deleted&quot;);
+<span class="lineNum">     553 </span>            : 
+<span class="lineNum">     554 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     555 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     556 </span>            : }
+<a name="557"><span class="lineNum">     557 </span>            : </a>
+<span class="lineNum">     558 </span>            : // Attempts to delete files that do not exist
+<span class="lineNum">     559 </span><span class="lineCov">          1 : int test_delete_file_does_not_exist() {</span>
+<span class="lineNum">     560 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     561 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     562 </span>            : 
+<span class="lineNum">     563 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     564 </span>            : 
+<span class="lineNum">     565 </span><span class="lineCov">          1 :         assert(delete_file(&quot;test2.txt&quot;, fs) == 1 &amp;&amp; &quot;delete should failed&quot;);</span>
+<span class="lineNum">     566 </span>            : 
+<span class="lineNum">     567 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     568 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     569 </span>            : }
+<a name="570"><span class="lineNum">     570 </span>            : </a>
+<span class="lineNum">     571 </span>            : // Tests the renaming of existing files
+<span class="lineNum">     572 </span><span class="lineCov">          1 : int test_rename_file_success() {</span>
+<span class="lineNum">     573 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     574 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     575 </span>            : 
+<span class="lineNum">     576 </span><span class="lineCov">          1 :         assert(!create_file(&quot;bad.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     577 </span>            : 
+<span class="lineNum">     578 </span>            :         // Rename to different name
+<span class="lineNum">     579 </span><span class="lineCov">          1 :         assert(!rename_file(&quot;bad.txt&quot;, &quot;good.txt&quot;, fs) &amp;&amp; &quot;rename failed&quot;);</span>
+<span class="lineNum">     580 </span>            : 
+<span class="lineNum">     581 </span>            :         // Rename to same name
+<span class="lineNum">     582 </span><span class="lineCov">          1 :         assert(!rename_file(&quot;good.txt&quot;, &quot;good.txt&quot;, fs) &amp;&amp;</span>
+<span class="lineNum">     583 </span>            :                &quot;rename to same name failed&quot;);
+<span class="lineNum">     584 </span>            : 
+<span class="lineNum">     585 </span>            :         // Check name stored in filesystem
+<span class="lineNum">     586 </span><span class="lineCov">          1 :         file_t* f = fs-&gt;n_list-&gt;list[0];</span>
+<span class="lineNum">     587 </span><span class="lineCov">          1 :         assert(strncmp(f-&gt;name, &quot;good.txt&quot;, NAME_LEN - 1) == 0 &amp;&amp;</span>
+<span class="lineNum">     588 </span>            :                    &quot;incorrect file entry name&quot;);
+<span class="lineNum">     589 </span>            : 
+<span class="lineNum">     590 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     591 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     592 </span>            : }
+<a name="593"><span class="lineNum">     593 </span>            : </a>
+<span class="lineNum">     594 </span>            : // Attempts to rename files with conflicting name arguments
+<span class="lineNum">     595 </span><span class="lineCov">          1 : int test_rename_file_name_conflicts() {</span>
+<span class="lineNum">     596 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     597 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     598 </span>            : 
+<span class="lineNum">     599 </span><span class="lineCov">          1 :         assert(!create_file(&quot;bad.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     600 </span>            :                !create_file(&quot;okay.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);
+<span class="lineNum">     601 </span>            : 
+<span class="lineNum">     602 </span>            :         // Test oldname file not found
+<span class="lineNum">     603 </span><span class="lineCov">          1 :         assert(rename_file(&quot;worst.txt&quot;, &quot;good.txt&quot;, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     604 </span>            :                &quot;file not found should fail&quot;);
+<span class="lineNum">     605 </span>            : 
+<span class="lineNum">     606 </span>            :         // Test newname file already exists
+<span class="lineNum">     607 </span><span class="lineCov">          1 :         assert(rename_file(&quot;bad.txt&quot;, &quot;okay.txt&quot;, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     608 </span>            :                    &quot;file already exists should fail&quot;);
+<span class="lineNum">     609 </span>            : 
+<span class="lineNum">     610 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     611 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     612 </span>            : }
+<a name="613"><span class="lineNum">     613 </span>            : </a>
+<span class="lineNum">     614 </span>            : // Tests reading data from file_data
+<span class="lineNum">     615 </span><span class="lineCov">          1 : int test_read_file_success() {</span>
+<span class="lineNum">     616 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     617 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     618 </span>            : 
+<span class="lineNum">     619 </span><span class="lineCov">          1 :         assert(!create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     620 </span>            : 
+<span class="lineNum">     621 </span>            :         // Write to file_data
+<span class="lineNum">     622 </span><span class="lineCov">          1 :         char* write_buff = &quot;content_to_read&quot;; // String length of 15</span>
+<span class="lineNum">     623 </span><span class="lineCov">          1 :         pwrite(file_fd, write_buff, 15, 0);</span>
+<span class="lineNum">     624 </span><span class="lineCov">          1 :         fsync(file_fd);</span>
+<span class="lineNum">     625 </span><span class="lineCov">          1 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_SYNC);</span>
+<span class="lineNum">     626 </span>            : 
+<span class="lineNum">     627 </span><span class="lineCov">          1 :         compute_hash_block(0, fs);</span>
+<span class="lineNum">     628 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_SYNC);</span>
+<span class="lineNum">     629 </span>            : 
+<span class="lineNum">     630 </span><span class="lineCov">          1 :         char buff[16];</span>
+<span class="lineNum">     631 </span>            : 
+<span class="lineNum">     632 </span>            :         // Attempt to read 0 bytes
+<span class="lineNum">     633 </span><span class="lineCov">          1 :         assert(!read_file(&quot;basic.txt&quot;, 0, 0, buff, fs) &amp;&amp; &quot;zero byte read failed&quot;);</span>
+<span class="lineNum">     634 </span>            : 
+<span class="lineNum">     635 </span>            :         // Attempt to read 15 bytes
+<span class="lineNum">     636 </span><span class="lineCov">          1 :         assert(!read_file(&quot;basic.txt&quot;, 0, 15, buff, fs) &amp;&amp; &quot;read failed&quot;);</span>
+<span class="lineNum">     637 </span><span class="lineCov">          1 :         buff[15] = '\0';</span>
+<span class="lineNum">     638 </span>            : 
+<span class="lineNum">     639 </span><span class="lineCov">          1 :         assert(strcmp(buff, write_buff) == 0 &amp;&amp; &quot;incorrect buffer content&quot;);</span>
+<span class="lineNum">     640 </span>            : 
+<span class="lineNum">     641 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     642 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     643 </span>            : }
+<a name="644"><span class="lineNum">     644 </span>            : </a>
+<span class="lineNum">     645 </span>            : // Attempts to read from a file which does not exist
+<span class="lineNum">     646 </span><span class="lineCov">          1 : int test_read_file_does_not_exist() {</span>
+<span class="lineNum">     647 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     648 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     649 </span>            : 
+<span class="lineNum">     650 </span><span class="lineCov">          1 :         assert(!create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     651 </span>            : 
+<span class="lineNum">     652 </span><span class="lineCov">          1 :         char buff[50];</span>
+<span class="lineNum">     653 </span><span class="lineCov">          1 :         assert(read_file(&quot;complex.txt&quot;, 0, 10, buff, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     654 </span>            :                &quot;file read from does not exists&quot;);
+<span class="lineNum">     655 </span>            : 
+<span class="lineNum">     656 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     657 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     658 </span>            : }
+<a name="659"><span class="lineNum">     659 </span>            : </a>
+<span class="lineNum">     660 </span>            : // Attempts to read a file using an invalid offset and count
+<span class="lineNum">     661 </span><span class="lineCov">          1 : int test_read_file_invalid_offset_count() {</span>
+<span class="lineNum">     662 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     663 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     664 </span>            : 
+<span class="lineNum">     665 </span><span class="lineCov">          1 :         assert(!create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     666 </span>            : 
+<span class="lineNum">     667 </span><span class="lineCov">          1 :         char buff[50];</span>
+<span class="lineNum">     668 </span><span class="lineCov">          1 :         assert(read_file(&quot;basic.txt&quot;, 45, 10, buff, fs) == 2 &amp;&amp;</span>
+<span class="lineNum">     669 </span>            :                    &quot;cannot read 10 bytes at offset 45&quot;);
+<span class="lineNum">     670 </span>            : 
+<span class="lineNum">     671 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     672 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     673 </span>            : }
+<a name="674"><span class="lineNum">     674 </span>            : </a>
+<span class="lineNum">     675 </span>            : // Attempts to read a file after hash_data has been externally modified
+<span class="lineNum">     676 </span><span class="lineCov">          1 : int test_read_file_invalid_hash() {</span>
+<span class="lineNum">     677 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     678 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     679 </span>            : 
+<span class="lineNum">     680 </span><span class="lineCov">          1 :         assert(!create_file(&quot;test1.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     681 </span>            :                    !create_file(&quot;test2.txt&quot;, 27, fs) &amp;&amp;
+<span class="lineNum">     682 </span>            :                    &quot;create failed&quot;);
+<span class="lineNum">     683 </span>            : 
+<span class="lineNum">     684 </span>            :         // Write to file
+<span class="lineNum">     685 </span><span class="lineCov">          1 :         char* buff = &quot;abc&quot;;</span>
+<span class="lineNum">     686 </span><span class="lineCov">          1 :         assert(!write_file(&quot;test1.txt&quot;, 0, 3, buff, fs) &amp;&amp;</span>
+<span class="lineNum">     687 </span>            :                    &quot;write failed&quot;);
+<span class="lineNum">     688 </span>            : 
+<span class="lineNum">     689 </span>            :         // Modify root hash value
+<span class="lineNum">     690 </span><span class="lineCov">          1 :         pwrite(hash_fd, &quot;132&quot;, 3, 0);</span>
+<span class="lineNum">     691 </span><span class="lineCov">          1 :         fsync(hash_fd);</span>
+<span class="lineNum">     692 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_SYNC);</span>
+<span class="lineNum">     693 </span>            : 
+<span class="lineNum">     694 </span><span class="lineCov">          1 :         assert(read_file(&quot;test1.txt&quot;, 0, 3, buff, fs) == 3 &amp;&amp;</span>
+<span class="lineNum">     695 </span>            :                    &quot;hash verification should fail&quot;);
+<span class="lineNum">     696 </span>            : 
+<span class="lineNum">     697 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     698 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     699 </span>            : }
+<a name="700"><span class="lineNum">     700 </span>            : </a>
+<span class="lineNum">     701 </span>            : // Tests writing to file_data with repacking
+<span class="lineNum">     702 </span><span class="lineCov">          1 : int test_write_file_success() {</span>
+<span class="lineNum">     703 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     704 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     705 </span>            : 
+<span class="lineNum">     706 </span><span class="lineCov">          1 :         assert(!create_file(&quot;simple.txt&quot;, 950, fs) &amp;&amp;</span>
+<span class="lineNum">     707 </span>            :                    !create_file(&quot;impossible.txt&quot;, 10, fs) &amp;&amp;
+<span class="lineNum">     708 </span>            :                !create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp;
+<span class="lineNum">     709 </span>            :                    !create_file(&quot;complex.txt&quot;, 5, fs) &amp;&amp; &quot;create failed&quot;);
+<span class="lineNum">     710 </span>            : 
+<span class="lineNum">     711 </span>            :         // Delete simple.txt to create space in filesystem
+<span class="lineNum">     712 </span><span class="lineCov">          1 :         assert(!delete_file(&quot;simple.txt&quot;, fs) &amp;&amp; &quot;delete failed&quot;);</span>
+<span class="lineNum">     713 </span>            : 
+<span class="lineNum">     714 </span><span class="lineCov">          1 :         char* write_buff = &quot;content_to_write&quot;; // String length of 16</span>
+<span class="lineNum">     715 </span><span class="lineCov">          1 :         char buff[17];</span>
+<span class="lineNum">     716 </span>            : 
+<span class="lineNum">     717 </span>            :         // Write 0 bytes
+<span class="lineNum">     718 </span><span class="lineCov">          1 :         assert(!write_file(&quot;basic.txt&quot;, 0, 0, write_buff, fs) &amp;&amp;</span>
+<span class="lineNum">     719 </span>            :                &quot;zero byte write failed&quot;);
+<span class="lineNum">     720 </span>            : 
+<span class="lineNum">     721 </span>            :         // Write 16 bytes within file bounds
+<span class="lineNum">     722 </span><span class="lineCov">          1 :         assert(!write_file(&quot;basic.txt&quot;, 0, 16, write_buff, fs) &amp;&amp; &quot;write failed&quot;);</span>
+<span class="lineNum">     723 </span>            : 
+<span class="lineNum">     724 </span>            :         // Resize complex.txt to zero size file
+<span class="lineNum">     725 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;complex.txt&quot;, 0, fs) &amp;&amp; &quot;resize failed&quot;);</span>
+<span class="lineNum">     726 </span>            : 
+<span class="lineNum">     727 </span>            :         // Write 16 bytes, expanding file bounds and repacking
+<span class="lineNum">     728 </span><span class="lineCov">          1 :         assert(!write_file(&quot;basic.txt&quot;, 50, 16, write_buff, fs) &amp;&amp;</span>
+<span class="lineNum">     729 </span>            :                &quot;write extend failed&quot;);
+<span class="lineNum">     730 </span>            : 
+<span class="lineNum">     731 </span><span class="lineCov">          1 :         assert(!read_file(&quot;basic.txt&quot;, 0, 16, buff, fs) &amp;&amp; &quot;read failed&quot;);</span>
+<span class="lineNum">     732 </span><span class="lineCov">          1 :         buff[16] = '\0';</span>
+<span class="lineNum">     733 </span>            : 
+<span class="lineNum">     734 </span><span class="lineCov">          1 :         assert(strcmp(buff, write_buff) == 0 &amp;&amp; &quot;incorrect buffer content&quot;);</span>
+<span class="lineNum">     735 </span>            : 
+<span class="lineNum">     736 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     737 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     738 </span>            : }
+<a name="739"><span class="lineNum">     739 </span>            : </a>
+<span class="lineNum">     740 </span>            : // Attempts to write to a file which does not exist
+<span class="lineNum">     741 </span><span class="lineCov">          1 : int test_write_file_does_not_exist() {</span>
+<span class="lineNum">     742 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     743 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     744 </span>            : 
+<span class="lineNum">     745 </span><span class="lineCov">          1 :         assert(!create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     746 </span>            : 
+<span class="lineNum">     747 </span><span class="lineCov">          1 :         assert(write_file(&quot;complex.txt&quot;, 0, 0, &quot;write_content&quot;, fs) == 1 &amp;&amp;</span>
+<span class="lineNum">     748 </span>            :                    &quot;file written to does not exist&quot;);
+<span class="lineNum">     749 </span>            : 
+<span class="lineNum">     750 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     751 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     752 </span>            : }
+<a name="753"><span class="lineNum">     753 </span>            : </a>
+<span class="lineNum">     754 </span>            : // Attempts to write to a file using an invalid offset
+<span class="lineNum">     755 </span><span class="lineCov">          1 : int test_write_file_invalid_offset() {</span>
+<span class="lineNum">     756 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     757 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     758 </span>            : 
+<span class="lineNum">     759 </span><span class="lineCov">          1 :         assert(!create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     760 </span>            :                    !create_file(&quot;complex.txt&quot;, 100, fs) &amp;&amp; &quot;create failed&quot;);
+<span class="lineNum">     761 </span>            : 
+<span class="lineNum">     762 </span><span class="lineCov">          1 :         assert(write_file(&quot;complex.txt&quot;, 101, 13, &quot;write_content&quot;, fs) == 2 &amp;&amp;</span>
+<span class="lineNum">     763 </span>            :                    &quot;offset beyond end of file&quot;);
+<span class="lineNum">     764 </span>            : 
+<span class="lineNum">     765 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     766 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     767 </span>            : }
+<a name="768"><span class="lineNum">     768 </span>            : </a>
+<span class="lineNum">     769 </span>            : // Attempts to perform a write which exceeds the capacity of file_data
+<span class="lineNum">     770 </span><span class="lineCov">          1 : int test_write_file_no_space() {</span>
+<span class="lineNum">     771 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     772 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     773 </span>            : 
+<span class="lineNum">     774 </span><span class="lineCov">          1 :         assert(!create_file(&quot;basic.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     775 </span>            :                    !create_file(&quot;complex.txt&quot;, 100, fs) &amp;&amp; &quot;create failed&quot;);
+<span class="lineNum">     776 </span>            : 
+<span class="lineNum">     777 </span>            :         // Write 1 byte over the maximum possible write size
+<span class="lineNum">     778 </span><span class="lineCov">          1 :         assert(write_file(&quot;complex.txt&quot;, 100, (F1_LEN - 150) + 1,</span>
+<span class="lineNum">     779 </span>            :                    &quot;write_content&quot;, fs) == 3 &amp;&amp;
+<span class="lineNum">     780 </span>            :                    &quot;no space in filesystem for write operation&quot;);
+<span class="lineNum">     781 </span>            : 
+<span class="lineNum">     782 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     783 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     784 </span>            : }
+<a name="785"><span class="lineNum">     785 </span>            : </a>
+<span class="lineNum">     786 </span>            : // Tests the retrieval of file sizes
+<span class="lineNum">     787 </span><span class="lineCov">          1 : int test_file_size_success() {</span>
+<span class="lineNum">     788 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     789 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     790 </span>            : 
+<span class="lineNum">     791 </span><span class="lineCov">          1 :         assert(!create_file(&quot;big.txt&quot;, 50, fs) &amp;&amp;</span>
+<span class="lineNum">     792 </span>            :                    !create_file(&quot;bigger.txt&quot;, 100, fs) &amp;&amp; &quot;create failed&quot;);
+<span class="lineNum">     793 </span>            : 
+<span class="lineNum">     794 </span><span class="lineCov">          1 :         assert(file_size(&quot;big.txt&quot;, fs) == 50 &amp;&amp;</span>
+<span class="lineNum">     795 </span>            :                file_size(&quot;bigger.txt&quot;, fs) == 100 &amp;&amp;
+<span class="lineNum">     796 </span>            :                &quot;incorrect file sizes&quot;);
+<span class="lineNum">     797 </span>            : 
+<span class="lineNum">     798 </span>            :         // Resize and rename file before checking size again
+<span class="lineNum">     799 </span><span class="lineCov">          1 :         assert(!resize_file(&quot;bigger.txt&quot;, 1, fs) &amp;&amp;</span>
+<span class="lineNum">     800 </span>            :                !rename_file(&quot;bigger.txt&quot;, &quot;tiny.txt&quot;, fs) &amp;&amp;
+<span class="lineNum">     801 </span>            :                file_size(&quot;tiny.txt&quot;, fs) == 1 &amp;&amp;
+<span class="lineNum">     802 </span>            :                &quot;incorrect file size after resize and rename&quot;);
+<span class="lineNum">     803 </span>            : 
+<span class="lineNum">     804 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     805 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     806 </span>            : }
+<a name="807"><span class="lineNum">     807 </span>            : </a>
+<span class="lineNum">     808 </span>            : // Attempts to find the size of a file which does not exist
+<span class="lineNum">     809 </span><span class="lineCov">          1 : int test_file_size_does_not_exist() {</span>
+<span class="lineNum">     810 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     811 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     812 </span>            : 
+<span class="lineNum">     813 </span><span class="lineCov">          1 :         assert(!create_file(&quot;big.txt&quot;, 50, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     814 </span>            : 
+<span class="lineNum">     815 </span><span class="lineCov">          1 :         assert(file_size(&quot;massive.txt&quot;, fs) == -1 &amp;&amp;</span>
+<span class="lineNum">     816 </span>            :                    &quot;file does not exist&quot;);
+<span class="lineNum">     817 </span>            : 
+<span class="lineNum">     818 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     819 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     820 </span>            : }
+<a name="821"><span class="lineNum">     821 </span>            : </a>
+<span class="lineNum">     822 </span>            : // Tests the fletcher hash function using expected and actual values
+<span class="lineNum">     823 </span><span class="lineCov">          1 : int test_fletcher_success() {</span>
+<span class="lineNum">     824 </span>            :         // 4 * sizeof(uint32_t) = 16 bytes for hashing
+<span class="lineNum">     825 </span>            :         // Least significant byte of input[3] == 32 (0x20)
+<span class="lineNum">     826 </span><span class="lineCov">          1 :         uint32_t input[4] = {1000, 5361, 112, 20256};</span>
+<span class="lineNum">     827 </span><span class="lineCov">          1 :         uint32_t sixteen_byte_expected[4] = {26729, 40563, 62758, 94314};</span>
+<span class="lineNum">     828 </span><span class="lineCov">          1 :         uint32_t thirteen_byte_expected[4] = {6505, 20339, 42534, 74090};</span>
+<span class="lineNum">     829 </span>            : 
+<span class="lineNum">     830 </span><span class="lineCov">          1 :         uint32_t sixteen_byte_actual[4] = {0};</span>
+<span class="lineNum">     831 </span><span class="lineCov">          1 :         uint32_t thirteen_byte_actual[4] = {0};</span>
+<span class="lineNum">     832 </span>            : 
+<span class="lineNum">     833 </span><span class="lineCov">          1 :         fletcher((uint8_t*)input, 16, (uint8_t*)sixteen_byte_actual);</span>
+<span class="lineNum">     834 </span><span class="lineCov">          1 :         fletcher((uint8_t*)input, 13, (uint8_t*)thirteen_byte_actual);</span>
+<span class="lineNum">     835 </span>            : 
+<span class="lineNum">     836 </span>            :         // Compare fletcher output with expected values
+<span class="lineNum">     837 </span><span class="lineCov">          5 :         for (int i = 0; i &lt; 4; ++i) {</span>
+<span class="lineNum">     838 </span><span class="lineCov">          4 :                 assert(sixteen_byte_actual[i] == sixteen_byte_expected[i] &amp;&amp;</span>
+<span class="lineNum">     839 </span>            :                            &quot;sixteen byte fletcher hash incorrect&quot;);
+<span class="lineNum">     840 </span>            : 
+<span class="lineNum">     841 </span><span class="lineCov">          4 :                 assert(thirteen_byte_actual[i] == thirteen_byte_expected[i] &amp;&amp;</span>
+<span class="lineNum">     842 </span>            :                            &quot;thirteen byte fletcher hash incorrect&quot;);
+<span class="lineNum">     843 </span>            :         }
+<span class="lineNum">     844 </span>            : 
+<span class="lineNum">     845 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     846 </span>            : }
+<span class="lineNum">     847 </span>            : 
+<a name="848"><span class="lineNum">     848 </span>            : // Tests compute_hash_tree for consistency with compute_hash_block</a>
+<span class="lineNum">     849 </span>            : // using write_file calls and external writes to file_data
+<span class="lineNum">     850 </span><span class="lineCov">          1 : int test_compute_hash_tree_success() {</span>
+<span class="lineNum">     851 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     852 </span><span class="lineCov">          1 :         filesys_t* fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     853 </span>            : 
+<span class="lineNum">     854 </span>            :         // Modify file_data using write_file and save root hash
+<span class="lineNum">     855 </span><span class="lineCov">          1 :         assert(!create_file(&quot;full_length.txt&quot;, 0, fs) &amp;&amp; &quot;create failed&quot;);</span>
+<span class="lineNum">     856 </span>            : 
+<span class="lineNum">     857 </span><span class="lineCov">          1 :         char* write_buff = &quot;content_to_write&quot;; // String length of 16</span>
+<span class="lineNum">     858 </span><span class="lineCov">         65 :         for (int i = 0; i &lt; F1_LEN; i += 16) {</span>
+<span class="lineNum">     859 </span><span class="lineCov">         64 :                 assert(!write_file(&quot;full_length.txt&quot;, i, 16, write_buff, fs) &amp;&amp;</span>
+<span class="lineNum">     860 </span>            :                        &quot;write failed&quot;);
+<span class="lineNum">     861 </span>            :         }
+<span class="lineNum">     862 </span>            :         
+<span class="lineNum">     863 </span><span class="lineCov">          1 :         uint8_t root_hash_expected[HASH_LEN];</span>
+<span class="lineNum">     864 </span><span class="lineCov">          1 :         pread(hash_fd, root_hash_expected, HASH_LEN, 0);</span>
+<span class="lineNum">     865 </span>            : 
+<span class="lineNum">     866 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     867 </span>            : 
+<span class="lineNum">     868 </span>            :         // Reset filesystem, pwrite to file_data and call compute_hash_tree
+<span class="lineNum">     869 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     870 </span><span class="lineCov">          1 :         fs = init_fs(f1, f2, f3, 1);</span>
+<span class="lineNum">     871 </span>            : 
+<span class="lineNum">     872 </span><span class="lineCov">         65 :         for (int i = 0; i &lt; F1_LEN; i += 16) {</span>
+<span class="lineNum">     873 </span><span class="lineCov">         64 :                 pwrite(file_fd, write_buff, 16, i);</span>
+<span class="lineNum">     874 </span>            :         }
+<span class="lineNum">     875 </span><span class="lineCov">          1 :         fsync(file_fd);</span>
+<span class="lineNum">     876 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_SYNC);</span>
+<span class="lineNum">     877 </span>            : 
+<span class="lineNum">     878 </span><span class="lineCov">          1 :         compute_hash_tree(fs);</span>
+<span class="lineNum">     879 </span>            : 
+<span class="lineNum">     880 </span>            :         // Copy root hash and compare with expected
+<span class="lineNum">     881 </span><span class="lineCov">          1 :         uint8_t root_hash_actual[HASH_LEN];</span>
+<span class="lineNum">     882 </span><span class="lineCov">          1 :         pread(hash_fd, root_hash_actual, HASH_LEN, 0);</span>
+<span class="lineNum">     883 </span>            : 
+<span class="lineNum">     884 </span><span class="lineCov">         17 :         for (int i = 0; i &lt; HASH_LEN; ++i) {</span>
+<span class="lineNum">     885 </span><span class="lineCov">         16 :                 assert(root_hash_actual[i] == root_hash_expected[i] &amp;&amp;</span>
+<span class="lineNum">     886 </span>            :                        &quot;root hashes do not match&quot;);
+<span class="lineNum">     887 </span>            :         }
+<span class="lineNum">     888 </span>            : 
+<span class="lineNum">     889 </span><span class="lineCov">          1 :         close_fs(fs);</span>
+<span class="lineNum">     890 </span><span class="lineCov">          1 :         return 0;</span>
+<span class="lineNum">     891 </span>            : }
+<span class="lineNum">     892 </span>            : 
+<span class="lineNum">     893 </span>            : /*
+<span class="lineNum">     894 </span>            :  * Main Method
+<a name="895"><span class="lineNum">     895 </span>            :  */</a>
+<span class="lineNum">     896 </span>            : 
+<span class="lineNum">     897 </span><span class="lineCov">          1 : int main(int argc, char * argv[]) {</span>
+<span class="lineNum">     898 </span><span class="lineCov">          1 :         error_count = 0;</span>
+<span class="lineNum">     899 </span>            : 
+<span class="lineNum">     900 </span>            :         // Create blank files for tests to use
+<span class="lineNum">     901 </span><span class="lineCov">          1 :         file_fd = open(f1, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);</span>
+<span class="lineNum">     902 </span><span class="lineCov">          1 :         dir_fd = open(f2, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);</span>
+<span class="lineNum">     903 </span><span class="lineCov">          1 :         hash_fd = open(f3, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);</span>
+<span class="lineNum">     904 </span><span class="lineCov">          1 :         assert(file_fd &gt;= 0 &amp;&amp; dir_fd &gt;= 0 &amp;&amp;</span>
+<span class="lineNum">     905 </span>            :                    hash_fd &gt;= 0 &amp;&amp; &quot;failed to open files&quot;);
+<span class="lineNum">     906 </span><span class="lineCov">          1 :         gen_blank_files();</span>
+<span class="lineNum">     907 </span>            : 
+<span class="lineNum">     908 </span>            :         // Default tests
+<span class="lineNum">     909 </span><span class="lineCov">          1 :     TEST(success);</span>
+<span class="lineNum">     910 </span><span class="lineCov">          1 :     TEST(failure);</span>
+<span class="lineNum">     911 </span>            : 
+<span class="lineNum">     912 </span>            :     // Helper tests
+<span class="lineNum">     913 </span><span class="lineCov">          1 :     TEST(test_helper_error_handling);</span>
+<span class="lineNum">     914 </span>            : 
+<span class="lineNum">     915 </span>            :     // Array data structure tests
+<span class="lineNum">     916 </span><span class="lineCov">          1 :         TEST(test_array_empty);</span>
+<span class="lineNum">     917 </span><span class="lineCov">          1 :         TEST(test_array_insert);</span>
+<span class="lineNum">     918 </span><span class="lineCov">          1 :         TEST(test_array_get);</span>
+<span class="lineNum">     919 </span><span class="lineCov">          1 :         TEST(test_array_remove);</span>
+<span class="lineNum">     920 </span>            : 
+<span class="lineNum">     921 </span>            :         // Basic filesystem tests
+<span class="lineNum">     922 </span><span class="lineCov">          1 :         TEST(test_no_operation);</span>
+<span class="lineNum">     923 </span><span class="lineCov">          1 :         TEST(test_init_close_error_handling);</span>
+<span class="lineNum">     924 </span>            : 
+<span class="lineNum">     925 </span>            :         // create_file tests
+<span class="lineNum">     926 </span><span class="lineCov">          1 :         TEST(test_create_file_success);</span>
+<span class="lineNum">     927 </span><span class="lineCov">          1 :         TEST(test_create_file_exists);</span>
+<span class="lineNum">     928 </span><span class="lineCov">          1 :         TEST(test_create_file_no_space);</span>
+<span class="lineNum">     929 </span>            : 
+<span class="lineNum">     930 </span>            :         // resize_file tests
+<span class="lineNum">     931 </span><span class="lineCov">          1 :         TEST(test_resize_file_success);</span>
+<span class="lineNum">     932 </span><span class="lineCov">          1 :         TEST(test_resize_file_does_not_exist);</span>
+<span class="lineNum">     933 </span><span class="lineCov">          1 :         TEST(test_resize_file_no_space);</span>
+<span class="lineNum">     934 </span>            : 
+<span class="lineNum">     935 </span>            :         // repack tests
+<span class="lineNum">     936 </span><span class="lineCov">          1 :         TEST(test_repack_success);</span>
+<span class="lineNum">     937 </span>            : 
+<span class="lineNum">     938 </span>            :         // delete_file tests
+<span class="lineNum">     939 </span><span class="lineCov">          1 :         TEST(test_delete_file_success);</span>
+<span class="lineNum">     940 </span><span class="lineCov">          1 :         TEST(test_delete_file_does_not_exist);</span>
+<span class="lineNum">     941 </span>            : 
+<span class="lineNum">     942 </span>            :         // rename_file tests
+<span class="lineNum">     943 </span><span class="lineCov">          1 :         TEST(test_rename_file_success);</span>
+<span class="lineNum">     944 </span><span class="lineCov">          1 :         TEST(test_rename_file_name_conflicts);</span>
+<span class="lineNum">     945 </span>            : 
+<span class="lineNum">     946 </span>            :         // read_file tests
+<span class="lineNum">     947 </span><span class="lineCov">          1 :         TEST(test_read_file_success);</span>
+<span class="lineNum">     948 </span><span class="lineCov">          1 :         TEST(test_read_file_does_not_exist);</span>
+<span class="lineNum">     949 </span><span class="lineCov">          1 :         TEST(test_read_file_invalid_offset_count);</span>
+<span class="lineNum">     950 </span><span class="lineCov">          1 :         TEST(test_read_file_invalid_hash);</span>
+<span class="lineNum">     951 </span>            : 
+<span class="lineNum">     952 </span>            :         // write_file tests
+<span class="lineNum">     953 </span><span class="lineCov">          1 :         TEST(test_write_file_success);</span>
+<span class="lineNum">     954 </span><span class="lineCov">          1 :         TEST(test_write_file_does_not_exist);</span>
+<span class="lineNum">     955 </span><span class="lineCov">          1 :         TEST(test_write_file_invalid_offset);</span>
+<span class="lineNum">     956 </span><span class="lineCov">          1 :         TEST(test_write_file_no_space);</span>
+<span class="lineNum">     957 </span>            : 
+<span class="lineNum">     958 </span>            :         // file_size tests
+<span class="lineNum">     959 </span><span class="lineCov">          1 :         TEST(test_file_size_success);</span>
+<span class="lineNum">     960 </span><span class="lineCov">          1 :         TEST(test_file_size_does_not_exist);</span>
+<span class="lineNum">     961 </span>            : 
+<span class="lineNum">     962 </span>            :         // fletcher tests
+<span class="lineNum">     963 </span><span class="lineCov">          1 :         TEST(test_fletcher_success);</span>
+<span class="lineNum">     964 </span>            : 
+<span class="lineNum">     965 </span>            :         // compute_hash_tree tests
+<span class="lineNum">     966 </span><span class="lineCov">          1 :         TEST(test_compute_hash_tree_success);</span>
+<span class="lineNum">     967 </span>            : 
+<span class="lineNum">     968 </span>            :         // compute_hash_block is effectively tested by other test functions, being
+<span class="lineNum">     969 </span>            :         // used in methods such as create_file, resize_file, repack and write.
+<span class="lineNum">     970 </span>            : 
+<span class="lineNum">     971 </span><span class="lineCov">          1 :         printf(&quot;Total Errors: %d\n&quot;, error_count);</span>
+<span class="lineNum">     972 </span>            : 
+<span class="lineNum">     973 </span><span class="lineCov">          1 :         close(file_fd);</span>
+<span class="lineNum">     974 </span><span class="lineCov">          1 :         close(dir_fd);</span>
+<span class="lineNum">     975 </span><span class="lineCov">          1 :         close(hash_fd);</span>
+<span class="lineNum">     976 </span>            : 
+<span class="lineNum">     977 </span><span class="lineCov">          1 :     return error_count;</span>
+<span class="lineNum">     978 </span>            : }
+<span class="lineNum">     979 </span>            : 
+<span class="lineNum">     980 </span>            : 
+</pre>
+      </td>
+    </tr>
+  </table>
+  <br>
+
+  <table width="100%" border=0 cellspacing=0 cellpadding=0>
+    <tr><td class="ruler"><img src="../glass.png" width=3 height=3 alt=""></td></tr>
+    <tr><td class="versionInfo">Generated by: <a href="http://ltp.sourceforge.net/coverage/lcov.php" target="_parent">LCOV version 1.13</a></td></tr>
+  </table>
+  <br>
+
+</body>
+</html>
