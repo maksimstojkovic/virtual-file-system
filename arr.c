@@ -29,8 +29,6 @@
  * of uint32_t.
  */
 
-// TODO: Check _s method descriptions to ensure they are up to date
-
 /*
  * Compares the key field of file_t structs based on array type
  *
@@ -351,7 +349,7 @@ file_t* arr_remove(int32_t index, arr_t* arr) {
 }
 
 /*
- * Sorted removal of a file_t struct from an array
+ * Removal of a file_t struct from an array using a key
  *
  * key: address of file_t with same key as file being removed
  * arr: address of arr_t struct containing a list of file_t pointers
