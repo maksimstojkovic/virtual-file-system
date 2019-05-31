@@ -9,6 +9,8 @@
 #include "structs.h"
 #include "helper.h"
 
+// TODO: Write helper for finding next non-zero size file from a given index
+
 /*
  * Safe malloc helper with error checking
  *
@@ -106,6 +108,16 @@ void write_dir_file(file_t* file, filesys_t* fs) {
 	update_dir_offset(file, fs);
 	update_dir_length(file, fs);
 }
+
+// TODO: non-zero size finder here
+/*
+ * Finds the first non-zero size file in file_data, starting at index
+ *
+ *
+ * returns: index in offset list of
+ */
+
+int32_t
 
 /*
  * Writes null bytes to a memory mapped file (mmap) at the offset specified
