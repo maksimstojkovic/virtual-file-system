@@ -557,11 +557,17 @@ int rename_file(char * oldname, char * newname, void * helper) {
     filesys_t* fs = (filesys_t*)helper;
 	LOCK(&fs->lock);
 	
-	// Return 1 if oldname file does not exist or newname file already exist
 	file_t temp;
 	update_file_name(oldname, &temp);
 	file_t* f = arr_get_by_key(&temp, fs->n_list);
 
+	// Return 0 if names are the same and oldname file exists
+	if (f != NULL && strcmp(oldname, newname) == 0) {
+		UNLOCK(&fs->lock);
+		return 0;
+	}
+
+	// Return 1 if oldname file does not exist or newname file already exists
 	update_file_name(newname, &temp);
 	if (f == NULL || arr_get_by_key(&temp, fs->n_list) != NULL) {
 		UNLOCK(&fs->lock);

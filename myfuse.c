@@ -113,23 +113,23 @@ int myfuse_unlink(const char * path) {
 	return 0;
 }
 
-int myfuse_rename(const char * oldname, const char * newname) {
+int myfuse_rename(const char * oldpath, const char * newpath) {
 	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
 	// Check for valid paths
-    if (oldname == NULL || newname == NULL) {
+    if (oldpath == NULL || newpath == NULL) {
         return -EINVAL;
     }
     
     // Check if paths are directories
-    if (strcmp(oldname, "/") == 0 || strcmp(newname, "/") == 0) {
+    if (strcmp(oldpath, "/") == 0 || strcmp(newpath, "/") == 0) {
     	return -EISDIR;
     }
     
-    char* old = salloc(strlen(oldname));
-	char* new = salloc(strlen(newname));
-	memcpy(old, oldname + 1, strlen(oldname));
-	memcpy(new, newname + 1, strlen(newname));
+    char* old = salloc(strlen(oldpath));
+	char* new = salloc(strlen(newpath));
+	memcpy(old, oldpath + 1, strlen(oldpath));
+	memcpy(new, newpath + 1, strlen(newpath));
 
 	int ret = rename_file(old, new, FILESYSTEM);
 	free(old);
@@ -146,8 +146,8 @@ int myfuse_rename(const char * oldname, const char * newname) {
 int myfuse_truncate(const char * path, off_t length) {
 	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
-	// Check for valid path
-	if (path == NULL) {
+	// Check for valid path and length
+	if (path == NULL || length < 0) {
 		return -EINVAL;
 	}
 
@@ -191,13 +191,13 @@ int myfuse_open(const char * path, struct fuse_file_info * fi) {
 	}
 
 	// For successful open, file should exist in filesystem
+	// Check if file exists using file_size
 	char* name = salloc(strlen(path));
 	memcpy(name, path + 1, strlen(path));
 	
 	ssize_t size = file_size(name, FILESYSTEM);
 	free(name);
 
-	// Check if file exists
 	if (size < 0) {
 		return -ENOENT;
 	}
@@ -239,7 +239,7 @@ int myfuse_read(const char * path,
 		return 0;
 	}
 	
-	// Update number of bytes to read based on length of file
+	// Update number of bytes to read based on file length
 	size_t read_length;
 	if (length > f_size - offset) {
 		read_length = f_size - offset;
@@ -286,16 +286,15 @@ int myfuse_write(const char * path,
 		return -ENOENT;
 	}
 
-	// Check for valid offset
+	// Check for invalid offset
 	if (offset > f_size) {
 		free(name);
 		return -EINVAL;
 	}
 
 	// Update number of bytes to write based on filesystem space
-	// ssize_t cast used to prevent underflow if offset + length < f_size
 	size_t write_length;
-	if ((ssize_t)offset + length - f_size >
+	if (offset + length - f_size >
 			FILESYSTEM->file_data_len - FILESYSTEM->used) {
 		write_length = FILESYSTEM->file_data_len - FILESYSTEM->used;
 	} else {
@@ -370,7 +369,7 @@ int myfuse_create(const char * path, mode_t mode, struct fuse_file_info * fi) {
 		return -EEXIST;
 	}
 
-	// Check for sufficient filesystem space (dir_table)
+	// Check for sufficient filesystem space (if dir_table is full)
 	if (ret == 2) {
 		return -ENOSPC;
 	}

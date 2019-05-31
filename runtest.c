@@ -567,7 +567,12 @@ int test_rename_file_success() {
 
 	assert(!create_file("bad.txt", 50, fs) && "create failed");
 
+	// Rename to different name
 	assert(!rename_file("bad.txt", "good.txt", fs) && "rename failed");
+
+	// Rename to same name
+	assert(!rename_file("good.txt", "good.txt", fs) &&
+	       "rename to same name failed");
 
 	// Check name stored in filesystem
 	file_t* f = fs->n_list->list[0];
@@ -908,8 +913,6 @@ int main(int argc, char * argv[]) {
 	// Basic filesystem tests
 	TEST(test_no_operation);
 	TEST(test_init_close_error_handling);
-
-	// TODO: parallel cases for each? at least read and write?
 
 	// create_file tests
 	TEST(test_create_file_success);
