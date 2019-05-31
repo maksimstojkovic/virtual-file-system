@@ -45,6 +45,8 @@ void update_dir_offset(file_t* file, filesys_t* fs);
 
 void write_dir_file(file_t* file, filesys_t* fs);
 
+file_t* find_next_nonzero_file(int32_t index, arr_t* arr);
+
 uint64_t write_null_byte(uint8_t* f, int64_t offset, int64_t count);
 
 uint64_t pwrite_null_byte(int fd, int64_t count, int64_t offset);

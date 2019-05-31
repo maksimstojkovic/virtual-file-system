@@ -28,9 +28,6 @@
  * mutex was used for the synchronisation of the filesystem.
  */
 
-// TODO: Review resize_helper branches
-// TODO: write helper in helper.c for finding next non-zero size file
-
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     // Allocate space for filesystem helper
 	filesys_t* fs = salloc(sizeof(*fs));
@@ -183,65 +180,45 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 	if (length == 0) {
 		return MAX_FILE_DATA_LEN;
 	}
-	
-	file_t** o_list = fs->o_list->list;
-	int32_t size = fs->o_list->size;
 
 	// Find offset of first non-zero size file
-	int32_t non_zero_file_index = -1;
-	uint64_t start_curr_file = 0;
-	uint64_t curr_file_len = 0;
-	uint64_t end_prev_file = 0;
-	for (int32_t i = 0; i < size; ++i) {
-		start_curr_file = o_list[i]->offset;
-		curr_file_len = o_list[i]->length;
-
-		// Break if newly created zero size files encountered
-		if (start_curr_file >= MAX_FILE_DATA_LEN) {
-			break;
-		}
-
-		// Non-zero size file found
-		if (curr_file_len > 0) {
-			non_zero_file_index = i;
-			break;
-		}
-	}
+	int32_t size = fs->o_list->size;
+	file_t* first_non_zero_file = find_next_nonzero_file(0, fs->o_list);
 	
 	// Return 0 if no files, only zero size files, or if first non-zero size
 	// file offset is large enough
-	if (size <= 0 || non_zero_file_index < 0 ||
-		(non_zero_file_index >= 0 && start_curr_file >= length)) {
+	if (size <= 0 || first_non_zero_file == NULL ||
+			first_non_zero_file->offset >= length) {
 		return 0;
 	}
 
-	// Increment index and check space between remaining
-	// elements in the offset array
-	for (int32_t i = non_zero_file_index + 1; i < size; ++i) {
-		start_curr_file = o_list[i]->offset;
-		curr_file_len = o_list[i]->length;
-		end_prev_file = o_list[i - 1]->offset + o_list[i - 1]->length;
+	// Increment index and check space between remaining elements in
+	// the offset array
+	uint64_t start_curr_file = 0;
+	uint64_t end_prev_file = 0;
+	file_t* prev_non_zero_file = first_non_zero_file;
+	file_t* curr_non_zero_file = NULL;
+	int32_t search_index = first_non_zero_file->o_index + 1;
+	while ((curr_non_zero_file =
+			find_next_nonzero_file(search_index, fs->o_list)) != NULL) {
+		start_curr_file = curr_non_zero_file->offset;
+		end_prev_file =
+				prev_non_zero_file->offset + prev_non_zero_file->length;
 
-		// Break if newly created zero size files encountered
-		if (start_curr_file >= MAX_FILE_DATA_LEN) {
-			break;
-		}
-
-		// Update index of last non-zero size file
-		if (curr_file_len > 0) {
-			non_zero_file_index = i;
-		}
-
+		// Return offset of first byte after end of previous
+		// file if sufficient space
 		if (start_curr_file - end_prev_file >= length) {
 			return end_prev_file;
 		}
+
+		prev_non_zero_file = curr_non_zero_file;
+		search_index = curr_non_zero_file->o_index + 1;
 	}
 	
 	// Check space between last non-zero size file in offset list and the end
 	// of file_data
 	uint64_t end_last_file =
-			o_list[non_zero_file_index]->offset +
-				o_list[non_zero_file_index]->length;
+			prev_non_zero_file->offset + prev_non_zero_file->length;
 
 	if (fs->file_data_len - end_last_file >= length) {
 		return end_last_file;
@@ -330,45 +307,24 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 
 	// Find suitable space in file_data if length increased
 	if (length > old_length) {
-		file_t** o_list = fs->o_list->list;
-		int32_t size = fs->o_list->size;
 		int64_t old_offset = file->offset;
-
-		int requires_repack = 0;
-		int32_t non_zero_file_index = -1;
-		uint64_t start_curr_file = 0;
-		uint64_t curr_file_len = 0;
+		file_t* next_non_zero_file = NULL;
 
 		// Expansion of zero size files
 		if (old_offset >= MAX_FILE_DATA_LEN) {
 			// Remove the file from the sorted offset list
 			arr_remove(file->o_index, fs->o_list);
-			size = fs->o_list->size;
 
-			// Find first non-zero size file in file_data
-			for (int32_t i = 0; i < size; ++i) {
-				start_curr_file = o_list[i]->offset;
-				curr_file_len = o_list[i]->length;
+			// Find first non-zero size file
+			next_non_zero_file = find_next_nonzero_file(0, fs->o_list);
 
-				// Break if newly created zero size files encountered
-				if (start_curr_file >= MAX_FILE_DATA_LEN) {
-					break;
-				}
-
-				// Non-zero size file found
-				if (curr_file_len > 0) {
-					// Determine if insufficient space from file
-					if (start_curr_file < length) {
-						requires_repack = 1;
-					}
-
-					break;
-				}
-			}
-
-			if (requires_repack) {
+			// Repack if first non-zero size file offset is not large enough
+			if (next_non_zero_file != NULL &&
+				next_non_zero_file->offset < length) {
 				hash_offset = repack_helper(fs);
 				update_file_offset(fs->used, file);
+
+			// Otherwise, update file offset to 0
 			} else {
 				update_file_offset(0, file);
 			}
@@ -380,38 +336,23 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 			
 		// Expansion of non-zero size files
 		} else {
-			// Find next non-zero size file in array
-			for (int32_t i = file->o_index + 1; i < size; ++i) {
-				start_curr_file = o_list[i]->offset;
-				curr_file_len = o_list[i]->length;
+			// Find next non-zero size file
+			next_non_zero_file =
+					find_next_nonzero_file(file->o_index + 1, fs->o_list);
 
-				// Break if newly created zero size files encountered
-				if (start_curr_file >= MAX_FILE_DATA_LEN) {
-					break;
-				}
-
-				// Non-zero size file found
-				if (curr_file_len > 0) {
-					non_zero_file_index = i;
-
-					// Determine if insufficient space from next file
-					if (start_curr_file - file->offset < length) {
-						requires_repack = 1;
-					}
-
-					break;
-				}
+			int repack_required = 0;
+			if (next_non_zero_file != NULL) {
+				// Repack if insufficient space between files
+				repack_required =
+						next_non_zero_file->offset - file->offset < length;
+			} else {
+				// Repack if insufficient space from end of file_data
+				repack_required =
+						fs->file_data_len - file->offset < length;
 			}
 
-			// If no non-zero size file follows, check if insufficient space
-			// space from end of file_data
-			if (non_zero_file_index < 0 &&
-				fs->file_data_len - file->offset < length) {
-				requires_repack = 1;
-			}
-
-			// Repack if required
-			if (requires_repack) {
+			if (repack_required) {
+				// Copy required data into a buffer
 				uint8_t* temp = salloc(sizeof(*temp) * copy);
 				memcpy(temp, fs->file + file->offset, copy);
 				
