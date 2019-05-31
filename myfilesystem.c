@@ -19,12 +19,12 @@
  *
  * This filesystem only uses one mutex lock for all read and write operations.
  * Write operations require exclusive control of the filesystem as they have
- * the potential to modify some or all of the underlying filesystem files
+ * the potential to modify some, or all, of the underlying filesystem files
  * (file_data, dir_table, hash_data). Additionally, the use of a mutex during
  * read operations was considered more appropriate than a lock which allows
  * parallel reads, as in the event that multiple threads attempt to read to the
  * same buffer simultaneously, the integrity of the buffer is only guaranteed
- * if both read operations are blocking and run in serialised. Hence, only one
+ * if both read operations are blocking, serialising the reads. Hence, only one
  * mutex was used for the synchronisation of the filesystem.
  */
 
@@ -192,15 +192,15 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 		return 0;
 	}
 
-	// Increment index and check space between remaining elements in
-	// the offset array
 	uint64_t start_curr_file = 0;
 	uint64_t end_prev_file = 0;
-	file_t* prev_non_zero_file = first_non_zero_file;
-	file_t* curr_non_zero_file = NULL;
 	int32_t search_index = first_non_zero_file->o_index + 1;
-	while ((curr_non_zero_file =
-			find_next_nonzero_file(search_index, fs->o_list)) != NULL) {
+	file_t* prev_non_zero_file = first_non_zero_file;
+	file_t* curr_non_zero_file =
+			find_next_nonzero_file(search_index, fs->o_list);
+
+	// Check space between remaining elements in the offset array
+	while (curr_non_zero_file != NULL) {
 		start_curr_file = curr_non_zero_file->offset;
 		end_prev_file =
 				prev_non_zero_file->offset + prev_non_zero_file->length;
@@ -213,13 +213,15 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 
 		prev_non_zero_file = curr_non_zero_file;
 		search_index = curr_non_zero_file->o_index + 1;
+		curr_non_zero_file =
+				find_next_nonzero_file(search_index, fs->o_list);
 	}
-	
-	// Check space between last non-zero size file in offset list and the end
-	// of file_data
+
 	uint64_t end_last_file =
 			prev_non_zero_file->offset + prev_non_zero_file->length;
 
+	// Check space between last non-zero size file in offset list and the end
+	// of file_data
 	if (fs->file_data_len - end_last_file >= length) {
 		return end_last_file;
 	}
@@ -231,7 +233,7 @@ uint64_t new_file_offset(size_t length, int64_t* hash_offset, filesys_t* fs) {
 		repack_helper(fs);
 	}
 	
-	// Return offset of first byte after bytes used in filesystem
+	// Return offset of first byte in contiguous block after repack
 	return fs->used;
 }
 
@@ -297,7 +299,8 @@ int create_file(char * filename, size_t length, void * helper) {
  *
  * file: file_t of file being resized
  * length: new file size
- * copy: number of bytes to copy if repacking required
+ * copy: number of bytes to copy if repacking required, reduces copying during
+ * 		 write_file calls which overwrite data
  *
  * returns: offset of first byte repacked if repack occurred, else -1
  */
@@ -320,7 +323,7 @@ int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* 
 
 			// Repack if first non-zero size file offset is not large enough
 			if (next_non_zero_file != NULL &&
-				next_non_zero_file->offset < length) {
+					next_non_zero_file->offset < length) {
 				hash_offset = repack_helper(fs);
 				update_file_offset(fs->used, file);
 
@@ -398,7 +401,7 @@ int resize_file(char * filename, size_t length, void * helper) {
 	}
 	
 	// Return 2 if insufficient space in file_data
-	if (fs->used + (length - f->length) > fs->file_data_len) {
+	if (fs->used + length - f->length > fs->file_data_len) {
 		UNLOCK(&fs->lock);
 		return 2;
 	}
@@ -438,7 +441,7 @@ int resize_file(char * filename, size_t length, void * helper) {
  * Moves file data to new offset in file_data
  *
  * file: file_t of file being moved
- * new_offset: new offset in file data to move file contents to
+ * new_offset: new offset in file_data to move file contents to
  */
 void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {
 	if (file->length > 0) {
@@ -509,7 +512,7 @@ void repack(void * helper) {
 	
 	int64_t hash_offset = repack_helper(fs);
 	
-	// Hash blocked moved during repack
+	// Hash blocks modified during repack
 	if (hash_offset >= 0) {
 		compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 	}
@@ -692,8 +695,9 @@ ssize_t file_size(char * filename, void * helper) {
 	}
 	
 	// Return length of file
+	ssize_t length = f->length;
 	UNLOCK(&fs->lock);
-	return f->length;
+	return length;
 }
 
 void fletcher(uint8_t * buf, size_t length, uint8_t * output) {

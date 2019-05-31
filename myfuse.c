@@ -23,7 +23,6 @@ char * file_data_file_name = NULL;
 char * directory_table_file_name = NULL;
 char * hash_data_file_name = NULL;
 
-
 int myfuse_getattr(const char * path, struct stat * result) {
 	assert(FILESYSTEM != NULL && "filesystem does not exist");
 
