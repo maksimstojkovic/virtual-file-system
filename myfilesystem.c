@@ -28,7 +28,8 @@
  * mutex was used for the synchronisation of the filesystem.
  */
 
-// TODO: Review resize_helper paths
+// TODO: Review resize_helper branches
+// TODO: write helper in helper.c for finding next non-zero size file
 
 void * init_fs(char * f1, char * f2, char * f3, int n_processors) {
     // Allocate space for filesystem helper
@@ -692,8 +693,7 @@ int write_file(char * filename, size_t offset, size_t count, void * buf, void * 
 	}
 	
 	// Return 3 if insufficient space in file_data
-	// TODO: Check for casting case
-	if (fs->used + ((int64_t)offset + count - f->length) > fs->file_data_len) {
+	if (fs->used + offset + count - f->length > fs->file_data_len) {
 		UNLOCK(&fs->lock);
 		return 3;
 	}

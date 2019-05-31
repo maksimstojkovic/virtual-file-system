@@ -290,10 +290,11 @@ int myfuse_write(const char * path, const char * buf, size_t length, off_t offse
 		return -EINVAL;
 	}
 
-	// TODO: check casting
 	// Update number of bytes to write based on filesystem space
+	// ssize_t cast used to prevent underflow if offset + length < f_size
 	size_t write_length;
-	if ((ssize_t)offset + length - f_size > FILESYSTEM->file_data_len - FILESYSTEM->used) {
+	if ((ssize_t)offset + length - f_size >
+			FILESYSTEM->file_data_len - FILESYSTEM->used) {
 		write_length = FILESYSTEM->file_data_len - FILESYSTEM->used;
 	} else {
 		write_length = length;
