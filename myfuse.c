@@ -16,7 +16,6 @@
 #include "helper.h"
 #include "myfilesystem.h"
 
-// TODO: Check for line length
 // TODO: Check values from notes in part 3 of spec
 
 // Macro for casting filesystem struct
@@ -64,7 +63,8 @@ int myfuse_getattr(const char * path, struct stat * result) {
 	return 0;
 }
 
-int myfuse_readdir(const char * path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
+int myfuse_readdir(const char * path, void * buf,
+		fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi) {
 	UNUSED(offset);
 	UNUSED(fi);
 
@@ -205,7 +205,8 @@ int myfuse_open(const char * path, struct fuse_file_info * fi) {
 	return 0;
 }
 
-int myfuse_read(const char * path, char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
+int myfuse_read(const char * path,
+		char * buf, size_t length,off_t offset, struct fuse_file_info * fi) {
 	UNUSED(fi);
 
 	assert(FILESYSTEM != NULL && "filesystem does not exist");
@@ -257,7 +258,8 @@ int myfuse_read(const char * path, char * buf, size_t length, off_t offset, stru
 	return read_length;
 }
 
-int myfuse_write(const char * path, const char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
+int myfuse_write(const char * path,
+		const char * buf, size_t length, off_t offset, struct fuse_file_info * fi) {
 	UNUSED(fi);
 
 	assert(FILESYSTEM != NULL && "filesystem does not exist");
@@ -401,7 +403,8 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	// file_data_file_name, directory_table_file_name and hash_data_file_name should be assigned
+	// file_data_file_name, directory_table_file_name and
+	// hash_data_file_name should be assigned
 	int ret = fuse_main(argc, argv, &operations, NULL);
 	return ret;
 }
