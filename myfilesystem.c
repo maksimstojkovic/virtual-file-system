@@ -276,10 +276,10 @@ int create_file(char * filename, size_t length, void * helper) {
 		fs->used += length;
 
 		if (hash_offset >= 0) {
-			// Hash from first repacked byte to end of used file_data
+			// Hash blocks modified by repack until end of file
 			compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 		} else {
-			// Only hash the bytes modified
+			// Only hash blocks containing the file
 			compute_hash_block_range(offset, length, fs);
 		}
 	}
@@ -415,11 +415,14 @@ int resize_file(char * filename, size_t length, void * helper) {
 	if (length > old_length) {
 		write_null_byte(fs->file, f->offset + old_length, length - old_length);
 
-		// Update hash_data based on whether repack occurred
 		if (hash_offset >= 0) {
-			compute_hash_block_range(hash_offset, f->offset + length - hash_offset, fs);
+			// Hash blocks modified by repack until end of file
+			compute_hash_block_range(hash_offset,
+					f->offset + length - hash_offset, fs);
 		} else {
-			compute_hash_block_range(f->offset + old_length, length - old_length, fs);
+			// Only hash blocks containing the file
+			compute_hash_block_range(f->offset + old_length,
+					length - old_length, fs);
 		}
 	}
 
@@ -506,7 +509,7 @@ void repack(void * helper) {
 	
 	int64_t hash_offset = repack_helper(fs);
 	
-	// Hash if repack moved files
+	// Hash blocked moved during repack
 	if (hash_offset >= 0) {
 		compute_hash_block_range(hash_offset, fs->used - hash_offset, fs);
 	}

@@ -85,14 +85,15 @@ void update_file_name(char* name, file_t* file) {
  * file: address of heap allocated file_t struct to update
  */
 void update_dir_offset(file_t* file, filesys_t* fs) {
-	// If file length is greater than zero, write its offset
-	if (file->length > 0) {
-		memcpy(fs->dir + file->index * META_LEN + NAME_LEN,
-		   &file->offset, sizeof(uint32_t));
-	
-	// Otherwise write 0 for zero size files
+	// Write 0 to dir_table if newly created zero size file
+	if (file->offset >=  MAX_FILE_DATA_LEN) {
+		memset(fs->dir + file->index * META_LEN + NAME_LEN,
+			   '\0', sizeof(uint32_t));
+
+	// Otherwise write the internal file offset to dir_table
 	} else {
-		memset(fs->dir + file->index * META_LEN + NAME_LEN, '\0', sizeof(uint32_t));
+		memcpy(fs->dir + file->index * META_LEN + NAME_LEN,
+			   &file->offset, sizeof(uint32_t));
 	}
 }
 
