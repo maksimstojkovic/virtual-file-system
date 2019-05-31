@@ -8,4 +8,4 @@ Two scripts are included for generating coverage statistics, `gcov.sh` and `lcov
 
 **IMPORTANT:** To run the scripts on Ed, `chmod +x gcov.sh lcov.sh` should be run first.
 
-**Note:** Since Ed does not support `lcov`, interactive HTML coverage reports generated locally prior to submission are available in `cov.zip`. Once downloaded, the reports are accessible via `index.html`.
+**Note:** Since Ed does not support `lcov`, interactive HTML coverage reports generated locally prior to submission are available in `cov.zip`. Once downloaded and extracted, the reports are accessible via `index.html`.
