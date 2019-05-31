@@ -69,7 +69,7 @@ typedef struct filesys_t {
 	int32_t index_count;	// Number of entries in dir_table used
 	uint8_t* index;			// Array of available indices in dir_table
 	int32_t tree_len;		// Number of entries in hash tree
-	int32_t leaf_offset;	// Hash offset to start of leaf nodes in hash tree
+	int32_t leaf_offset;	// Offset to start of leaf nodes in hash tree
 } filesys_t;
 
 #endif
