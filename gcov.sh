@@ -19,3 +19,6 @@ gcc -O0 -std=gnu11 -fsanitize=address -Wall -Werror -g -fprofile-arcs -ftest-cov
 
 # Generate coverage data
 gcov runtest.c myfilesystem.c helper.c arr.c
+
+# Remove .c and .h files to prevent conflicts with Ed "Run" button
+rm *.c *.h

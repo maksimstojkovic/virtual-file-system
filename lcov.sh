@@ -20,3 +20,6 @@ gcc -O0 -std=gnu11 -fsanitize=address -Wall -Werror -g -fprofile-arcs -ftest-cov
 # Generate coverage report
 lcov -c -d . -o lcov.info
 genhtml lcov.info -o cov-html
+
+# Remove .c and .h files to prevent conflicts with Ed "Run" button
+rm *.c *.h
