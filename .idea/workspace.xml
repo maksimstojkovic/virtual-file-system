@@ -1,0 +1,831 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeRunConfigurationManager" shouldGenerate="true" shouldDeleteObsolete="true">
+    <generated>
+      <config projectName="vfs-local" targetName="myfuse" />
+      <config projectName="vfs-local" targetName="runtest" />
+    </generated>
+  </component>
+  <component name="CMakeSettings" AUTO_RELOAD="true">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="892219bf-d111-4fce-953b-323c082cbd41" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/arr.c.func-sort-c.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/arr.c.func-sort-c.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/arr.c.gcov.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/arr.c.gcov.html" afterDir="false" />
+    </list>
+    <list id="4c606e70-ec92-4bda-bdf9-625b65224f90" name="Coverage Data" comment="Coverage Data">
+      <change beforePath="$PROJECT_DIR$/cov/arr.c.gcov" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/arr.gcda" beforeDir="false" afterPath="$PROJECT_DIR$/cov/arr.gcda" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/arr.gcno" beforeDir="false" afterPath="$PROJECT_DIR$/cov/arr.gcno" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/arr.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/arr.c.func.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/arr.c.func.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/helper.c.func-sort-c.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/helper.c.func-sort-c.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/helper.c.func.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/helper.c.func.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/helper.c.gcov.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/helper.c.gcov.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/index-sort-f.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/index-sort-f.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/index-sort-l.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/index-sort-l.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/myfilesystem.c.func-sort-c.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/myfilesystem.c.func-sort-c.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/myfilesystem.c.func.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/myfilesystem.c.func.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/myfilesystem.c.gcov.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/myfilesystem.c.gcov.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/runtest.c.func-sort-c.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/runtest.c.func-sort-c.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/runtest.c.func.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/runtest.c.func.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/cov/runtest.c.gcov.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/cov/runtest.c.gcov.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/index-sort-f.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/index-sort-f.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/index-sort-l.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/index-sort-l.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/cov-html/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/cov/cov-html/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/helper.c.gcov" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/helper.gcda" beforeDir="false" afterPath="$PROJECT_DIR$/cov/helper.gcda" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/helper.gcno" beforeDir="false" afterPath="$PROJECT_DIR$/cov/helper.gcno" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/lcov.info" beforeDir="false" afterPath="$PROJECT_DIR$/cov/lcov.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/myfilesystem.c.gcov" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/myfilesystem.gcda" beforeDir="false" afterPath="$PROJECT_DIR$/cov/myfilesystem.gcda" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/myfilesystem.gcno" beforeDir="false" afterPath="$PROJECT_DIR$/cov/myfilesystem.gcno" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/runtest" beforeDir="false" afterPath="$PROJECT_DIR$/cov/runtest" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/runtest.c" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/runtest.c.gcov" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/runtest.gcda" beforeDir="false" afterPath="$PROJECT_DIR$/cov/runtest.gcda" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cov/runtest.gcno" beforeDir="false" afterPath="$PROJECT_DIR$/cov/runtest.gcno" afterDir="false" />
+    </list>
+    <ignored path="$PROJECT_DIR$/cmake-build-debug/" />
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
+  <component name="FileEditorManager">
+    <leaf>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/myfilesystem.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="330">
+              <caret line="63" lean-forward="true" selection-start-line="63" selection-end-line="63" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>new offset va</find>
+      <find>MAX_FILE_DATA_LEN</find>
+      <find>BLOCK_LENGTH</find>
+      <find>META_LENGTH</find>
+      <find>OFFSET_LENGTH</find>
+      <find>MAX_FILE_DATA_LENGTH</find>
+      <find>fs-&gt;len[0]</find>
+      <find>NAME_LENGTH</find>
+      <find>fs-&gt;index_len</find>
+      <find>HASH_DATA</find>
+      <find>fs-&gt;len[2]</find>
+      <find>int</find>
+      <find>HASH_LENGTH</find>
+      <find>pwrite_n</find>
+      <find>pwrite</find>
+      <find>printf</find>
+      <find>remove_s</find>
+      <find>file1</find>
+      <find>resize_fi</find>
+      <find>.offs</find>
+      <find>HASH_DATA_LEN</find>
+      <find>len[</find>
+      <find>DIR_TABLE_LEN</find>
+      <find>fsy</find>
+      <find>len[2]</find>
+      <find>cast</find>
+      <find>break if</find>
+      <find>\/\/\S</find>
+      <find>//\S</find>
+      <find>abcd</find>
+    </findStrings>
+    <replaceStrings>
+      <replace>UNLOCK</replace>
+      <replace>BLOCK_LEN</replace>
+      <replace>META_LEN</replace>
+      <replace>OFFSET_LEN</replace>
+      <replace>MAX_FILE_DATA_LEN</replace>
+      <replace>FILE_DATA_LEN</replace>
+      <replace>DIR_TABLE_LEN</replace>
+      <replace>NAME_LEN</replace>
+      <replace>NUM_FILES</replace>
+      <replace>HASH_DATA_LEN</replace>
+      <replace>HASH_LEN</replace>
+      <replace>fs-&gt;file_data_len</replace>
+      <replace>fs-&gt;hash_data_len</replace>
+      <replace>fs-&gt;dir_table_len</replace>
+      <replace>file_data_len</replace>
+    </replaceStrings>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/lock.c" />
+        <option value="$PROJECT_DIR$/myfilesystem.h" />
+        <option value="$PROJECT_DIR$/arr.h" />
+        <option value="$PROJECT_DIR$/CMakeLists.txt" />
+        <option value="$PROJECT_DIR$/helper.h" />
+        <option value="$PROJECT_DIR$/arr.c" />
+        <option value="$PROJECT_DIR$/helper.c" />
+        <option value="$PROJECT_DIR$/structs.h" />
+        <option value="$PROJECT_DIR$/cov.sh" />
+        <option value="$PROJECT_DIR$/lcov.sh" />
+        <option value="$PROJECT_DIR$/gcov.sh" />
+        <option value="$PROJECT_DIR$/myfuse.c" />
+        <option value="$PROJECT_DIR$/runtest.c" />
+        <option value="$PROJECT_DIR$/myfilesystem.c" />
+        <option value="$PROJECT_DIR$/README.md" />
+      </list>
+    </option>
+  </component>
+  <component name="OCFindUsagesOptions" text="true" ivars="false" properties="true" derivedClasses="false" />
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="1040" />
+    <option name="width" value="890" />
+    <option name="height" value="1034" />
+  </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectView">
+    <navigator proportions="" version="1">
+      <foldersAlwaysOnTop value="true" />
+    </navigator>
+    <panes>
+      <pane id="Scope" />
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="vfs-local" type="b2602c69:ProjectViewProjectNode" />
+              <item name="vfs-local" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+    </panes>
+  </component>
+  <component name="PropertiesComponent">
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/CMakeLists.txt" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+    <property name="nodejs_package_manager_path" value="npm" />
+    <property name="restartRequiresConfirmation" value="false" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager" selected="CMake Application.runtest">
+    <configuration name="myfuse" type="CMakeRunConfiguration" factoryName="Application" PASS_PARENT_ENVS_2="true" PROJECT_NAME="vfs-local" TARGET_NAME="myfuse" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="vfs-local" RUN_TARGET_NAME="myfuse">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="runtest" type="CMakeRunConfiguration" factoryName="Application" PASS_PARENT_ENVS_2="true" PROJECT_NAME="vfs-local" TARGET_NAME="runtest" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="vfs-local" RUN_TARGET_NAME="runtest">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="CMake Application.myfuse" />
+      <item itemvalue="CMake Application.runtest" />
+    </list>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="892219bf-d111-4fce-953b-323c082cbd41" name="Default Changelist" comment="" />
+      <changelist id="4c606e70-ec92-4bda-bdf9-625b65224f90" name="Coverage Data" comment="" />
+      <created>1557301787260</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1557301787260</updated>
+      <workItem from="1557301788877" duration="11104000" />
+      <workItem from="1558279167382" duration="238000" />
+      <workItem from="1558279425954" duration="111000" />
+      <workItem from="1558290888324" duration="1060000" />
+      <workItem from="1558292060228" duration="52000" />
+      <workItem from="1558374956482" duration="46000" />
+      <workItem from="1558375314498" duration="680000" />
+      <workItem from="1558437073264" duration="483000" />
+      <workItem from="1558446722903" duration="3857000" />
+      <workItem from="1558535336149" duration="166000" />
+      <workItem from="1558599297302" duration="300000" />
+      <workItem from="1558682389207" duration="190000" />
+      <workItem from="1558952010519" duration="2814000" />
+      <workItem from="1558954851298" duration="7763000" />
+      <workItem from="1558967832455" duration="54000" />
+      <workItem from="1558981925367" duration="67000" />
+      <workItem from="1559045128979" duration="22386000" />
+      <workItem from="1559068142802" duration="623000" />
+      <workItem from="1559074170653" duration="868000" />
+      <workItem from="1559106398838" duration="6160000" />
+      <workItem from="1559127912164" duration="687000" />
+      <workItem from="1559132052921" duration="8169000" />
+      <workItem from="1559140659340" duration="63000" />
+      <workItem from="1559140736372" duration="2038000" />
+      <workItem from="1559144794464" duration="188000" />
+      <workItem from="1559175127074" duration="84000" />
+      <workItem from="1559178196203" duration="5242000" />
+      <workItem from="1559185161095" duration="10689000" />
+      <workItem from="1559197424093" duration="3695000" />
+      <workItem from="1559242603721" duration="190000" />
+      <workItem from="1559287112410" duration="521000" />
+      <workItem from="1559290252023" duration="19503000" />
+      <workItem from="1559311118274" duration="245000" />
+    </task>
+    <task id="LOCAL-00015" summary="FUSE test files added">
+      <created>1558952358528</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1558952358528</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Root hash checked during read verification">
+      <created>1558966817056</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1558966817056</updated>
+    </task>
+    <task id="LOCAL-00017" summary="myfuse build">
+      <created>1558967860650</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1558967860650</updated>
+    </task>
+    <task id="LOCAL-00018" summary="myfuse revised">
+      <created>1559049282537</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1559049282537</updated>
+    </task>
+    <task id="LOCAL-00019" summary="myfuse revised">
+      <created>1559049307594</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1559049307594</updated>
+    </task>
+    <task id="LOCAL-00020" summary="myfuse revised">
+      <created>1559049351197</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1559049351197</updated>
+    </task>
+    <task id="LOCAL-00021" summary="used macro for fs context">
+      <created>1559049808612</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1559049808612</updated>
+    </task>
+    <task id="LOCAL-00022" summary="Added macros and refactored upto resize">
+      <created>1559059737699</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1559059737699</updated>
+    </task>
+    <task id="LOCAL-00023" summary="Refactored to rename">
+      <created>1559061470993</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1559061470993</updated>
+    </task>
+    <task id="LOCAL-00024" summary="myfilesystem refactored">
+      <created>1559065392663</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1559065392663</updated>
+    </task>
+    <task id="LOCAL-00025" summary="myfilesystem refactored successfully tested">
+      <created>1559067146086</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1559067146086</updated>
+    </task>
+    <task id="LOCAL-00026" summary="minor adjustments">
+      <created>1559067412569</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1559067412569</updated>
+    </task>
+    <task id="LOCAL-00027" summary="minor adjustments">
+      <created>1559067452891</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1559067452891</updated>
+    </task>
+    <task id="LOCAL-00028" summary="fixed issues with refactored resize condition">
+      <created>1559068750174</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1559068750174</updated>
+    </task>
+    <task id="LOCAL-00029" summary="Initial threading commit">
+      <created>1559106733949</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1559106733949</updated>
+    </task>
+    <task id="LOCAL-00030" summary="Initial implementation and test case written">
+      <created>1559111477770</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1559111477770</updated>
+    </task>
+    <task id="LOCAL-00031" summary="DEBUGGING MULTITHREADING">
+      <created>1559112563578</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1559112563578</updated>
+    </task>
+    <task id="LOCAL-00032" summary="Helper refactored">
+      <created>1559132922981</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1559132922981</updated>
+    </task>
+    <task id="LOCAL-00033" summary="array refactored">
+      <created>1559138021534</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1559138021534</updated>
+    </task>
+    <task id="LOCAL-00034" summary="Refactoring complete for main files">
+      <created>1559138608388</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1559138608388</updated>
+    </task>
+    <task id="LOCAL-00035" summary="Removed print statements">
+      <created>1559138743833</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1559138743833</updated>
+    </task>
+    <task id="LOCAL-00036" summary="Adjusting cmake and removing comments">
+      <created>1559140410610</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1559140410610</updated>
+    </task>
+    <task id="LOCAL-00037" summary="Adjusting cmake">
+      <created>1559141248067</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1559141248067</updated>
+    </task>
+    <task id="LOCAL-00038" summary="Adjusting cmake">
+      <created>1559141629689</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1559141629689</updated>
+    </task>
+    <task id="LOCAL-00039" summary="Coverage Generation Script">
+      <created>1559144886611</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1559144886611</updated>
+    </task>
+    <task id="LOCAL-00040" summary="Adjusting cmake">
+      <created>1559144951011</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1559144951011</updated>
+    </task>
+    <task id="LOCAL-00041" summary="Revised arr insert and get tests">
+      <created>1559182359200</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1559182359200</updated>
+    </task>
+    <task id="LOCAL-00042" summary="Get and remove tests for MAX_FILE_DATA_LEN">
+      <created>1559182966767</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1559182966767</updated>
+    </task>
+    <task id="LOCAL-00043" summary="More useful macro variable names">
+      <created>1559185950652</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1559185950652</updated>
+    </task>
+    <task id="LOCAL-00044" summary="Null byte writing helpers updated to return number of bytes written">
+      <created>1559186934847</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1559186934847</updated>
+    </task>
+    <task id="LOCAL-00045" summary="FEEDBACK RECEIVED">
+      <created>1559195838432</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1559195838432</updated>
+    </task>
+    <task id="LOCAL-00046" summary="refactor in progress">
+      <created>1559198136267</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1559198136267</updated>
+    </task>
+    <task id="LOCAL-00047" summary="refactor in progress">
+      <created>1559201979233</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1559201979233</updated>
+    </task>
+    <task id="LOCAL-00048" summary="Fixed/justified casting cases">
+      <created>1559287449767</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1559287449767</updated>
+    </task>
+    <task id="LOCAL-00049" summary="Started writing helper">
+      <created>1559287600987</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1559287600987</updated>
+    </task>
+    <task id="LOCAL-00050" summary="Created helper for finding next non-zero size file">
+      <created>1559293138339</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1559293138344</updated>
+    </task>
+    <task id="LOCAL-00051" summary="Checked _s methods">
+      <created>1559293224602</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1559293224602</updated>
+    </task>
+    <task id="LOCAL-00052" summary="Updated dir_table offset method">
+      <created>1559294119408</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1559294119408</updated>
+    </task>
+    <task id="LOCAL-00053" summary="Changed comment">
+      <created>1559294192964</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1559294192964</updated>
+    </task>
+    <task id="LOCAL-00054" summary="myfuse line length checked">
+      <created>1559294939567</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1559294939567</updated>
+    </task>
+    <task id="LOCAL-00055" summary="Rename updated, myfuse proofed">
+      <created>1559298892787</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1559298892787</updated>
+    </task>
+    <task id="LOCAL-00056" summary="Update runtest description and created separate scripts for lcov and gcov">
+      <created>1559301008320</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1559301008320</updated>
+    </task>
+    <task id="LOCAL-00057" summary="Assignment ready for final proofing before submission">
+      <created>1559306319406</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1559306319406</updated>
+    </task>
+    <task id="LOCAL-00058" summary="Bash scripts updated">
+      <created>1559306830772</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1559306830772</updated>
+    </task>
+    <task id="LOCAL-00059" summary="Removed files after updating bash script">
+      <created>1559307031788</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1559307031788</updated>
+    </task>
+    <task id="LOCAL-00060" summary="Ready for submission">
+      <created>1559309357766</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1559309357766</updated>
+    </task>
+    <task id="LOCAL-00061" summary="Ready for submission">
+      <created>1559309849038</created>
+      <option name="number" value="00061" />
+      <option name="presentableId" value="LOCAL-00061" />
+      <option name="project" value="LOCAL" />
+      <updated>1559309849038</updated>
+    </task>
+    <task id="LOCAL-00062" summary="Ready for submission">
+      <created>1559309923248</created>
+      <option name="number" value="00062" />
+      <option name="presentableId" value="LOCAL-00062" />
+      <option name="project" value="LOCAL" />
+      <updated>1559309923248</updated>
+    </task>
+    <task id="LOCAL-00063" summary="Ready for submission">
+      <created>1559311248846</created>
+      <option name="number" value="00063" />
+      <option name="presentableId" value="LOCAL-00063" />
+      <option name="project" value="LOCAL" />
+      <updated>1559311248847</updated>
+    </task>
+    <option name="localTasksCounter" value="64" />
+    <servers />
+  </component>
+  <component name="TimeTrackingManager">
+    <option name="totallyTimeSpent" value="110513000" />
+  </component>
+  <component name="TodoView">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+  </component>
+  <component name="ToolWindowManager">
+    <frame x="-7" y="-7" width="1550" height="838" extended-state="6" />
+    <editor active="true" />
+    <layout>
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.16510066" />
+      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.3286119" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49127516" weight="0.3371105" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.3796034" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" sideWeight="0.49932885" weight="0.3286119" />
+      <window_info anchor="bottom" id="Database Changes" order="7" />
+      <window_info anchor="bottom" id="Messages" order="8" sideWeight="0.4919463" weight="0.28470254" />
+      <window_info anchor="bottom" x="-1151" y="30" width="767" height="793" id="Terminal" order="9" sideWeight="0.4986577" weight="0.34560907" />
+      <window_info anchor="bottom" id="Event Log" order="10" sideWeight="0.5087248" side_tool="true" weight="0.32152975" />
+      <window_info anchor="bottom" id="Version Control" order="11" weight="0.3243626" />
+      <window_info anchor="bottom" id="CMake" order="12" weight="0.32719547" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="right" id="Remote Host" order="3" />
+      <window_info anchor="right" id="GCoverage" order="4" weight="0.2080537" />
+      <window_info anchor="right" id="Database" order="5" />
+    </layout>
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="RECENTLY_FILTERED_USER_GROUPS">
+                <collection />
+              </option>
+              <option name="RECENTLY_FILTERED_BRANCH_GROUPS">
+                <collection />
+              </option>
+              <option name="COLUMN_ORDER">
+                <list>
+                  <option value="0" />
+                  <option value="1" />
+                  <option value="2" />
+                  <option value="3" />
+                </list>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="RECENT_FILTERS">
+      <map>
+        <entry key="Branch">
+          <value>
+            <list />
+          </value>
+        </entry>
+        <entry key="User">
+          <value>
+            <list />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="array refactored" />
+    <MESSAGE value="Refactoring complete for main files" />
+    <MESSAGE value="Removed print statements" />
+    <MESSAGE value="Adjusting cmake and removing comments" />
+    <MESSAGE value="Coverage Generation Script" />
+    <MESSAGE value="Adjusting cmake" />
+    <MESSAGE value="Revised arr insert and get tests" />
+    <MESSAGE value="Get and remove tests for MAX_FILE_DATA_LEN" />
+    <MESSAGE value="More useful macro variable names" />
+    <MESSAGE value="Null byte writing helpers updated to return number of bytes written" />
+    <MESSAGE value="FEEDBACK RECEIVED" />
+    <MESSAGE value="refactor in progress" />
+    <MESSAGE value="Fixed/justified casting cases" />
+    <MESSAGE value="Started writing helper" />
+    <MESSAGE value="Created helper for finding next non-zero size file" />
+    <MESSAGE value="Checked _s methods" />
+    <MESSAGE value="Updated dir_table offset method" />
+    <MESSAGE value="Changed comment" />
+    <MESSAGE value="myfuse line length checked" />
+    <MESSAGE value="Rename updated, myfuse proofed" />
+    <MESSAGE value="Update runtest description and created separate scripts for lcov and gcov" />
+    <MESSAGE value="Assignment ready for final proofing before submission" />
+    <MESSAGE value="Bash scripts updated" />
+    <MESSAGE value="Removed files after updating bash script" />
+    <MESSAGE value="Ready for submission" />
+    <option name="LAST_COMMIT_MESSAGE" value="Ready for submission" />
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/main.c" />
+    <entry file="file://$PROJECT_DIR$/lock.c" />
+    <entry file="file://$PROJECT_DIR$/CMakeLists.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="198">
+          <caret line="9" column="25" selection-start-line="9" selection-start-column="25" selection-end-line="9" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/arr.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="22">
+          <caret line="342" column="24" selection-start-line="342" selection-start-column="24" selection-end-line="342" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/arr.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="393">
+          <caret line="24" selection-start-line="24" selection-end-line="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/runtest.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="248">
+          <caret line="409" column="31" selection-start-line="409" selection-start-column="31" selection-end-line="409" selection-end-column="31" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/myfilesystem.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="264">
+          <caret line="15" selection-start-line="15" selection-end-line="15" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/gcov.sh">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="344">
+          <caret line="23" column="10" selection-start-line="23" selection-start-column="10" selection-end-line="23" selection-end-column="10" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/myfuse.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="242">
+          <caret line="29" column="37" selection-start-line="29" selection-start-column="37" selection-end-line="29" selection-end-column="37" />
+          <folding>
+            <element signature="e#100#122#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="220">
+          <caret line="10" column="173" selection-start-line="10" selection-start-column="173" selection-end-line="10" selection-end-column="173" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/structs.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="22">
+          <caret line="10" column="3" selection-start-line="10" selection-start-column="3" selection-end-line="10" selection-end-column="3" />
+          <folding>
+            <element signature="e#37#55#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/helper.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="393">
+          <caret line="150" column="2" selection-start-line="150" selection-start-column="2" selection-end-line="150" selection-end-column="2" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/helper.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="262">
+          <caret line="25" lean-forward="true" selection-start-line="25" selection-end-line="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/lcov.sh">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="344">
+          <caret line="24" column="10" selection-start-line="24" selection-start-column="10" selection-end-line="24" selection-end-column="10" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/myfilesystem.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="330">
+          <caret line="63" lean-forward="true" selection-start-line="63" selection-end-line="63" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>

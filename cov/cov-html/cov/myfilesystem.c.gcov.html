@@ -31,13 +31,13 @@
             <td class="headerValue">lcov.info</td>
             <td></td>
             <td class="headerItem">Lines:</td>
-            <td class="headerCovTableEntry">434</td>
-            <td class="headerCovTableEntry">434</td>
+            <td class="headerCovTableEntry">437</td>
+            <td class="headerCovTableEntry">437</td>
             <td class="headerCovTableEntryHi">100.0 %</td>
           </tr>
           <tr>
             <td class="headerItem">Date:</td>
-            <td class="headerValue">2019-05-31 21:07:46</td>
+            <td class="headerValue">2019-05-31 23:41:01</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntry">22</td>
@@ -81,12 +81,12 @@
 <span class="lineNum">      19 </span>            :  *
 <span class="lineNum">      20 </span>            :  * This filesystem only uses one mutex lock for all read and write operations.
 <span class="lineNum">      21 </span>            :  * Write operations require exclusive control of the filesystem as they have
-<span class="lineNum">      22 </span>            :  * the potential to modify some or all of the underlying filesystem files
+<span class="lineNum">      22 </span>            :  * the potential to modify some, or all, of the underlying filesystem files
 <span class="lineNum">      23 </span>            :  * (file_data, dir_table, hash_data). Additionally, the use of a mutex during
 <span class="lineNum">      24 </span>            :  * read operations was considered more appropriate than a lock which allows
 <span class="lineNum">      25 </span>            :  * parallel reads, as in the event that multiple threads attempt to read to the
 <span class="lineNum">      26 </span>            :  * same buffer simultaneously, the integrity of the buffer is only guaranteed
-<span class="lineNum">      27 </span>            :  * if both read operations are blocking and run in serialised. Hence, only one
+<span class="lineNum">      27 </span>            :  * if both read operations are blocking, serialising the reads. Hence, only one
 <span class="lineNum">      28 </span>            :  * mutex was used for the synchronisation of the filesystem.
 <a name="29"><span class="lineNum">      29 </span>            :  */</a>
 <span class="lineNum">      30 </span>            : 
@@ -254,15 +254,15 @@
 <span class="lineNum">     192 </span><span class="lineCov">         21 :                 return 0;</span>
 <span class="lineNum">     193 </span>            :         }
 <span class="lineNum">     194 </span>            : 
-<span class="lineNum">     195 </span>            :         // Increment index and check space between remaining elements in
-<span class="lineNum">     196 </span>            :         // the offset array
-<span class="lineNum">     197 </span><span class="lineCov">         22 :         uint64_t start_curr_file = 0;</span>
-<span class="lineNum">     198 </span><span class="lineCov">         22 :         uint64_t end_prev_file = 0;</span>
-<span class="lineNum">     199 </span><span class="lineCov">         22 :         file_t* prev_non_zero_file = first_non_zero_file;</span>
-<span class="lineNum">     200 </span><span class="lineCov">         22 :         file_t* curr_non_zero_file = NULL;</span>
-<span class="lineNum">     201 </span><span class="lineCov">         22 :         int32_t search_index = first_non_zero_file-&gt;o_index + 1;</span>
-<span class="lineNum">     202 </span><span class="lineCov">         61 :         while ((curr_non_zero_file =</span>
-<span class="lineNum">     203 </span><span class="lineCov">         39 :                         find_next_nonzero_file(search_index, fs-&gt;o_list)) != NULL) {</span>
+<span class="lineNum">     195 </span><span class="lineCov">         22 :         uint64_t start_curr_file = 0;</span>
+<span class="lineNum">     196 </span><span class="lineCov">         22 :         uint64_t end_prev_file = 0;</span>
+<span class="lineNum">     197 </span><span class="lineCov">         22 :         int32_t search_index = first_non_zero_file-&gt;o_index + 1;</span>
+<span class="lineNum">     198 </span><span class="lineCov">         22 :         file_t* prev_non_zero_file = first_non_zero_file;</span>
+<span class="lineNum">     199 </span><span class="lineCov">         22 :         file_t* curr_non_zero_file =</span>
+<span class="lineNum">     200 </span><span class="lineCov">         22 :                         find_next_nonzero_file(search_index, fs-&gt;o_list);</span>
+<span class="lineNum">     201 </span>            : 
+<span class="lineNum">     202 </span>            :         // Check space between remaining elements in the offset array
+<span class="lineNum">     203 </span><span class="lineCov">         61 :         while (curr_non_zero_file != NULL) {</span>
 <span class="lineNum">     204 </span><span class="lineCov">         18 :                 start_curr_file = curr_non_zero_file-&gt;offset;</span>
 <span class="lineNum">     205 </span><span class="lineCov">         18 :                 end_prev_file =</span>
 <span class="lineNum">     206 </span><span class="lineCov">         18 :                                 prev_non_zero_file-&gt;offset + prev_non_zero_file-&gt;length;</span>
@@ -275,682 +275,686 @@
 <span class="lineNum">     213 </span>            : 
 <span class="lineNum">     214 </span><span class="lineCov">         17 :                 prev_non_zero_file = curr_non_zero_file;</span>
 <span class="lineNum">     215 </span><span class="lineCov">         17 :                 search_index = curr_non_zero_file-&gt;o_index + 1;</span>
-<span class="lineNum">     216 </span>            :         }
-<span class="lineNum">     217 </span>            :         
-<span class="lineNum">     218 </span>            :         // Check space between last non-zero size file in offset list and the end
-<span class="lineNum">     219 </span>            :         // of file_data
+<span class="lineNum">     216 </span><span class="lineCov">         17 :                 curr_non_zero_file =</span>
+<span class="lineNum">     217 </span><span class="lineCov">         17 :                                 find_next_nonzero_file(search_index, fs-&gt;o_list);</span>
+<span class="lineNum">     218 </span>            :         }
+<span class="lineNum">     219 </span>            : 
 <span class="lineNum">     220 </span><span class="lineCov">         21 :         uint64_t end_last_file =</span>
 <span class="lineNum">     221 </span><span class="lineCov">         21 :                         prev_non_zero_file-&gt;offset + prev_non_zero_file-&gt;length;</span>
 <span class="lineNum">     222 </span>            : 
-<span class="lineNum">     223 </span><span class="lineCov">         21 :         if (fs-&gt;file_data_len - end_last_file &gt;= length) {</span>
-<span class="lineNum">     224 </span><span class="lineCov">         19 :                 return end_last_file;</span>
-<span class="lineNum">     225 </span>            :         }
-<span class="lineNum">     226 </span>            :         
-<span class="lineNum">     227 </span>            :         // Repack file_data if no large enough contiguous space found
-<span class="lineNum">     228 </span><span class="lineCov">          2 :         if (hash_offset != NULL) {</span>
-<span class="lineNum">     229 </span><span class="lineCov">          1 :                 *hash_offset = repack_helper(fs);</span>
-<span class="lineNum">     230 </span>            :         } else {
-<span class="lineNum">     231 </span><span class="lineCov">          1 :                 repack_helper(fs);</span>
-<span class="lineNum">     232 </span>            :         }
-<span class="lineNum">     233 </span>            :         
-<span class="lineNum">     234 </span>            :         // Return offset of first byte after bytes used in filesystem
-<span class="lineNum">     235 </span><span class="lineCov">          2 :         return fs-&gt;used;</span>
-<a name="236"><span class="lineNum">     236 </span>            : }</a>
-<span class="lineNum">     237 </span>            : 
-<span class="lineNum">     238 </span><span class="lineCov">         63 : int create_file(char * filename, size_t length, void * helper) {</span>
-<span class="lineNum">     239 </span><span class="lineCov">         63 :         filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     240 </span><span class="lineCov">         63 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     241 </span>            : 
-<span class="lineNum">     242 </span>            :         // Return 1 if file already exists
-<span class="lineNum">     243 </span><span class="lineCov">         63 :         file_t temp;</span>
-<span class="lineNum">     244 </span><span class="lineCov">         63 :         update_file_name(filename, &amp;temp);</span>
-<span class="lineNum">     245 </span><span class="lineCov">         63 :         if (arr_get_by_key(&amp;temp, fs-&gt;n_list) != NULL) {</span>
-<span class="lineNum">     246 </span><span class="lineCov">          2 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     247 </span><span class="lineCov">          2 :                 return 1;</span>
-<span class="lineNum">     248 </span>            :         }
-<span class="lineNum">     249 </span>            :         
-<span class="lineNum">     250 </span>            :         // Return 2 if insufficient space in file_data or dir_table
-<span class="lineNum">     251 </span><span class="lineCov">        121 :         if (fs-&gt;used + length &gt; fs-&gt;file_data_len ||</span>
-<span class="lineNum">     252 </span><span class="lineCov">         60 :                 fs-&gt;index_count &gt;= fs-&gt;index_len) {</span>
-<span class="lineNum">     253 </span><span class="lineCov">          2 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     254 </span><span class="lineCov">          2 :                 return 2;</span>
-<span class="lineNum">     255 </span>            :         }
-<span class="lineNum">     256 </span>            :         
-<span class="lineNum">     257 </span>            :         // Find available index in dir_table and space in file_data
-<span class="lineNum">     258 </span><span class="lineCov">         59 :         int64_t hash_offset = -1;</span>
-<span class="lineNum">     259 </span><span class="lineCov">         59 :         int32_t index = new_file_index(fs);</span>
-<span class="lineNum">     260 </span><span class="lineCov">         59 :         uint64_t offset = new_file_offset(length, &amp;hash_offset, fs);</span>
-<span class="lineNum">     261 </span>            : 
-<span class="lineNum">     262 </span>            :         // Create new file_t struct and insert into both sorted lists
-<span class="lineNum">     263 </span><span class="lineCov">         59 :         file_t* f = file_init(filename, offset, length, index);</span>
-<span class="lineNum">     264 </span><span class="lineCov">         59 :         arr_sorted_insert(f, fs-&gt;o_list);</span>
-<span class="lineNum">     265 </span><span class="lineCov">         59 :         arr_sorted_insert(f, fs-&gt;n_list);</span>
-<span class="lineNum">     266 </span>            : 
-<span class="lineNum">     267 </span>            :         // Write file metadata to dir_table and update index array
-<span class="lineNum">     268 </span><span class="lineCov">         59 :         write_dir_file(f, fs);</span>
-<span class="lineNum">     269 </span><span class="lineCov">         59 :         fs-&gt;index[index] = 1;</span>
-<span class="lineNum">     270 </span><span class="lineCov">         59 :         ++fs-&gt;index_count;</span>
-<span class="lineNum">     271 </span>            : 
-<span class="lineNum">     272 </span>            :         // Only perform file_data updates for non-zero size files
-<span class="lineNum">     273 </span><span class="lineCov">         59 :         if (length &gt; 0) {</span>
-<span class="lineNum">     274 </span>            :                 // Write null bytes to file_data and update filesystem variables
-<span class="lineNum">     275 </span><span class="lineCov">         42 :                 write_null_byte(fs-&gt;file, offset, length);</span>
-<span class="lineNum">     276 </span><span class="lineCov">         42 :                 fs-&gt;used += length;</span>
-<span class="lineNum">     277 </span>            : 
-<span class="lineNum">     278 </span><span class="lineCov">         42 :                 if (hash_offset &gt;= 0) {</span>
-<span class="lineNum">     279 </span>            :                         // Hash blocks modified by repack until end of file
-<span class="lineNum">     280 </span><span class="lineCov">          1 :                         compute_hash_block_range(hash_offset, fs-&gt;used - hash_offset, fs);</span>
-<span class="lineNum">     281 </span>            :                 } else {
-<span class="lineNum">     282 </span>            :                         // Only hash blocks containing the file
-<span class="lineNum">     283 </span><span class="lineCov">         41 :                         compute_hash_block_range(offset, length, fs);</span>
-<span class="lineNum">     284 </span>            :                 }
-<span class="lineNum">     285 </span>            :         }
-<span class="lineNum">     286 </span>            :         
-<span class="lineNum">     287 </span><span class="lineCov">         59 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
-<span class="lineNum">     288 </span><span class="lineCov">         59 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
-<span class="lineNum">     289 </span><span class="lineCov">         59 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
-<span class="lineNum">     290 </span>            :         
-<span class="lineNum">     291 </span><span class="lineCov">         59 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     292 </span><span class="lineCov">         59 :         return 0;</span>
-<span class="lineNum">     293 </span>            : }
-<span class="lineNum">     294 </span>            : 
-<span class="lineNum">     295 </span>            : /*
-<span class="lineNum">     296 </span>            :  * Helper for resizing files, independent of the filesystem lock state
-<span class="lineNum">     297 </span>            :  *
-<span class="lineNum">     298 </span>            :  * file: file_t of file being resized
-<span class="lineNum">     299 </span>            :  * length: new file size
-<span class="lineNum">     300 </span>            :  * copy: number of bytes to copy if repacking required
-<span class="lineNum">     301 </span>            :  *
-<a name="302"><span class="lineNum">     302 </span>            :  * returns: offset of first byte repacked if repack occurred, else -1</a>
-<span class="lineNum">     303 </span>            :  */
-<span class="lineNum">     304 </span><span class="lineCov">         78 : int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs) {</span>
-<span class="lineNum">     305 </span><span class="lineCov">         78 :         int64_t hash_offset = -1;</span>
-<span class="lineNum">     306 </span><span class="lineCov">         78 :         int64_t old_length = file-&gt;length;</span>
-<span class="lineNum">     307 </span>            : 
-<span class="lineNum">     308 </span>            :         // Find suitable space in file_data if length increased
-<span class="lineNum">     309 </span><span class="lineCov">         78 :         if (length &gt; old_length) {</span>
-<span class="lineNum">     310 </span><span class="lineCov">         72 :                 int64_t old_offset = file-&gt;offset;</span>
-<span class="lineNum">     311 </span><span class="lineCov">         72 :                 file_t* next_non_zero_file = NULL;</span>
-<span class="lineNum">     312 </span>            : 
-<span class="lineNum">     313 </span>            :                 // Expansion of zero size files
-<span class="lineNum">     314 </span><span class="lineCov">         72 :                 if (old_offset &gt;= MAX_FILE_DATA_LEN) {</span>
-<span class="lineNum">     315 </span>            :                         // Remove the file from the sorted offset list
-<span class="lineNum">     316 </span><span class="lineCov">          3 :                         arr_remove(file-&gt;o_index, fs-&gt;o_list);</span>
-<span class="lineNum">     317 </span>            : 
-<span class="lineNum">     318 </span>            :                         // Find first non-zero size file
-<span class="lineNum">     319 </span><span class="lineCov">          3 :                         next_non_zero_file = find_next_nonzero_file(0, fs-&gt;o_list);</span>
+<span class="lineNum">     223 </span>            :         // Check space between last non-zero size file in offset list and the end
+<span class="lineNum">     224 </span>            :         // of file_data
+<span class="lineNum">     225 </span><span class="lineCov">         21 :         if (fs-&gt;file_data_len - end_last_file &gt;= length) {</span>
+<span class="lineNum">     226 </span><span class="lineCov">         19 :                 return end_last_file;</span>
+<span class="lineNum">     227 </span>            :         }
+<span class="lineNum">     228 </span>            :         
+<span class="lineNum">     229 </span>            :         // Repack file_data if no large enough contiguous space found
+<span class="lineNum">     230 </span><span class="lineCov">          2 :         if (hash_offset != NULL) {</span>
+<span class="lineNum">     231 </span><span class="lineCov">          1 :                 *hash_offset = repack_helper(fs);</span>
+<span class="lineNum">     232 </span>            :         } else {
+<span class="lineNum">     233 </span><span class="lineCov">          1 :                 repack_helper(fs);</span>
+<span class="lineNum">     234 </span>            :         }
+<span class="lineNum">     235 </span>            :         
+<span class="lineNum">     236 </span>            :         // Return offset of first byte in contiguous block after repack
+<span class="lineNum">     237 </span><span class="lineCov">          2 :         return fs-&gt;used;</span>
+<a name="238"><span class="lineNum">     238 </span>            : }</a>
+<span class="lineNum">     239 </span>            : 
+<span class="lineNum">     240 </span><span class="lineCov">         63 : int create_file(char * filename, size_t length, void * helper) {</span>
+<span class="lineNum">     241 </span><span class="lineCov">         63 :         filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     242 </span><span class="lineCov">         63 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     243 </span>            : 
+<span class="lineNum">     244 </span>            :         // Return 1 if file already exists
+<span class="lineNum">     245 </span><span class="lineCov">         63 :         file_t temp;</span>
+<span class="lineNum">     246 </span><span class="lineCov">         63 :         update_file_name(filename, &amp;temp);</span>
+<span class="lineNum">     247 </span><span class="lineCov">         63 :         if (arr_get_by_key(&amp;temp, fs-&gt;n_list) != NULL) {</span>
+<span class="lineNum">     248 </span><span class="lineCov">          2 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     249 </span><span class="lineCov">          2 :                 return 1;</span>
+<span class="lineNum">     250 </span>            :         }
+<span class="lineNum">     251 </span>            :         
+<span class="lineNum">     252 </span>            :         // Return 2 if insufficient space in file_data or dir_table
+<span class="lineNum">     253 </span><span class="lineCov">        121 :         if (fs-&gt;used + length &gt; fs-&gt;file_data_len ||</span>
+<span class="lineNum">     254 </span><span class="lineCov">         60 :                 fs-&gt;index_count &gt;= fs-&gt;index_len) {</span>
+<span class="lineNum">     255 </span><span class="lineCov">          2 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     256 </span><span class="lineCov">          2 :                 return 2;</span>
+<span class="lineNum">     257 </span>            :         }
+<span class="lineNum">     258 </span>            :         
+<span class="lineNum">     259 </span>            :         // Find available index in dir_table and space in file_data
+<span class="lineNum">     260 </span><span class="lineCov">         59 :         int64_t hash_offset = -1;</span>
+<span class="lineNum">     261 </span><span class="lineCov">         59 :         int32_t index = new_file_index(fs);</span>
+<span class="lineNum">     262 </span><span class="lineCov">         59 :         uint64_t offset = new_file_offset(length, &amp;hash_offset, fs);</span>
+<span class="lineNum">     263 </span>            : 
+<span class="lineNum">     264 </span>            :         // Create new file_t struct and insert into both sorted lists
+<span class="lineNum">     265 </span><span class="lineCov">         59 :         file_t* f = file_init(filename, offset, length, index);</span>
+<span class="lineNum">     266 </span><span class="lineCov">         59 :         arr_sorted_insert(f, fs-&gt;o_list);</span>
+<span class="lineNum">     267 </span><span class="lineCov">         59 :         arr_sorted_insert(f, fs-&gt;n_list);</span>
+<span class="lineNum">     268 </span>            : 
+<span class="lineNum">     269 </span>            :         // Write file metadata to dir_table and update index array
+<span class="lineNum">     270 </span><span class="lineCov">         59 :         write_dir_file(f, fs);</span>
+<span class="lineNum">     271 </span><span class="lineCov">         59 :         fs-&gt;index[index] = 1;</span>
+<span class="lineNum">     272 </span><span class="lineCov">         59 :         ++fs-&gt;index_count;</span>
+<span class="lineNum">     273 </span>            : 
+<span class="lineNum">     274 </span>            :         // Only perform file_data updates for non-zero size files
+<span class="lineNum">     275 </span><span class="lineCov">         59 :         if (length &gt; 0) {</span>
+<span class="lineNum">     276 </span>            :                 // Write null bytes to file_data and update filesystem variables
+<span class="lineNum">     277 </span><span class="lineCov">         42 :                 write_null_byte(fs-&gt;file, offset, length);</span>
+<span class="lineNum">     278 </span><span class="lineCov">         42 :                 fs-&gt;used += length;</span>
+<span class="lineNum">     279 </span>            : 
+<span class="lineNum">     280 </span><span class="lineCov">         42 :                 if (hash_offset &gt;= 0) {</span>
+<span class="lineNum">     281 </span>            :                         // Hash blocks modified by repack until end of file
+<span class="lineNum">     282 </span><span class="lineCov">          1 :                         compute_hash_block_range(hash_offset, fs-&gt;used - hash_offset, fs);</span>
+<span class="lineNum">     283 </span>            :                 } else {
+<span class="lineNum">     284 </span>            :                         // Only hash blocks containing the file
+<span class="lineNum">     285 </span><span class="lineCov">         41 :                         compute_hash_block_range(offset, length, fs);</span>
+<span class="lineNum">     286 </span>            :                 }
+<span class="lineNum">     287 </span>            :         }
+<span class="lineNum">     288 </span>            :         
+<span class="lineNum">     289 </span><span class="lineCov">         59 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
+<span class="lineNum">     290 </span><span class="lineCov">         59 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
+<span class="lineNum">     291 </span><span class="lineCov">         59 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     292 </span>            :         
+<span class="lineNum">     293 </span><span class="lineCov">         59 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     294 </span><span class="lineCov">         59 :         return 0;</span>
+<span class="lineNum">     295 </span>            : }
+<span class="lineNum">     296 </span>            : 
+<span class="lineNum">     297 </span>            : /*
+<span class="lineNum">     298 </span>            :  * Helper for resizing files, independent of the filesystem lock state
+<span class="lineNum">     299 </span>            :  *
+<span class="lineNum">     300 </span>            :  * file: file_t of file being resized
+<span class="lineNum">     301 </span>            :  * length: new file size
+<span class="lineNum">     302 </span>            :  * copy: number of bytes to copy if repacking required, reduces copying during
+<span class="lineNum">     303 </span>            :  *               write_file calls which overwrite data
+<span class="lineNum">     304 </span>            :  *
+<a name="305"><span class="lineNum">     305 </span>            :  * returns: offset of first byte repacked if repack occurred, else -1</a>
+<span class="lineNum">     306 </span>            :  */
+<span class="lineNum">     307 </span><span class="lineCov">         78 : int64_t resize_file_helper(file_t* file, size_t length, size_t copy, filesys_t* fs) {</span>
+<span class="lineNum">     308 </span><span class="lineCov">         78 :         int64_t hash_offset = -1;</span>
+<span class="lineNum">     309 </span><span class="lineCov">         78 :         int64_t old_length = file-&gt;length;</span>
+<span class="lineNum">     310 </span>            : 
+<span class="lineNum">     311 </span>            :         // Find suitable space in file_data if length increased
+<span class="lineNum">     312 </span><span class="lineCov">         78 :         if (length &gt; old_length) {</span>
+<span class="lineNum">     313 </span><span class="lineCov">         72 :                 int64_t old_offset = file-&gt;offset;</span>
+<span class="lineNum">     314 </span><span class="lineCov">         72 :                 file_t* next_non_zero_file = NULL;</span>
+<span class="lineNum">     315 </span>            : 
+<span class="lineNum">     316 </span>            :                 // Expansion of zero size files
+<span class="lineNum">     317 </span><span class="lineCov">         72 :                 if (old_offset &gt;= MAX_FILE_DATA_LEN) {</span>
+<span class="lineNum">     318 </span>            :                         // Remove the file from the sorted offset list
+<span class="lineNum">     319 </span><span class="lineCov">          3 :                         arr_remove(file-&gt;o_index, fs-&gt;o_list);</span>
 <span class="lineNum">     320 </span>            : 
-<span class="lineNum">     321 </span>            :                         // Repack if first non-zero size file offset is not large enough
-<span class="lineNum">     322 </span><span class="lineCov">          4 :                         if (next_non_zero_file != NULL &amp;&amp;</span>
-<span class="lineNum">     323 </span><span class="lineCov">          1 :                                 next_non_zero_file-&gt;offset &lt; length) {</span>
-<span class="lineNum">     324 </span><span class="lineCov">          1 :                                 hash_offset = repack_helper(fs);</span>
-<span class="lineNum">     325 </span><span class="lineCov">          1 :                                 update_file_offset(fs-&gt;used, file);</span>
-<span class="lineNum">     326 </span>            : 
-<span class="lineNum">     327 </span>            :                         // Otherwise, update file offset to 0
-<span class="lineNum">     328 </span>            :                         } else {
-<span class="lineNum">     329 </span><span class="lineCov">          2 :                                 update_file_offset(0, file);</span>
-<span class="lineNum">     330 </span>            :                         }
-<span class="lineNum">     331 </span>            : 
-<span class="lineNum">     332 </span><span class="lineCov">          3 :                         update_dir_offset(file, fs);</span>
-<span class="lineNum">     333 </span>            : 
-<span class="lineNum">     334 </span>            :                         // Re-insert file into sorted offset list
-<span class="lineNum">     335 </span><span class="lineCov">          3 :                         arr_sorted_insert(file, fs-&gt;o_list);</span>
-<span class="lineNum">     336 </span>            :                         
-<span class="lineNum">     337 </span>            :                 // Expansion of non-zero size files
-<span class="lineNum">     338 </span>            :                 } else {
-<span class="lineNum">     339 </span>            :                         // Find next non-zero size file
-<span class="lineNum">     340 </span><span class="lineCov">         69 :                         next_non_zero_file =</span>
-<span class="lineNum">     341 </span><span class="lineCov">         69 :                                         find_next_nonzero_file(file-&gt;o_index + 1, fs-&gt;o_list);</span>
-<span class="lineNum">     342 </span>            : 
-<span class="lineNum">     343 </span><span class="lineCov">         69 :                         int repack_required = 0;</span>
-<span class="lineNum">     344 </span><span class="lineCov">         69 :                         if (next_non_zero_file != NULL) {</span>
-<span class="lineNum">     345 </span>            :                                 // Repack if insufficient space between files
-<span class="lineNum">     346 </span><span class="lineCov">          2 :                                 repack_required =</span>
-<span class="lineNum">     347 </span><span class="lineCov">          2 :                                                 next_non_zero_file-&gt;offset - file-&gt;offset &lt; length;</span>
-<span class="lineNum">     348 </span>            :                         } else {
-<span class="lineNum">     349 </span>            :                                 // Repack if insufficient space from end of file_data
-<span class="lineNum">     350 </span><span class="lineCov">         67 :                                 repack_required =</span>
-<span class="lineNum">     351 </span><span class="lineCov">         67 :                                                 fs-&gt;file_data_len - file-&gt;offset &lt; length;</span>
-<span class="lineNum">     352 </span>            :                         }
-<span class="lineNum">     353 </span>            : 
-<span class="lineNum">     354 </span><span class="lineCov">         69 :                         if (repack_required) {</span>
-<span class="lineNum">     355 </span>            :                                 // Copy required data into a buffer
-<span class="lineNum">     356 </span><span class="lineCov">          3 :                                 uint8_t* temp = salloc(sizeof(*temp) * copy);</span>
-<span class="lineNum">     357 </span><span class="lineCov">          3 :                                 memcpy(temp, fs-&gt;file + file-&gt;offset, copy);</span>
-<span class="lineNum">     358 </span>            :                                 
-<span class="lineNum">     359 </span>            :                                 // Remove file from sorted offset list
-<span class="lineNum">     360 </span><span class="lineCov">          3 :                                 arr_remove(file-&gt;o_index, fs-&gt;o_list);</span>
-<span class="lineNum">     361 </span>            : 
-<span class="lineNum">     362 </span>            :                                 // Repack and write buffer contents to the end of file_data
-<span class="lineNum">     363 </span><span class="lineCov">          3 :                                 hash_offset = repack_helper(fs);</span>
-<span class="lineNum">     364 </span><span class="lineCov">          3 :                                 memcpy(fs-&gt;file + fs-&gt;used - old_length, temp, copy);</span>
-<span class="lineNum">     365 </span><span class="lineCov">          3 :                                 free(temp);</span>
-<span class="lineNum">     366 </span>            :                                 
-<span class="lineNum">     367 </span><span class="lineCov">          3 :                                 update_file_offset(fs-&gt;used - old_length, file);</span>
-<span class="lineNum">     368 </span><span class="lineCov">          3 :                                 update_dir_offset(file, fs);</span>
-<span class="lineNum">     369 </span>            : 
-<span class="lineNum">     370 </span>            :                                 // Re-insert file into sorted offset list
-<span class="lineNum">     371 </span><span class="lineCov">          3 :                                 arr_sorted_insert(file, fs-&gt;o_list);</span>
-<span class="lineNum">     372 </span>            :                         }
-<span class="lineNum">     373 </span>            :                 }
-<span class="lineNum">     374 </span>            :         }
-<span class="lineNum">     375 </span>            :         
-<span class="lineNum">     376 </span>            :         // Update file and dir_table if length changed
-<span class="lineNum">     377 </span><span class="lineCov">         78 :         if (length != old_length) {</span>
-<span class="lineNum">     378 </span><span class="lineCov">         78 :                 update_file_length(length, file);</span>
-<span class="lineNum">     379 </span><span class="lineCov">         78 :                 update_dir_length(file, fs);</span>
-<span class="lineNum">     380 </span>            : 
-<span class="lineNum">     381 </span><span class="lineCov">         78 :                 fs-&gt;used += length - old_length;</span>
-<span class="lineNum">     382 </span>            :         }
+<span class="lineNum">     321 </span>            :                         // Find first non-zero size file
+<span class="lineNum">     322 </span><span class="lineCov">          3 :                         next_non_zero_file = find_next_nonzero_file(0, fs-&gt;o_list);</span>
+<span class="lineNum">     323 </span>            : 
+<span class="lineNum">     324 </span>            :                         // Repack if first non-zero size file offset is not large enough
+<span class="lineNum">     325 </span><span class="lineCov">          4 :                         if (next_non_zero_file != NULL &amp;&amp;</span>
+<span class="lineNum">     326 </span><span class="lineCov">          1 :                                         next_non_zero_file-&gt;offset &lt; length) {</span>
+<span class="lineNum">     327 </span><span class="lineCov">          1 :                                 hash_offset = repack_helper(fs);</span>
+<span class="lineNum">     328 </span><span class="lineCov">          1 :                                 update_file_offset(fs-&gt;used, file);</span>
+<span class="lineNum">     329 </span>            : 
+<span class="lineNum">     330 </span>            :                         // Otherwise, update file offset to 0
+<span class="lineNum">     331 </span>            :                         } else {
+<span class="lineNum">     332 </span><span class="lineCov">          2 :                                 update_file_offset(0, file);</span>
+<span class="lineNum">     333 </span>            :                         }
+<span class="lineNum">     334 </span>            : 
+<span class="lineNum">     335 </span><span class="lineCov">          3 :                         update_dir_offset(file, fs);</span>
+<span class="lineNum">     336 </span>            : 
+<span class="lineNum">     337 </span>            :                         // Re-insert file into sorted offset list
+<span class="lineNum">     338 </span><span class="lineCov">          3 :                         arr_sorted_insert(file, fs-&gt;o_list);</span>
+<span class="lineNum">     339 </span>            :                         
+<span class="lineNum">     340 </span>            :                 // Expansion of non-zero size files
+<span class="lineNum">     341 </span>            :                 } else {
+<span class="lineNum">     342 </span>            :                         // Find next non-zero size file
+<span class="lineNum">     343 </span><span class="lineCov">         69 :                         next_non_zero_file =</span>
+<span class="lineNum">     344 </span><span class="lineCov">         69 :                                         find_next_nonzero_file(file-&gt;o_index + 1, fs-&gt;o_list);</span>
+<span class="lineNum">     345 </span>            : 
+<span class="lineNum">     346 </span><span class="lineCov">         69 :                         int repack_required = 0;</span>
+<span class="lineNum">     347 </span><span class="lineCov">         69 :                         if (next_non_zero_file != NULL) {</span>
+<span class="lineNum">     348 </span>            :                                 // Repack if insufficient space between files
+<span class="lineNum">     349 </span><span class="lineCov">          2 :                                 repack_required =</span>
+<span class="lineNum">     350 </span><span class="lineCov">          2 :                                                 next_non_zero_file-&gt;offset - file-&gt;offset &lt; length;</span>
+<span class="lineNum">     351 </span>            :                         } else {
+<span class="lineNum">     352 </span>            :                                 // Repack if insufficient space from end of file_data
+<span class="lineNum">     353 </span><span class="lineCov">         67 :                                 repack_required =</span>
+<span class="lineNum">     354 </span><span class="lineCov">         67 :                                                 fs-&gt;file_data_len - file-&gt;offset &lt; length;</span>
+<span class="lineNum">     355 </span>            :                         }
+<span class="lineNum">     356 </span>            : 
+<span class="lineNum">     357 </span><span class="lineCov">         69 :                         if (repack_required) {</span>
+<span class="lineNum">     358 </span>            :                                 // Copy required data into a buffer
+<span class="lineNum">     359 </span><span class="lineCov">          3 :                                 uint8_t* temp = salloc(sizeof(*temp) * copy);</span>
+<span class="lineNum">     360 </span><span class="lineCov">          3 :                                 memcpy(temp, fs-&gt;file + file-&gt;offset, copy);</span>
+<span class="lineNum">     361 </span>            :                                 
+<span class="lineNum">     362 </span>            :                                 // Remove file from sorted offset list
+<span class="lineNum">     363 </span><span class="lineCov">          3 :                                 arr_remove(file-&gt;o_index, fs-&gt;o_list);</span>
+<span class="lineNum">     364 </span>            : 
+<span class="lineNum">     365 </span>            :                                 // Repack and write buffer contents to the end of file_data
+<span class="lineNum">     366 </span><span class="lineCov">          3 :                                 hash_offset = repack_helper(fs);</span>
+<span class="lineNum">     367 </span><span class="lineCov">          3 :                                 memcpy(fs-&gt;file + fs-&gt;used - old_length, temp, copy);</span>
+<span class="lineNum">     368 </span><span class="lineCov">          3 :                                 free(temp);</span>
+<span class="lineNum">     369 </span>            :                                 
+<span class="lineNum">     370 </span><span class="lineCov">          3 :                                 update_file_offset(fs-&gt;used - old_length, file);</span>
+<span class="lineNum">     371 </span><span class="lineCov">          3 :                                 update_dir_offset(file, fs);</span>
+<span class="lineNum">     372 </span>            : 
+<span class="lineNum">     373 </span>            :                                 // Re-insert file into sorted offset list
+<span class="lineNum">     374 </span><span class="lineCov">          3 :                                 arr_sorted_insert(file, fs-&gt;o_list);</span>
+<span class="lineNum">     375 </span>            :                         }
+<span class="lineNum">     376 </span>            :                 }
+<span class="lineNum">     377 </span>            :         }
+<span class="lineNum">     378 </span>            :         
+<span class="lineNum">     379 </span>            :         // Update file and dir_table if length changed
+<span class="lineNum">     380 </span><span class="lineCov">         78 :         if (length != old_length) {</span>
+<span class="lineNum">     381 </span><span class="lineCov">         78 :                 update_file_length(length, file);</span>
+<span class="lineNum">     382 </span><span class="lineCov">         78 :                 update_dir_length(file, fs);</span>
 <span class="lineNum">     383 </span>            : 
-<span class="lineNum">     384 </span><span class="lineCov">         78 :         return hash_offset;</span>
-<a name="385"><span class="lineNum">     385 </span>            : }</a>
+<span class="lineNum">     384 </span><span class="lineCov">         78 :                 fs-&gt;used += length - old_length;</span>
+<span class="lineNum">     385 </span>            :         }
 <span class="lineNum">     386 </span>            : 
-<span class="lineNum">     387 </span><span class="lineCov">         16 : int resize_file(char * filename, size_t length, void * helper) {</span>
-<span class="lineNum">     388 </span><span class="lineCov">         16 :     filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     389 </span><span class="lineCov">         16 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     390 </span>            :         
-<span class="lineNum">     391 </span>            :         // Return 1 if file does not exist
-<span class="lineNum">     392 </span><span class="lineCov">         16 :         file_t temp;</span>
-<span class="lineNum">     393 </span><span class="lineCov">         16 :         update_file_name(filename, &amp;temp);</span>
-<span class="lineNum">     394 </span><span class="lineCov">         16 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
-<span class="lineNum">     395 </span><span class="lineCov">         16 :         if (f == NULL) {</span>
-<span class="lineNum">     396 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     397 </span><span class="lineCov">          1 :                 return 1;</span>
-<span class="lineNum">     398 </span>            :         }
-<span class="lineNum">     399 </span>            :         
-<span class="lineNum">     400 </span>            :         // Return 2 if insufficient space in file_data
-<span class="lineNum">     401 </span><span class="lineCov">         15 :         if (fs-&gt;used + (length - f-&gt;length) &gt; fs-&gt;file_data_len) {</span>
-<span class="lineNum">     402 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     403 </span><span class="lineCov">          1 :                 return 2;</span>
-<span class="lineNum">     404 </span>            :         }
-<span class="lineNum">     405 </span>            :         
-<span class="lineNum">     406 </span>            :         // Return 0 if new length is same as old length
-<span class="lineNum">     407 </span><span class="lineCov">         14 :         if (length == f-&gt;length) {</span>
-<span class="lineNum">     408 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     409 </span><span class="lineCov">          1 :                 return 0;</span>
-<span class="lineNum">     410 </span>            :         }
-<span class="lineNum">     411 </span>            :         
-<span class="lineNum">     412 </span><span class="lineCov">         13 :         int64_t old_length = f-&gt;length;</span>
-<span class="lineNum">     413 </span><span class="lineCov">         13 :         int64_t hash_offset = resize_file_helper(f, length, old_length, fs);</span>
-<span class="lineNum">     414 </span>            : 
-<span class="lineNum">     415 </span><span class="lineCov">         13 :         if (length &gt; old_length) {</span>
-<span class="lineNum">     416 </span><span class="lineCov">          7 :                 write_null_byte(fs-&gt;file, f-&gt;offset + old_length, length - old_length);</span>
+<span class="lineNum">     387 </span><span class="lineCov">         78 :         return hash_offset;</span>
+<a name="388"><span class="lineNum">     388 </span>            : }</a>
+<span class="lineNum">     389 </span>            : 
+<span class="lineNum">     390 </span><span class="lineCov">         16 : int resize_file(char * filename, size_t length, void * helper) {</span>
+<span class="lineNum">     391 </span><span class="lineCov">         16 :     filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     392 </span><span class="lineCov">         16 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     393 </span>            :         
+<span class="lineNum">     394 </span>            :         // Return 1 if file does not exist
+<span class="lineNum">     395 </span><span class="lineCov">         16 :         file_t temp;</span>
+<span class="lineNum">     396 </span><span class="lineCov">         16 :         update_file_name(filename, &amp;temp);</span>
+<span class="lineNum">     397 </span><span class="lineCov">         16 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
+<span class="lineNum">     398 </span><span class="lineCov">         16 :         if (f == NULL) {</span>
+<span class="lineNum">     399 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     400 </span><span class="lineCov">          1 :                 return 1;</span>
+<span class="lineNum">     401 </span>            :         }
+<span class="lineNum">     402 </span>            :         
+<span class="lineNum">     403 </span>            :         // Return 2 if insufficient space in file_data
+<span class="lineNum">     404 </span><span class="lineCov">         15 :         if (fs-&gt;used + length - f-&gt;length &gt; fs-&gt;file_data_len) {</span>
+<span class="lineNum">     405 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     406 </span><span class="lineCov">          1 :                 return 2;</span>
+<span class="lineNum">     407 </span>            :         }
+<span class="lineNum">     408 </span>            :         
+<span class="lineNum">     409 </span>            :         // Return 0 if new length is same as old length
+<span class="lineNum">     410 </span><span class="lineCov">         14 :         if (length == f-&gt;length) {</span>
+<span class="lineNum">     411 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     412 </span><span class="lineCov">          1 :                 return 0;</span>
+<span class="lineNum">     413 </span>            :         }
+<span class="lineNum">     414 </span>            :         
+<span class="lineNum">     415 </span><span class="lineCov">         13 :         int64_t old_length = f-&gt;length;</span>
+<span class="lineNum">     416 </span><span class="lineCov">         13 :         int64_t hash_offset = resize_file_helper(f, length, old_length, fs);</span>
 <span class="lineNum">     417 </span>            : 
-<span class="lineNum">     418 </span><span class="lineCov">          7 :                 if (hash_offset &gt;= 0) {</span>
-<span class="lineNum">     419 </span>            :                         // Hash blocks modified by repack until end of file
-<span class="lineNum">     420 </span><span class="lineCov">          2 :                         compute_hash_block_range(hash_offset,</span>
-<span class="lineNum">     421 </span><span class="lineCov">          2 :                                         f-&gt;offset + length - hash_offset, fs);</span>
-<span class="lineNum">     422 </span>            :                 } else {
-<span class="lineNum">     423 </span>            :                         // Only hash blocks containing the file
-<span class="lineNum">     424 </span><span class="lineCov">          5 :                         compute_hash_block_range(f-&gt;offset + old_length,</span>
-<span class="lineNum">     425 </span><span class="lineCov">          5 :                                         length - old_length, fs);</span>
-<span class="lineNum">     426 </span>            :                 }
-<span class="lineNum">     427 </span>            :         }
-<span class="lineNum">     428 </span>            : 
-<span class="lineNum">     429 </span><span class="lineCov">         13 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
-<span class="lineNum">     430 </span><span class="lineCov">         13 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
-<span class="lineNum">     431 </span><span class="lineCov">         13 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
-<span class="lineNum">     432 </span>            : 
-<span class="lineNum">     433 </span><span class="lineCov">         13 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     434 </span><span class="lineCov">         13 :         return 0;</span>
-<span class="lineNum">     435 </span>            : }
-<span class="lineNum">     436 </span>            : 
-<span class="lineNum">     437 </span>            : /*
-<span class="lineNum">     438 </span>            :  * Moves file data to new offset in file_data
-<span class="lineNum">     439 </span>            :  *
-<span class="lineNum">     440 </span>            :  * file: file_t of file being moved
-<a name="441"><span class="lineNum">     441 </span>            :  * new_offset: new offset in file data to move file contents to</a>
-<span class="lineNum">     442 </span>            :  */
-<span class="lineNum">     443 </span><span class="lineCov">          9 : void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {</span>
-<span class="lineNum">     444 </span><span class="lineCov">          9 :         if (file-&gt;length &gt; 0) {</span>
-<span class="lineNum">     445 </span><span class="lineCov">          7 :                 memmove(fs-&gt;file + new_offset, fs-&gt;file + file-&gt;offset, file-&gt;length);</span>
-<span class="lineNum">     446 </span>            :         }
-<span class="lineNum">     447 </span>            : 
-<span class="lineNum">     448 </span><span class="lineCov">          9 :         update_file_offset(new_offset, file);</span>
-<span class="lineNum">     449 </span><span class="lineCov">          9 :         update_dir_offset(file, fs);</span>
-<span class="lineNum">     450 </span><span class="lineCov">          9 : }</span>
-<span class="lineNum">     451 </span>            : 
-<span class="lineNum">     452 </span>            : /*
-<span class="lineNum">     453 </span>            :  * Helper for repacking files, independent of the filesystem lock state
-<span class="lineNum">     454 </span>            :  * The order of files is maintained during repack
-<span class="lineNum">     455 </span>            :  *
-<a name="456"><span class="lineNum">     456 </span>            :  * returns: offset of first byte modified if repack occurred, else -1</a>
-<span class="lineNum">     457 </span>            :  */
-<span class="lineNum">     458 </span><span class="lineCov">          8 : int64_t repack_helper(filesys_t* fs) {</span>
-<span class="lineNum">     459 </span><span class="lineCov">          8 :         file_t** o_list = fs-&gt;o_list-&gt;list;</span>
-<span class="lineNum">     460 </span><span class="lineCov">          8 :         int32_t size = fs-&gt;o_list-&gt;size;</span>
-<span class="lineNum">     461 </span>            :         
-<span class="lineNum">     462 </span>            :         // Return if no files in filesystem
-<span class="lineNum">     463 </span><span class="lineCov">          8 :         if (fs-&gt;used &lt;= 0 || size &lt;= 0) {</span>
-<span class="lineNum">     464 </span><span class="lineCov">          1 :                 return -1;</span>
-<span class="lineNum">     465 </span>            :         }
-<span class="lineNum">     466 </span>            :         
-<span class="lineNum">     467 </span>            :         // Variable for tracking blocks to hash
-<span class="lineNum">     468 </span><span class="lineCov">          7 :         int64_t hash_offset = -1;</span>
-<span class="lineNum">     469 </span>            : 
-<span class="lineNum">     470 </span>            : 
-<span class="lineNum">     471 </span>            :         // Ensure first file at offset 0
-<span class="lineNum">     472 </span><span class="lineCov">          7 :         uint64_t start_curr_file = o_list[0]-&gt;offset;</span>
-<span class="lineNum">     473 </span><span class="lineCov">          7 :         uint64_t end_prev_file = 0;</span>
-<span class="lineNum">     474 </span><span class="lineCov">          7 :         int is_zero_size = o_list[0]-&gt;length == 0;</span>
-<span class="lineNum">     475 </span><span class="lineCov">          7 :         if (start_curr_file &gt; 0) {</span>
-<span class="lineNum">     476 </span><span class="lineCov">          4 :                 repack_move(o_list[0], 0, fs);</span>
-<span class="lineNum">     477 </span>            : 
-<span class="lineNum">     478 </span><span class="lineCov">          4 :                 if (!is_zero_size) {</span>
-<span class="lineNum">     479 </span><span class="lineCov">          4 :                         hash_offset = 0;</span>
-<span class="lineNum">     480 </span>            :                 }
-<span class="lineNum">     481 </span>            :         }
-<span class="lineNum">     482 </span>            :         
-<span class="lineNum">     483 </span>            :         // Iterate over sorted offset array and move data when necessary
-<span class="lineNum">     484 </span><span class="lineCov">         16 :         for (int32_t i = 1; i &lt; size; ++i) {</span>
-<span class="lineNum">     485 </span><span class="lineCov">         14 :                 start_curr_file = o_list[i]-&gt;offset;</span>
-<span class="lineNum">     486 </span><span class="lineCov">         14 :                 end_prev_file = o_list[i - 1]-&gt;offset + o_list[i - 1]-&gt;length;</span>
-<span class="lineNum">     487 </span><span class="lineCov">         14 :                 is_zero_size = o_list[i]-&gt;length == 0;</span>
-<span class="lineNum">     488 </span>            : 
-<span class="lineNum">     489 </span>            :                 // Break if newly created zero size files encountered
-<span class="lineNum">     490 </span><span class="lineCov">         14 :                 if (start_curr_file &gt;= MAX_FILE_DATA_LEN) {</span>
-<span class="lineNum">     491 </span><span class="lineCov">          5 :                         break;</span>
-<span class="lineNum">     492 </span>            :                 }
-<span class="lineNum">     493 </span>            : 
-<span class="lineNum">     494 </span><span class="lineCov">          9 :                 if (start_curr_file &gt; end_prev_file) {</span>
-<span class="lineNum">     495 </span><span class="lineCov">          5 :                         repack_move(o_list[i], end_prev_file, fs);</span>
-<span class="lineNum">     496 </span>            :                         
-<span class="lineNum">     497 </span><span class="lineCov">          5 :                         if (hash_offset &lt; 0 &amp;&amp; !is_zero_size) {</span>
-<span class="lineNum">     498 </span><span class="lineCov">          2 :                                 hash_offset = o_list[i]-&gt;offset;</span>
-<span class="lineNum">     499 </span>            :                         }
-<span class="lineNum">     500 </span>            :                 }
-<span class="lineNum">     501 </span>            :         }
-<span class="lineNum">     502 </span>            :         
-<span class="lineNum">     503 </span><span class="lineCov">          7 :         return hash_offset;</span>
-<a name="504"><span class="lineNum">     504 </span>            : }</a>
-<span class="lineNum">     505 </span>            : 
-<span class="lineNum">     506 </span><span class="lineCov">          1 : void repack(void * helper) {</span>
-<span class="lineNum">     507 </span><span class="lineCov">          1 :     filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     508 </span><span class="lineCov">          1 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     509 </span>            :         
-<span class="lineNum">     510 </span><span class="lineCov">          1 :         int64_t hash_offset = repack_helper(fs);</span>
-<span class="lineNum">     511 </span>            :         
-<span class="lineNum">     512 </span>            :         // Hash blocked moved during repack
-<span class="lineNum">     513 </span><span class="lineCov">          1 :         if (hash_offset &gt;= 0) {</span>
-<span class="lineNum">     514 </span><span class="lineCov">          1 :                 compute_hash_block_range(hash_offset, fs-&gt;used - hash_offset, fs);</span>
-<span class="lineNum">     515 </span>            :         }
-<span class="lineNum">     516 </span>            :         
-<span class="lineNum">     517 </span><span class="lineCov">          1 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
-<span class="lineNum">     518 </span><span class="lineCov">          1 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
-<span class="lineNum">     519 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
-<span class="lineNum">     520 </span>            :         
-<span class="lineNum">     521 </span><span class="lineCov">          1 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<a name="522"><span class="lineNum">     522 </span><span class="lineCov">          1 : }</span></a>
-<span class="lineNum">     523 </span>            : 
-<span class="lineNum">     524 </span><span class="lineCov">          7 : int delete_file(char * filename, void * helper) {</span>
-<span class="lineNum">     525 </span><span class="lineCov">          7 :     filesys_t* fs = (filesys_t*)helper; </span>
-<span class="lineNum">     526 </span><span class="lineCov">          7 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     527 </span>            :                 
-<span class="lineNum">     528 </span>            :         // Return 1 if file does not exist
-<span class="lineNum">     529 </span><span class="lineCov">          7 :         file_t temp;</span>
-<span class="lineNum">     530 </span><span class="lineCov">          7 :         update_file_name(filename, &amp;temp);</span>
-<span class="lineNum">     531 </span><span class="lineCov">          7 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
-<span class="lineNum">     532 </span><span class="lineCov">          7 :         if (f == NULL) {</span>
-<span class="lineNum">     533 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     534 </span><span class="lineCov">          1 :                 return 1;</span>
-<span class="lineNum">     535 </span>            :         }
-<span class="lineNum">     536 </span>            :         
-<span class="lineNum">     537 </span><span class="lineCov">          6 :         fs-&gt;used -= f-&gt;length;</span>
-<span class="lineNum">     538 </span><span class="lineCov">          6 :         fs-&gt;index[f-&gt;index] = 0;</span>
-<span class="lineNum">     539 </span><span class="lineCov">          6 :         --fs-&gt;index_count;</span>
-<span class="lineNum">     540 </span>            : 
-<span class="lineNum">     541 </span>            :         // Remove from arrays using indices
-<span class="lineNum">     542 </span><span class="lineCov">          6 :         arr_remove(f-&gt;o_index, fs-&gt;o_list);</span>
-<span class="lineNum">     543 </span><span class="lineCov">          6 :         arr_remove(f-&gt;n_index, fs-&gt;n_list);</span>
-<span class="lineNum">     544 </span>            :         
-<span class="lineNum">     545 </span>            :         // Write null byte in dir_table name field
-<span class="lineNum">     546 </span><span class="lineCov">          6 :         write_null_byte(fs-&gt;dir, f-&gt;index * META_LEN, 1);</span>
+<span class="lineNum">     418 </span><span class="lineCov">         13 :         if (length &gt; old_length) {</span>
+<span class="lineNum">     419 </span><span class="lineCov">          7 :                 write_null_byte(fs-&gt;file, f-&gt;offset + old_length, length - old_length);</span>
+<span class="lineNum">     420 </span>            : 
+<span class="lineNum">     421 </span><span class="lineCov">          7 :                 if (hash_offset &gt;= 0) {</span>
+<span class="lineNum">     422 </span>            :                         // Hash blocks modified by repack until end of file
+<span class="lineNum">     423 </span><span class="lineCov">          2 :                         compute_hash_block_range(hash_offset,</span>
+<span class="lineNum">     424 </span><span class="lineCov">          2 :                                         f-&gt;offset + length - hash_offset, fs);</span>
+<span class="lineNum">     425 </span>            :                 } else {
+<span class="lineNum">     426 </span>            :                         // Only hash blocks containing the file
+<span class="lineNum">     427 </span><span class="lineCov">          5 :                         compute_hash_block_range(f-&gt;offset + old_length,</span>
+<span class="lineNum">     428 </span><span class="lineCov">          5 :                                         length - old_length, fs);</span>
+<span class="lineNum">     429 </span>            :                 }
+<span class="lineNum">     430 </span>            :         }
+<span class="lineNum">     431 </span>            : 
+<span class="lineNum">     432 </span><span class="lineCov">         13 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
+<span class="lineNum">     433 </span><span class="lineCov">         13 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
+<span class="lineNum">     434 </span><span class="lineCov">         13 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     435 </span>            : 
+<span class="lineNum">     436 </span><span class="lineCov">         13 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     437 </span><span class="lineCov">         13 :         return 0;</span>
+<span class="lineNum">     438 </span>            : }
+<span class="lineNum">     439 </span>            : 
+<span class="lineNum">     440 </span>            : /*
+<span class="lineNum">     441 </span>            :  * Moves file data to new offset in file_data
+<span class="lineNum">     442 </span>            :  *
+<span class="lineNum">     443 </span>            :  * file: file_t of file being moved
+<a name="444"><span class="lineNum">     444 </span>            :  * new_offset: new offset in file_data to move file contents to</a>
+<span class="lineNum">     445 </span>            :  */
+<span class="lineNum">     446 </span><span class="lineCov">          9 : void repack_move(file_t* file, uint32_t new_offset, filesys_t* fs) {</span>
+<span class="lineNum">     447 </span><span class="lineCov">          9 :         if (file-&gt;length &gt; 0) {</span>
+<span class="lineNum">     448 </span><span class="lineCov">          7 :                 memmove(fs-&gt;file + new_offset, fs-&gt;file + file-&gt;offset, file-&gt;length);</span>
+<span class="lineNum">     449 </span>            :         }
+<span class="lineNum">     450 </span>            : 
+<span class="lineNum">     451 </span><span class="lineCov">          9 :         update_file_offset(new_offset, file);</span>
+<span class="lineNum">     452 </span><span class="lineCov">          9 :         update_dir_offset(file, fs);</span>
+<span class="lineNum">     453 </span><span class="lineCov">          9 : }</span>
+<span class="lineNum">     454 </span>            : 
+<span class="lineNum">     455 </span>            : /*
+<span class="lineNum">     456 </span>            :  * Helper for repacking files, independent of the filesystem lock state
+<span class="lineNum">     457 </span>            :  * The order of files is maintained during repack
+<span class="lineNum">     458 </span>            :  *
+<a name="459"><span class="lineNum">     459 </span>            :  * returns: offset of first byte modified if repack occurred, else -1</a>
+<span class="lineNum">     460 </span>            :  */
+<span class="lineNum">     461 </span><span class="lineCov">          8 : int64_t repack_helper(filesys_t* fs) {</span>
+<span class="lineNum">     462 </span><span class="lineCov">          8 :         file_t** o_list = fs-&gt;o_list-&gt;list;</span>
+<span class="lineNum">     463 </span><span class="lineCov">          8 :         int32_t size = fs-&gt;o_list-&gt;size;</span>
+<span class="lineNum">     464 </span>            :         
+<span class="lineNum">     465 </span>            :         // Return if no files in filesystem
+<span class="lineNum">     466 </span><span class="lineCov">          8 :         if (fs-&gt;used &lt;= 0 || size &lt;= 0) {</span>
+<span class="lineNum">     467 </span><span class="lineCov">          1 :                 return -1;</span>
+<span class="lineNum">     468 </span>            :         }
+<span class="lineNum">     469 </span>            :         
+<span class="lineNum">     470 </span>            :         // Variable for tracking blocks to hash
+<span class="lineNum">     471 </span><span class="lineCov">          7 :         int64_t hash_offset = -1;</span>
+<span class="lineNum">     472 </span>            : 
+<span class="lineNum">     473 </span>            : 
+<span class="lineNum">     474 </span>            :         // Ensure first file at offset 0
+<span class="lineNum">     475 </span><span class="lineCov">          7 :         uint64_t start_curr_file = o_list[0]-&gt;offset;</span>
+<span class="lineNum">     476 </span><span class="lineCov">          7 :         uint64_t end_prev_file = 0;</span>
+<span class="lineNum">     477 </span><span class="lineCov">          7 :         int is_zero_size = o_list[0]-&gt;length == 0;</span>
+<span class="lineNum">     478 </span><span class="lineCov">          7 :         if (start_curr_file &gt; 0) {</span>
+<span class="lineNum">     479 </span><span class="lineCov">          4 :                 repack_move(o_list[0], 0, fs);</span>
+<span class="lineNum">     480 </span>            : 
+<span class="lineNum">     481 </span><span class="lineCov">          4 :                 if (!is_zero_size) {</span>
+<span class="lineNum">     482 </span><span class="lineCov">          4 :                         hash_offset = 0;</span>
+<span class="lineNum">     483 </span>            :                 }
+<span class="lineNum">     484 </span>            :         }
+<span class="lineNum">     485 </span>            :         
+<span class="lineNum">     486 </span>            :         // Iterate over sorted offset array and move data when necessary
+<span class="lineNum">     487 </span><span class="lineCov">         16 :         for (int32_t i = 1; i &lt; size; ++i) {</span>
+<span class="lineNum">     488 </span><span class="lineCov">         14 :                 start_curr_file = o_list[i]-&gt;offset;</span>
+<span class="lineNum">     489 </span><span class="lineCov">         14 :                 end_prev_file = o_list[i - 1]-&gt;offset + o_list[i - 1]-&gt;length;</span>
+<span class="lineNum">     490 </span><span class="lineCov">         14 :                 is_zero_size = o_list[i]-&gt;length == 0;</span>
+<span class="lineNum">     491 </span>            : 
+<span class="lineNum">     492 </span>            :                 // Break if newly created zero size files encountered
+<span class="lineNum">     493 </span><span class="lineCov">         14 :                 if (start_curr_file &gt;= MAX_FILE_DATA_LEN) {</span>
+<span class="lineNum">     494 </span><span class="lineCov">          5 :                         break;</span>
+<span class="lineNum">     495 </span>            :                 }
+<span class="lineNum">     496 </span>            : 
+<span class="lineNum">     497 </span><span class="lineCov">          9 :                 if (start_curr_file &gt; end_prev_file) {</span>
+<span class="lineNum">     498 </span><span class="lineCov">          5 :                         repack_move(o_list[i], end_prev_file, fs);</span>
+<span class="lineNum">     499 </span>            :                         
+<span class="lineNum">     500 </span><span class="lineCov">          5 :                         if (hash_offset &lt; 0 &amp;&amp; !is_zero_size) {</span>
+<span class="lineNum">     501 </span><span class="lineCov">          2 :                                 hash_offset = o_list[i]-&gt;offset;</span>
+<span class="lineNum">     502 </span>            :                         }
+<span class="lineNum">     503 </span>            :                 }
+<span class="lineNum">     504 </span>            :         }
+<span class="lineNum">     505 </span>            :         
+<span class="lineNum">     506 </span><span class="lineCov">          7 :         return hash_offset;</span>
+<a name="507"><span class="lineNum">     507 </span>            : }</a>
+<span class="lineNum">     508 </span>            : 
+<span class="lineNum">     509 </span><span class="lineCov">          1 : void repack(void * helper) {</span>
+<span class="lineNum">     510 </span><span class="lineCov">          1 :     filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     511 </span><span class="lineCov">          1 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     512 </span>            :         
+<span class="lineNum">     513 </span><span class="lineCov">          1 :         int64_t hash_offset = repack_helper(fs);</span>
+<span class="lineNum">     514 </span>            :         
+<span class="lineNum">     515 </span>            :         // Hash blocks modified during repack
+<span class="lineNum">     516 </span><span class="lineCov">          1 :         if (hash_offset &gt;= 0) {</span>
+<span class="lineNum">     517 </span><span class="lineCov">          1 :                 compute_hash_block_range(hash_offset, fs-&gt;used - hash_offset, fs);</span>
+<span class="lineNum">     518 </span>            :         }
+<span class="lineNum">     519 </span>            :         
+<span class="lineNum">     520 </span><span class="lineCov">          1 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
+<span class="lineNum">     521 </span><span class="lineCov">          1 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
+<span class="lineNum">     522 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     523 </span>            :         
+<span class="lineNum">     524 </span><span class="lineCov">          1 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<a name="525"><span class="lineNum">     525 </span><span class="lineCov">          1 : }</span></a>
+<span class="lineNum">     526 </span>            : 
+<span class="lineNum">     527 </span><span class="lineCov">          7 : int delete_file(char * filename, void * helper) {</span>
+<span class="lineNum">     528 </span><span class="lineCov">          7 :     filesys_t* fs = (filesys_t*)helper; </span>
+<span class="lineNum">     529 </span><span class="lineCov">          7 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     530 </span>            :                 
+<span class="lineNum">     531 </span>            :         // Return 1 if file does not exist
+<span class="lineNum">     532 </span><span class="lineCov">          7 :         file_t temp;</span>
+<span class="lineNum">     533 </span><span class="lineCov">          7 :         update_file_name(filename, &amp;temp);</span>
+<span class="lineNum">     534 </span><span class="lineCov">          7 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
+<span class="lineNum">     535 </span><span class="lineCov">          7 :         if (f == NULL) {</span>
+<span class="lineNum">     536 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     537 </span><span class="lineCov">          1 :                 return 1;</span>
+<span class="lineNum">     538 </span>            :         }
+<span class="lineNum">     539 </span>            :         
+<span class="lineNum">     540 </span><span class="lineCov">          6 :         fs-&gt;used -= f-&gt;length;</span>
+<span class="lineNum">     541 </span><span class="lineCov">          6 :         fs-&gt;index[f-&gt;index] = 0;</span>
+<span class="lineNum">     542 </span><span class="lineCov">          6 :         --fs-&gt;index_count;</span>
+<span class="lineNum">     543 </span>            : 
+<span class="lineNum">     544 </span>            :         // Remove from arrays using indices
+<span class="lineNum">     545 </span><span class="lineCov">          6 :         arr_remove(f-&gt;o_index, fs-&gt;o_list);</span>
+<span class="lineNum">     546 </span><span class="lineCov">          6 :         arr_remove(f-&gt;n_index, fs-&gt;n_list);</span>
 <span class="lineNum">     547 </span>            :         
-<span class="lineNum">     548 </span><span class="lineCov">          6 :         free_file(f);</span>
-<span class="lineNum">     549 </span>            :         
-<span class="lineNum">     550 </span><span class="lineCov">          6 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
-<span class="lineNum">     551 </span>            :         
-<span class="lineNum">     552 </span><span class="lineCov">          6 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     553 </span><span class="lineCov">          6 :         return 0;</span>
-<a name="554"><span class="lineNum">     554 </span>            : }</a>
-<span class="lineNum">     555 </span>            : 
-<span class="lineNum">     556 </span><span class="lineCov">          5 : int rename_file(char * oldname, char * newname, void * helper) {</span>
-<span class="lineNum">     557 </span><span class="lineCov">          5 :     filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     558 </span><span class="lineCov">          5 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     559 </span>            :         
-<span class="lineNum">     560 </span><span class="lineCov">          5 :         file_t temp;</span>
-<span class="lineNum">     561 </span><span class="lineCov">          5 :         update_file_name(oldname, &amp;temp);</span>
-<span class="lineNum">     562 </span><span class="lineCov">          5 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
-<span class="lineNum">     563 </span>            : 
-<span class="lineNum">     564 </span>            :         // Return 0 if names are the same and oldname file exists
-<span class="lineNum">     565 </span><span class="lineCov">          5 :         if (f != NULL &amp;&amp; strcmp(oldname, newname) == 0) {</span>
-<span class="lineNum">     566 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     567 </span><span class="lineCov">          1 :                 return 0;</span>
-<span class="lineNum">     568 </span>            :         }
-<span class="lineNum">     569 </span>            : 
-<span class="lineNum">     570 </span>            :         // Return 1 if oldname file does not exist or newname file already exists
-<span class="lineNum">     571 </span><span class="lineCov">          4 :         update_file_name(newname, &amp;temp);</span>
-<span class="lineNum">     572 </span><span class="lineCov">          4 :         if (f == NULL || arr_get_by_key(&amp;temp, fs-&gt;n_list) != NULL) {</span>
-<span class="lineNum">     573 </span><span class="lineCov">          2 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     574 </span><span class="lineCov">          2 :                 return 1;</span>
-<span class="lineNum">     575 </span>            :         }
-<span class="lineNum">     576 </span>            :         
-<span class="lineNum">     577 </span><span class="lineCov">          2 :         update_file_name(newname, f);</span>
-<span class="lineNum">     578 </span><span class="lineCov">          2 :         update_dir_name(f, fs);</span>
+<span class="lineNum">     548 </span>            :         // Write null byte in dir_table name field
+<span class="lineNum">     549 </span><span class="lineCov">          6 :         write_null_byte(fs-&gt;dir, f-&gt;index * META_LEN, 1);</span>
+<span class="lineNum">     550 </span>            :         
+<span class="lineNum">     551 </span><span class="lineCov">          6 :         free_file(f);</span>
+<span class="lineNum">     552 </span>            :         
+<span class="lineNum">     553 </span><span class="lineCov">          6 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
+<span class="lineNum">     554 </span>            :         
+<span class="lineNum">     555 </span><span class="lineCov">          6 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     556 </span><span class="lineCov">          6 :         return 0;</span>
+<a name="557"><span class="lineNum">     557 </span>            : }</a>
+<span class="lineNum">     558 </span>            : 
+<span class="lineNum">     559 </span><span class="lineCov">          5 : int rename_file(char * oldname, char * newname, void * helper) {</span>
+<span class="lineNum">     560 </span><span class="lineCov">          5 :     filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     561 </span><span class="lineCov">          5 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     562 </span>            :         
+<span class="lineNum">     563 </span><span class="lineCov">          5 :         file_t temp;</span>
+<span class="lineNum">     564 </span><span class="lineCov">          5 :         update_file_name(oldname, &amp;temp);</span>
+<span class="lineNum">     565 </span><span class="lineCov">          5 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
+<span class="lineNum">     566 </span>            : 
+<span class="lineNum">     567 </span>            :         // Return 0 if names are the same and oldname file exists
+<span class="lineNum">     568 </span><span class="lineCov">          5 :         if (f != NULL &amp;&amp; strcmp(oldname, newname) == 0) {</span>
+<span class="lineNum">     569 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     570 </span><span class="lineCov">          1 :                 return 0;</span>
+<span class="lineNum">     571 </span>            :         }
+<span class="lineNum">     572 </span>            : 
+<span class="lineNum">     573 </span>            :         // Return 1 if oldname file does not exist or newname file already exists
+<span class="lineNum">     574 </span><span class="lineCov">          4 :         update_file_name(newname, &amp;temp);</span>
+<span class="lineNum">     575 </span><span class="lineCov">          4 :         if (f == NULL || arr_get_by_key(&amp;temp, fs-&gt;n_list) != NULL) {</span>
+<span class="lineNum">     576 </span><span class="lineCov">          2 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     577 </span><span class="lineCov">          2 :                 return 1;</span>
+<span class="lineNum">     578 </span>            :         }
 <span class="lineNum">     579 </span>            :         
-<span class="lineNum">     580 </span><span class="lineCov">          2 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
-<span class="lineNum">     581 </span>            :         
-<span class="lineNum">     582 </span><span class="lineCov">          2 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     583 </span><span class="lineCov">          2 :         return 0;</span>
-<a name="584"><span class="lineNum">     584 </span>            : }</a>
-<span class="lineNum">     585 </span>            : 
-<span class="lineNum">     586 </span><span class="lineCov">          6 : int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {</span>
-<span class="lineNum">     587 </span><span class="lineCov">          6 :         filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     580 </span><span class="lineCov">          2 :         update_file_name(newname, f);</span>
+<span class="lineNum">     581 </span><span class="lineCov">          2 :         update_dir_name(f, fs);</span>
+<span class="lineNum">     582 </span>            :         
+<span class="lineNum">     583 </span><span class="lineCov">          2 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
+<span class="lineNum">     584 </span>            :         
+<span class="lineNum">     585 </span><span class="lineCov">          2 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     586 </span><span class="lineCov">          2 :         return 0;</span>
+<a name="587"><span class="lineNum">     587 </span>            : }</a>
 <span class="lineNum">     588 </span>            : 
-<span class="lineNum">     589 </span>            :         // Filesystem mutex locked in read_file to ensure integrity of buffer
-<span class="lineNum">     590 </span>            :         // during parallel reads to the same buffer
-<span class="lineNum">     591 </span><span class="lineCov">          6 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     592 </span>            :         
-<span class="lineNum">     593 </span>            :         // Return 1 if file does not exist
-<span class="lineNum">     594 </span><span class="lineCov">          6 :         file_t temp;</span>
-<span class="lineNum">     595 </span><span class="lineCov">          6 :         update_file_name(filename, &amp;temp);</span>
-<span class="lineNum">     596 </span><span class="lineCov">          6 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
-<span class="lineNum">     597 </span><span class="lineCov">          6 :         if (f == NULL) {</span>
-<span class="lineNum">     598 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     599 </span><span class="lineCov">          1 :                 return 1;</span>
-<span class="lineNum">     600 </span>            :         }
-<span class="lineNum">     601 </span>            :         
-<span class="lineNum">     602 </span>            :         // Return 2 if invalid offset and count for given file
-<span class="lineNum">     603 </span><span class="lineCov">          5 :         if (offset + count &gt; f-&gt;length) {</span>
-<span class="lineNum">     604 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     605 </span><span class="lineCov">          1 :                 return 2;</span>
-<span class="lineNum">     606 </span>            :         }
-<span class="lineNum">     607 </span>            :         
-<span class="lineNum">     608 </span>            :         // Return 3 if invalid hashes
-<span class="lineNum">     609 </span><span class="lineCov">          4 :         if (verify_hash_range(f-&gt;offset + offset, count, fs) != 0) {</span>
-<span class="lineNum">     610 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     611 </span><span class="lineCov">          1 :                 return 3;</span>
-<span class="lineNum">     612 </span>            :         }
-<span class="lineNum">     613 </span>            :         
-<span class="lineNum">     614 </span>            :         // Return 0 if no bytes to read
-<span class="lineNum">     615 </span><span class="lineCov">          3 :         if (count == 0) {</span>
-<span class="lineNum">     616 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     617 </span><span class="lineCov">          1 :                 return 0;</span>
-<span class="lineNum">     618 </span>            :         }
-<span class="lineNum">     619 </span>            :         
-<span class="lineNum">     620 </span><span class="lineCov">          2 :         memcpy(buf, fs-&gt;file + f-&gt;offset + offset, count);</span>
-<span class="lineNum">     621 </span>            :         
-<span class="lineNum">     622 </span><span class="lineCov">          2 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     623 </span><span class="lineCov">          2 :         return 0;</span>
-<a name="624"><span class="lineNum">     624 </span>            : }</a>
-<span class="lineNum">     625 </span>            : 
-<span class="lineNum">     626 </span><span class="lineCov">         71 : int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {</span>
-<span class="lineNum">     627 </span><span class="lineCov">         71 :     filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     628 </span><span class="lineCov">         71 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     629 </span>            :         
-<span class="lineNum">     630 </span>            :         // Return 1 if file does not exist
-<span class="lineNum">     631 </span><span class="lineCov">         71 :         file_t temp;</span>
-<span class="lineNum">     632 </span><span class="lineCov">         71 :         update_file_name(filename, &amp;temp);</span>
-<span class="lineNum">     633 </span><span class="lineCov">         71 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
-<span class="lineNum">     634 </span><span class="lineCov">         71 :         if (f == NULL) {</span>
-<span class="lineNum">     635 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     636 </span><span class="lineCov">          1 :                 return 1;</span>
-<span class="lineNum">     637 </span>            :         }
-<span class="lineNum">     638 </span>            :         
-<span class="lineNum">     639 </span>            :         // Return 2 if offset is invalid
-<span class="lineNum">     640 </span><span class="lineCov">         70 :         if (offset &gt; f-&gt;length) {</span>
-<span class="lineNum">     641 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     642 </span><span class="lineCov">          1 :                 return 2;</span>
-<span class="lineNum">     643 </span>            :         }
-<span class="lineNum">     644 </span>            :         
-<span class="lineNum">     645 </span>            :         // Return 3 if insufficient space in file_data
-<span class="lineNum">     646 </span><span class="lineCov">         69 :         if (fs-&gt;used + offset + count - f-&gt;length &gt; fs-&gt;file_data_len) {</span>
-<span class="lineNum">     647 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     648 </span><span class="lineCov">          1 :                 return 3;</span>
-<span class="lineNum">     649 </span>            :         }
-<span class="lineNum">     650 </span>            :         
-<span class="lineNum">     651 </span>            :         // Return 0 if no bytes to write
-<span class="lineNum">     652 </span><span class="lineCov">         68 :         if (count == 0) {</span>
-<span class="lineNum">     653 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     654 </span><span class="lineCov">          1 :                 return 0;</span>
-<span class="lineNum">     655 </span>            :         }
-<span class="lineNum">     656 </span>            :         
-<span class="lineNum">     657 </span>            :         // Resize if write exceeds bounds of file
-<span class="lineNum">     658 </span><span class="lineCov">         67 :         int32_t hash_offset = -1;</span>
-<span class="lineNum">     659 </span><span class="lineCov">         67 :         if (offset + count &gt; f-&gt;length) {</span>
-<span class="lineNum">     660 </span><span class="lineCov">         65 :                 hash_offset = resize_file_helper(f, offset + count, offset, fs);</span>
-<span class="lineNum">     661 </span>            :         }
-<span class="lineNum">     662 </span>            :         
-<span class="lineNum">     663 </span><span class="lineCov">         67 :         memcpy(fs-&gt;file + f-&gt;offset + offset, buf, count);</span>
-<span class="lineNum">     664 </span>            :         
-<span class="lineNum">     665 </span><span class="lineCov">         67 :         if (hash_offset &gt;= 0) {</span>
-<span class="lineNum">     666 </span>            :                 // Hash from first repacked byte to end of used file_data
-<span class="lineNum">     667 </span><span class="lineCov">          1 :                 compute_hash_block_range(hash_offset, fs-&gt;used - hash_offset, fs);</span>
-<span class="lineNum">     668 </span>            :         } else {
-<span class="lineNum">     669 </span>            :                 // Only hash the bytes modified
-<span class="lineNum">     670 </span><span class="lineCov">         66 :                 compute_hash_block_range(f-&gt;offset + offset, count, fs);</span>
-<span class="lineNum">     671 </span>            :         }
-<span class="lineNum">     672 </span>            :         
-<span class="lineNum">     673 </span><span class="lineCov">         67 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
-<span class="lineNum">     674 </span><span class="lineCov">         67 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
-<span class="lineNum">     675 </span><span class="lineCov">         67 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
-<span class="lineNum">     676 </span>            :         
-<span class="lineNum">     677 </span><span class="lineCov">         67 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     678 </span><span class="lineCov">         67 :         return 0;</span>
-<a name="679"><span class="lineNum">     679 </span>            : }</a>
-<span class="lineNum">     680 </span>            : 
-<span class="lineNum">     681 </span><span class="lineCov">          4 : ssize_t file_size(char * filename, void * helper) {</span>
-<span class="lineNum">     682 </span><span class="lineCov">          4 :     filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     683 </span><span class="lineCov">          4 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     684 </span>            :         
-<span class="lineNum">     685 </span>            :         // Return -1 if file does not exist
-<span class="lineNum">     686 </span><span class="lineCov">          4 :         file_t temp;</span>
-<span class="lineNum">     687 </span><span class="lineCov">          4 :         update_file_name(filename, &amp;temp);</span>
-<span class="lineNum">     688 </span><span class="lineCov">          4 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
-<span class="lineNum">     689 </span><span class="lineCov">          4 :         if (f == NULL) {</span>
-<span class="lineNum">     690 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     691 </span><span class="lineCov">          1 :                 return -1;</span>
-<span class="lineNum">     692 </span>            :         }
-<span class="lineNum">     693 </span>            :         
-<span class="lineNum">     694 </span>            :         // Return length of file
-<span class="lineNum">     695 </span><span class="lineCov">          3 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     696 </span><span class="lineCov">          3 :         return f-&gt;length;</span>
-<a name="697"><span class="lineNum">     697 </span>            : }</a>
-<span class="lineNum">     698 </span>            : 
-<span class="lineNum">     699 </span><span class="lineCov">        417 : void fletcher(uint8_t * buf, size_t length, uint8_t * output) {</span>
-<span class="lineNum">     700 </span><span class="lineCov">        417 :         assert(buf != NULL &amp;&amp; output != NULL &amp;&amp; &quot;invalid args&quot;);</span>
-<span class="lineNum">     701 </span>            :         
-<span class="lineNum">     702 </span>            :         // Casting buffer to uint32_t for reading
-<span class="lineNum">     703 </span><span class="lineCov">        417 :         uint32_t* buff = (uint32_t*)buf;</span>
-<span class="lineNum">     704 </span>            :         
-<span class="lineNum">     705 </span>            :         // Calculate quotient and remainder for buff
-<span class="lineNum">     706 </span><span class="lineCov">        417 :         uint64_t size = length / 4;</span>
-<span class="lineNum">     707 </span><span class="lineCov">        417 :         uint64_t rem = length % 4;</span>
+<span class="lineNum">     589 </span><span class="lineCov">          6 : int read_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {</span>
+<span class="lineNum">     590 </span><span class="lineCov">          6 :         filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     591 </span>            : 
+<span class="lineNum">     592 </span>            :         // Filesystem mutex locked in read_file to ensure integrity of buffer
+<span class="lineNum">     593 </span>            :         // during parallel reads to the same buffer
+<span class="lineNum">     594 </span><span class="lineCov">          6 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     595 </span>            :         
+<span class="lineNum">     596 </span>            :         // Return 1 if file does not exist
+<span class="lineNum">     597 </span><span class="lineCov">          6 :         file_t temp;</span>
+<span class="lineNum">     598 </span><span class="lineCov">          6 :         update_file_name(filename, &amp;temp);</span>
+<span class="lineNum">     599 </span><span class="lineCov">          6 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
+<span class="lineNum">     600 </span><span class="lineCov">          6 :         if (f == NULL) {</span>
+<span class="lineNum">     601 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     602 </span><span class="lineCov">          1 :                 return 1;</span>
+<span class="lineNum">     603 </span>            :         }
+<span class="lineNum">     604 </span>            :         
+<span class="lineNum">     605 </span>            :         // Return 2 if invalid offset and count for given file
+<span class="lineNum">     606 </span><span class="lineCov">          5 :         if (offset + count &gt; f-&gt;length) {</span>
+<span class="lineNum">     607 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     608 </span><span class="lineCov">          1 :                 return 2;</span>
+<span class="lineNum">     609 </span>            :         }
+<span class="lineNum">     610 </span>            :         
+<span class="lineNum">     611 </span>            :         // Return 3 if invalid hashes
+<span class="lineNum">     612 </span><span class="lineCov">          4 :         if (verify_hash_range(f-&gt;offset + offset, count, fs) != 0) {</span>
+<span class="lineNum">     613 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     614 </span><span class="lineCov">          1 :                 return 3;</span>
+<span class="lineNum">     615 </span>            :         }
+<span class="lineNum">     616 </span>            :         
+<span class="lineNum">     617 </span>            :         // Return 0 if no bytes to read
+<span class="lineNum">     618 </span><span class="lineCov">          3 :         if (count == 0) {</span>
+<span class="lineNum">     619 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     620 </span><span class="lineCov">          1 :                 return 0;</span>
+<span class="lineNum">     621 </span>            :         }
+<span class="lineNum">     622 </span>            :         
+<span class="lineNum">     623 </span><span class="lineCov">          2 :         memcpy(buf, fs-&gt;file + f-&gt;offset + offset, count);</span>
+<span class="lineNum">     624 </span>            :         
+<span class="lineNum">     625 </span><span class="lineCov">          2 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     626 </span><span class="lineCov">          2 :         return 0;</span>
+<a name="627"><span class="lineNum">     627 </span>            : }</a>
+<span class="lineNum">     628 </span>            : 
+<span class="lineNum">     629 </span><span class="lineCov">         71 : int write_file(char * filename, size_t offset, size_t count, void * buf, void * helper) {</span>
+<span class="lineNum">     630 </span><span class="lineCov">         71 :     filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     631 </span><span class="lineCov">         71 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     632 </span>            :         
+<span class="lineNum">     633 </span>            :         // Return 1 if file does not exist
+<span class="lineNum">     634 </span><span class="lineCov">         71 :         file_t temp;</span>
+<span class="lineNum">     635 </span><span class="lineCov">         71 :         update_file_name(filename, &amp;temp);</span>
+<span class="lineNum">     636 </span><span class="lineCov">         71 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
+<span class="lineNum">     637 </span><span class="lineCov">         71 :         if (f == NULL) {</span>
+<span class="lineNum">     638 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     639 </span><span class="lineCov">          1 :                 return 1;</span>
+<span class="lineNum">     640 </span>            :         }
+<span class="lineNum">     641 </span>            :         
+<span class="lineNum">     642 </span>            :         // Return 2 if offset is invalid
+<span class="lineNum">     643 </span><span class="lineCov">         70 :         if (offset &gt; f-&gt;length) {</span>
+<span class="lineNum">     644 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     645 </span><span class="lineCov">          1 :                 return 2;</span>
+<span class="lineNum">     646 </span>            :         }
+<span class="lineNum">     647 </span>            :         
+<span class="lineNum">     648 </span>            :         // Return 3 if insufficient space in file_data
+<span class="lineNum">     649 </span><span class="lineCov">         69 :         if (fs-&gt;used + offset + count - f-&gt;length &gt; fs-&gt;file_data_len) {</span>
+<span class="lineNum">     650 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     651 </span><span class="lineCov">          1 :                 return 3;</span>
+<span class="lineNum">     652 </span>            :         }
+<span class="lineNum">     653 </span>            :         
+<span class="lineNum">     654 </span>            :         // Return 0 if no bytes to write
+<span class="lineNum">     655 </span><span class="lineCov">         68 :         if (count == 0) {</span>
+<span class="lineNum">     656 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     657 </span><span class="lineCov">          1 :                 return 0;</span>
+<span class="lineNum">     658 </span>            :         }
+<span class="lineNum">     659 </span>            :         
+<span class="lineNum">     660 </span>            :         // Resize if write exceeds bounds of file
+<span class="lineNum">     661 </span><span class="lineCov">         67 :         int32_t hash_offset = -1;</span>
+<span class="lineNum">     662 </span><span class="lineCov">         67 :         if (offset + count &gt; f-&gt;length) {</span>
+<span class="lineNum">     663 </span><span class="lineCov">         65 :                 hash_offset = resize_file_helper(f, offset + count, offset, fs);</span>
+<span class="lineNum">     664 </span>            :         }
+<span class="lineNum">     665 </span>            :         
+<span class="lineNum">     666 </span><span class="lineCov">         67 :         memcpy(fs-&gt;file + f-&gt;offset + offset, buf, count);</span>
+<span class="lineNum">     667 </span>            :         
+<span class="lineNum">     668 </span><span class="lineCov">         67 :         if (hash_offset &gt;= 0) {</span>
+<span class="lineNum">     669 </span>            :                 // Hash from first repacked byte to end of used file_data
+<span class="lineNum">     670 </span><span class="lineCov">          1 :                 compute_hash_block_range(hash_offset, fs-&gt;used - hash_offset, fs);</span>
+<span class="lineNum">     671 </span>            :         } else {
+<span class="lineNum">     672 </span>            :                 // Only hash the bytes modified
+<span class="lineNum">     673 </span><span class="lineCov">         66 :                 compute_hash_block_range(f-&gt;offset + offset, count, fs);</span>
+<span class="lineNum">     674 </span>            :         }
+<span class="lineNum">     675 </span>            :         
+<span class="lineNum">     676 </span><span class="lineCov">         67 :         msync(fs-&gt;file, fs-&gt;file_data_len, MS_ASYNC);</span>
+<span class="lineNum">     677 </span><span class="lineCov">         67 :         msync(fs-&gt;dir, fs-&gt;dir_table_len, MS_ASYNC);</span>
+<span class="lineNum">     678 </span><span class="lineCov">         67 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     679 </span>            :         
+<span class="lineNum">     680 </span><span class="lineCov">         67 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     681 </span><span class="lineCov">         67 :         return 0;</span>
+<a name="682"><span class="lineNum">     682 </span>            : }</a>
+<span class="lineNum">     683 </span>            : 
+<span class="lineNum">     684 </span><span class="lineCov">          4 : ssize_t file_size(char * filename, void * helper) {</span>
+<span class="lineNum">     685 </span><span class="lineCov">          4 :     filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     686 </span><span class="lineCov">          4 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     687 </span>            :         
+<span class="lineNum">     688 </span>            :         // Return -1 if file does not exist
+<span class="lineNum">     689 </span><span class="lineCov">          4 :         file_t temp;</span>
+<span class="lineNum">     690 </span><span class="lineCov">          4 :         update_file_name(filename, &amp;temp);</span>
+<span class="lineNum">     691 </span><span class="lineCov">          4 :         file_t* f = arr_get_by_key(&amp;temp, fs-&gt;n_list);</span>
+<span class="lineNum">     692 </span><span class="lineCov">          4 :         if (f == NULL) {</span>
+<span class="lineNum">     693 </span><span class="lineCov">          1 :                 UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     694 </span><span class="lineCov">          1 :                 return -1;</span>
+<span class="lineNum">     695 </span>            :         }
+<span class="lineNum">     696 </span>            :         
+<span class="lineNum">     697 </span>            :         // Return length of file
+<span class="lineNum">     698 </span><span class="lineCov">          3 :         ssize_t length = f-&gt;length;</span>
+<span class="lineNum">     699 </span><span class="lineCov">          3 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     700 </span><span class="lineCov">          3 :         return length;</span>
+<a name="701"><span class="lineNum">     701 </span>            : }</a>
+<span class="lineNum">     702 </span>            : 
+<span class="lineNum">     703 </span><span class="lineCov">        417 : void fletcher(uint8_t * buf, size_t length, uint8_t * output) {</span>
+<span class="lineNum">     704 </span><span class="lineCov">        417 :         assert(buf != NULL &amp;&amp; output != NULL &amp;&amp; &quot;invalid args&quot;);</span>
+<span class="lineNum">     705 </span>            :         
+<span class="lineNum">     706 </span>            :         // Casting buffer to uint32_t for reading
+<span class="lineNum">     707 </span><span class="lineCov">        417 :         uint32_t* buff = (uint32_t*)buf;</span>
 <span class="lineNum">     708 </span>            :         
-<span class="lineNum">     709 </span><span class="lineCov">        417 :         uint64_t a = 0;</span>
-<span class="lineNum">     710 </span><span class="lineCov">        417 :         uint64_t b = 0;</span>
-<span class="lineNum">     711 </span><span class="lineCov">        417 :         uint64_t c = 0;</span>
-<span class="lineNum">     712 </span><span class="lineCov">        417 :         uint64_t d = 0;</span>
-<span class="lineNum">     713 </span><span class="lineCov">      11584 :         for (uint64_t i = 0; i &lt; size; ++i) {</span>
-<span class="lineNum">     714 </span><span class="lineCov">      11167 :                 a = (a + buff[i]) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     715 </span><span class="lineCov">      11167 :                 b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     716 </span><span class="lineCov">      11167 :                 c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     717 </span><span class="lineCov">      11167 :                 d = (d + c) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     718 </span>            :         }
-<span class="lineNum">     719 </span>            :         
-<span class="lineNum">     720 </span>            :         // Hash last unsigned integer if required
-<span class="lineNum">     721 </span><span class="lineCov">        417 :         if (rem != 0) {</span>
-<span class="lineNum">     722 </span><span class="lineCov">          1 :                 uint32_t last = 0; // Initialised to zero for null byte padding</span>
-<span class="lineNum">     723 </span><span class="lineCov">          1 :                 memcpy(&amp;last, buff + size, sizeof(uint8_t) * rem);</span>
-<span class="lineNum">     724 </span><span class="lineCov">          1 :                 a = (a + last) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     725 </span><span class="lineCov">          1 :                 b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     726 </span><span class="lineCov">          1 :                 c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     727 </span><span class="lineCov">          1 :                 d = (d + c) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
-<span class="lineNum">     728 </span>            :         }
-<span class="lineNum">     729 </span>            :         
-<span class="lineNum">     730 </span>            :         // Copy result to output buffer at required offset
-<span class="lineNum">     731 </span><span class="lineCov">        417 :         memcpy(output, &amp;a, sizeof(uint32_t));</span>
-<span class="lineNum">     732 </span><span class="lineCov">        417 :         memcpy(output + HASH_OFFSET_B, &amp;b, sizeof(uint32_t));</span>
-<span class="lineNum">     733 </span><span class="lineCov">        417 :         memcpy(output + HASH_OFFSET_C, &amp;c, sizeof(uint32_t));</span>
-<span class="lineNum">     734 </span><span class="lineCov">        417 :         memcpy(output + HASH_OFFSET_D, &amp;d, sizeof(uint32_t));</span>
-<span class="lineNum">     735 </span><span class="lineCov">        417 : }</span>
-<span class="lineNum">     736 </span>            : 
-<span class="lineNum">     737 </span>            : /*
-<span class="lineNum">     738 </span>            :  * Writes the hash for the node at n_index to address out
-<span class="lineNum">     739 </span>            :  *
-<span class="lineNum">     740 </span>            :  * n_index: index of node in hash tree
-<span class="lineNum">     741 </span>            :  * hash_cat: address of stack array used for concatenating hashes
-<a name="742"><span class="lineNum">     742 </span>            :  * out: address that output hash is written to</a>
-<span class="lineNum">     743 </span>            :  */
-<span class="lineNum">     744 </span><span class="lineCov">         16 : void hash_node(int32_t n_index, uint8_t* hash_cat, uint8_t* out, filesys_t* fs) {</span>
-<span class="lineNum">     745 </span>            :         // If internal node, calculate hash of concatenated child hashes
-<span class="lineNum">     746 </span><span class="lineCov">         16 :         if (n_index &lt; fs-&gt;leaf_offset) {</span>
-<span class="lineNum">     747 </span><span class="lineCov">          9 :                 memcpy(hash_cat, fs-&gt;hash + lc_index(n_index) * HASH_LEN, HASH_LEN);</span>
-<span class="lineNum">     748 </span><span class="lineCov">          9 :                 memcpy(hash_cat + HASH_LEN, fs-&gt;hash + rc_index(n_index) * HASH_LEN,</span>
-<span class="lineNum">     749 </span>            :                                 HASH_LEN);
-<span class="lineNum">     750 </span><span class="lineCov">          9 :                 fletcher(hash_cat, 2 * HASH_LEN, out);</span>
-<span class="lineNum">     751 </span>            :                 
-<span class="lineNum">     752 </span>            :         // Otherwise, calculate hash of file_data block for leaf node
-<span class="lineNum">     753 </span>            :         } else {
-<span class="lineNum">     754 </span><span class="lineCov">          7 :                 fletcher(fs-&gt;file + (n_index - fs-&gt;leaf_offset) * BLOCK_LEN,</span>
-<span class="lineNum">     755 </span>            :                                 BLOCK_LEN, out);
-<span class="lineNum">     756 </span>            :         }
-<a name="757"><span class="lineNum">     757 </span><span class="lineCov">         16 : }</span></a>
-<span class="lineNum">     758 </span>            : 
-<span class="lineNum">     759 </span><span class="lineCov">          1 : void compute_hash_tree(void * helper) {</span>
-<span class="lineNum">     760 </span><span class="lineCov">          1 :         filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     761 </span><span class="lineCov">          1 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     762 </span>            :         
-<span class="lineNum">     763 </span>            :         // Variables for bottom-to-top level traversal of hash tree
-<span class="lineNum">     764 </span><span class="lineCov">          1 :         uint8_t* hash_addr = fs-&gt;hash;</span>
-<span class="lineNum">     765 </span><span class="lineCov">          1 :         int32_t n_index = fs-&gt;leaf_offset;</span>
-<span class="lineNum">     766 </span><span class="lineCov">          1 :         int32_t n_count = 0;</span>
-<span class="lineNum">     767 </span><span class="lineCov">          1 :         int32_t nodes_in_level = n_index + 1;</span>
-<span class="lineNum">     768 </span><span class="lineCov">          1 :         uint8_t hash_cat[2 * HASH_LEN];</span>
-<span class="lineNum">     769 </span>            : 
-<span class="lineNum">     770 </span><span class="lineCov">          9 :         while (nodes_in_level &gt; 0) {</span>
-<span class="lineNum">     771 </span>            :                 // Write hash of current node to hash_data
-<span class="lineNum">     772 </span><span class="lineCov">          7 :                 hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LEN, fs);</span>
-<span class="lineNum">     773 </span>            :                 
-<span class="lineNum">     774 </span><span class="lineCov">          7 :                 if (++n_count &lt; nodes_in_level) {</span>
-<span class="lineNum">     775 </span><span class="lineCov">          4 :                         ++n_index;</span>
-<span class="lineNum">     776 </span>            :                 } else {
-<span class="lineNum">     777 </span>            :                         // Move to next level once current level is completed
-<span class="lineNum">     778 </span><span class="lineCov">          3 :                         nodes_in_level /= 2;</span>
-<span class="lineNum">     779 </span><span class="lineCov">          3 :                         n_index = nodes_in_level - 1;</span>
-<span class="lineNum">     780 </span><span class="lineCov">          3 :                         n_count = 0;</span>
-<span class="lineNum">     781 </span>            :                 }
-<span class="lineNum">     782 </span>            :         }
-<span class="lineNum">     783 </span>            : 
-<span class="lineNum">     784 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
-<span class="lineNum">     785 </span>            : 
-<span class="lineNum">     786 </span><span class="lineCov">          1 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     787 </span><span class="lineCov">          1 : }</span>
-<span class="lineNum">     788 </span>            : 
-<span class="lineNum">     789 </span>            : /*
-<span class="lineNum">     790 </span>            :  * Helper for updating hash for block at offset specified, independent of
-<span class="lineNum">     791 </span>            :  * filesystem lock state
-<span class="lineNum">     792 </span>            :  *
-<a name="793"><span class="lineNum">     793 </span>            :  * offset: index of block in file_data</a>
-<span class="lineNum">     794 </span>            :  */
-<span class="lineNum">     795 </span><span class="lineCov">        133 : void compute_hash_block_helper(size_t block_offset, filesys_t* fs) {</span>
-<span class="lineNum">     796 </span>            :         // Calculate the index of the leaf node for the block
-<span class="lineNum">     797 </span><span class="lineCov">        133 :         int32_t n_index = fs-&gt;leaf_offset + block_offset;</span>
-<span class="lineNum">     798 </span>            :         
-<span class="lineNum">     799 </span>            :         // Update the leaf node hash
-<span class="lineNum">     800 </span><span class="lineCov">        133 :         fletcher(fs-&gt;file + block_offset * BLOCK_LEN, BLOCK_LEN,</span>
-<span class="lineNum">     801 </span><span class="lineCov">        133 :                         fs-&gt;hash + n_index * HASH_LEN);</span>
+<span class="lineNum">     709 </span>            :         // Calculate quotient and remainder for buff
+<span class="lineNum">     710 </span><span class="lineCov">        417 :         uint64_t size = length / 4;</span>
+<span class="lineNum">     711 </span><span class="lineCov">        417 :         uint64_t rem = length % 4;</span>
+<span class="lineNum">     712 </span>            :         
+<span class="lineNum">     713 </span><span class="lineCov">        417 :         uint64_t a = 0;</span>
+<span class="lineNum">     714 </span><span class="lineCov">        417 :         uint64_t b = 0;</span>
+<span class="lineNum">     715 </span><span class="lineCov">        417 :         uint64_t c = 0;</span>
+<span class="lineNum">     716 </span><span class="lineCov">        417 :         uint64_t d = 0;</span>
+<span class="lineNum">     717 </span><span class="lineCov">      11584 :         for (uint64_t i = 0; i &lt; size; ++i) {</span>
+<span class="lineNum">     718 </span><span class="lineCov">      11167 :                 a = (a + buff[i]) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     719 </span><span class="lineCov">      11167 :                 b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     720 </span><span class="lineCov">      11167 :                 c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     721 </span><span class="lineCov">      11167 :                 d = (d + c) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     722 </span>            :         }
+<span class="lineNum">     723 </span>            :         
+<span class="lineNum">     724 </span>            :         // Hash last unsigned integer if required
+<span class="lineNum">     725 </span><span class="lineCov">        417 :         if (rem != 0) {</span>
+<span class="lineNum">     726 </span><span class="lineCov">          1 :                 uint32_t last = 0; // Initialised to zero for null byte padding</span>
+<span class="lineNum">     727 </span><span class="lineCov">          1 :                 memcpy(&amp;last, buff + size, sizeof(uint8_t) * rem);</span>
+<span class="lineNum">     728 </span><span class="lineCov">          1 :                 a = (a + last) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     729 </span><span class="lineCov">          1 :                 b = (b + a) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     730 </span><span class="lineCov">          1 :                 c = (c + b) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     731 </span><span class="lineCov">          1 :                 d = (d + c) % MAX_FILE_DATA_LEN_MINUS_ONE;</span>
+<span class="lineNum">     732 </span>            :         }
+<span class="lineNum">     733 </span>            :         
+<span class="lineNum">     734 </span>            :         // Copy result to output buffer at required offset
+<span class="lineNum">     735 </span><span class="lineCov">        417 :         memcpy(output, &amp;a, sizeof(uint32_t));</span>
+<span class="lineNum">     736 </span><span class="lineCov">        417 :         memcpy(output + HASH_OFFSET_B, &amp;b, sizeof(uint32_t));</span>
+<span class="lineNum">     737 </span><span class="lineCov">        417 :         memcpy(output + HASH_OFFSET_C, &amp;c, sizeof(uint32_t));</span>
+<span class="lineNum">     738 </span><span class="lineCov">        417 :         memcpy(output + HASH_OFFSET_D, &amp;d, sizeof(uint32_t));</span>
+<span class="lineNum">     739 </span><span class="lineCov">        417 : }</span>
+<span class="lineNum">     740 </span>            : 
+<span class="lineNum">     741 </span>            : /*
+<span class="lineNum">     742 </span>            :  * Writes the hash for the node at n_index to address out
+<span class="lineNum">     743 </span>            :  *
+<span class="lineNum">     744 </span>            :  * n_index: index of node in hash tree
+<span class="lineNum">     745 </span>            :  * hash_cat: address of stack array used for concatenating hashes
+<a name="746"><span class="lineNum">     746 </span>            :  * out: address that output hash is written to</a>
+<span class="lineNum">     747 </span>            :  */
+<span class="lineNum">     748 </span><span class="lineCov">         16 : void hash_node(int32_t n_index, uint8_t* hash_cat, uint8_t* out, filesys_t* fs) {</span>
+<span class="lineNum">     749 </span>            :         // If internal node, calculate hash of concatenated child hashes
+<span class="lineNum">     750 </span><span class="lineCov">         16 :         if (n_index &lt; fs-&gt;leaf_offset) {</span>
+<span class="lineNum">     751 </span><span class="lineCov">          9 :                 memcpy(hash_cat, fs-&gt;hash + lc_index(n_index) * HASH_LEN, HASH_LEN);</span>
+<span class="lineNum">     752 </span><span class="lineCov">          9 :                 memcpy(hash_cat + HASH_LEN, fs-&gt;hash + rc_index(n_index) * HASH_LEN,</span>
+<span class="lineNum">     753 </span>            :                                 HASH_LEN);
+<span class="lineNum">     754 </span><span class="lineCov">          9 :                 fletcher(hash_cat, 2 * HASH_LEN, out);</span>
+<span class="lineNum">     755 </span>            :                 
+<span class="lineNum">     756 </span>            :         // Otherwise, calculate hash of file_data block for leaf node
+<span class="lineNum">     757 </span>            :         } else {
+<span class="lineNum">     758 </span><span class="lineCov">          7 :                 fletcher(fs-&gt;file + (n_index - fs-&gt;leaf_offset) * BLOCK_LEN,</span>
+<span class="lineNum">     759 </span>            :                                 BLOCK_LEN, out);
+<span class="lineNum">     760 </span>            :         }
+<a name="761"><span class="lineNum">     761 </span><span class="lineCov">         16 : }</span></a>
+<span class="lineNum">     762 </span>            : 
+<span class="lineNum">     763 </span><span class="lineCov">          1 : void compute_hash_tree(void * helper) {</span>
+<span class="lineNum">     764 </span><span class="lineCov">          1 :         filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     765 </span><span class="lineCov">          1 :         LOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     766 </span>            :         
+<span class="lineNum">     767 </span>            :         // Variables for bottom-to-top level traversal of hash tree
+<span class="lineNum">     768 </span><span class="lineCov">          1 :         uint8_t* hash_addr = fs-&gt;hash;</span>
+<span class="lineNum">     769 </span><span class="lineCov">          1 :         int32_t n_index = fs-&gt;leaf_offset;</span>
+<span class="lineNum">     770 </span><span class="lineCov">          1 :         int32_t n_count = 0;</span>
+<span class="lineNum">     771 </span><span class="lineCov">          1 :         int32_t nodes_in_level = n_index + 1;</span>
+<span class="lineNum">     772 </span><span class="lineCov">          1 :         uint8_t hash_cat[2 * HASH_LEN];</span>
+<span class="lineNum">     773 </span>            : 
+<span class="lineNum">     774 </span><span class="lineCov">          9 :         while (nodes_in_level &gt; 0) {</span>
+<span class="lineNum">     775 </span>            :                 // Write hash of current node to hash_data
+<span class="lineNum">     776 </span><span class="lineCov">          7 :                 hash_node(n_index, hash_cat, hash_addr + n_index * HASH_LEN, fs);</span>
+<span class="lineNum">     777 </span>            :                 
+<span class="lineNum">     778 </span><span class="lineCov">          7 :                 if (++n_count &lt; nodes_in_level) {</span>
+<span class="lineNum">     779 </span><span class="lineCov">          4 :                         ++n_index;</span>
+<span class="lineNum">     780 </span>            :                 } else {
+<span class="lineNum">     781 </span>            :                         // Move to next level once current level is completed
+<span class="lineNum">     782 </span><span class="lineCov">          3 :                         nodes_in_level /= 2;</span>
+<span class="lineNum">     783 </span><span class="lineCov">          3 :                         n_index = nodes_in_level - 1;</span>
+<span class="lineNum">     784 </span><span class="lineCov">          3 :                         n_count = 0;</span>
+<span class="lineNum">     785 </span>            :                 }
+<span class="lineNum">     786 </span>            :         }
+<span class="lineNum">     787 </span>            : 
+<span class="lineNum">     788 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     789 </span>            : 
+<span class="lineNum">     790 </span><span class="lineCov">          1 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     791 </span><span class="lineCov">          1 : }</span>
+<span class="lineNum">     792 </span>            : 
+<span class="lineNum">     793 </span>            : /*
+<span class="lineNum">     794 </span>            :  * Helper for updating hash for block at offset specified, independent of
+<span class="lineNum">     795 </span>            :  * filesystem lock state
+<span class="lineNum">     796 </span>            :  *
+<a name="797"><span class="lineNum">     797 </span>            :  * offset: index of block in file_data</a>
+<span class="lineNum">     798 </span>            :  */
+<span class="lineNum">     799 </span><span class="lineCov">        133 : void compute_hash_block_helper(size_t block_offset, filesys_t* fs) {</span>
+<span class="lineNum">     800 </span>            :         // Calculate the index of the leaf node for the block
+<span class="lineNum">     801 </span><span class="lineCov">        133 :         int32_t n_index = fs-&gt;leaf_offset + block_offset;</span>
 <span class="lineNum">     802 </span>            :         
-<span class="lineNum">     803 </span>            :         // Update parent node hashes all the way to the root node
-<span class="lineNum">     804 </span><span class="lineCov">        133 :         uint8_t hash_cat[2 * HASH_LEN];</span>
-<span class="lineNum">     805 </span><span class="lineCov">        532 :         while ((n_index = p_index(n_index)) &gt;= 0) {</span>
-<span class="lineNum">     806 </span><span class="lineCov">        266 :                 memcpy(hash_cat, fs-&gt;hash + lc_index(n_index) * HASH_LEN, HASH_LEN);</span>
-<span class="lineNum">     807 </span><span class="lineCov">        266 :                 memcpy(hash_cat + HASH_LEN, fs-&gt;hash + rc_index(n_index) * HASH_LEN,</span>
-<span class="lineNum">     808 </span>            :                                 HASH_LEN);
-<span class="lineNum">     809 </span>            :                 
-<span class="lineNum">     810 </span><span class="lineCov">        266 :                 fletcher(hash_cat, 2 * HASH_LEN, fs-&gt;hash + n_index * HASH_LEN);</span>
-<span class="lineNum">     811 </span>            :         }
-<span class="lineNum">     812 </span><span class="lineCov">        133 : }</span>
-<span class="lineNum">     813 </span>            : 
-<span class="lineNum">     814 </span>            : /*
-<span class="lineNum">     815 </span>            :  * Update hashes for file_data blocks in the range specified
-<span class="lineNum">     816 </span>            :  *
-<span class="lineNum">     817 </span>            :  * offset: file_data offset of first byte modified
-<a name="818"><span class="lineNum">     818 </span>            :  * length: number of adjacent bytes modified</a>
-<span class="lineNum">     819 </span>            :  */
-<span class="lineNum">     820 </span><span class="lineCov">        118 : void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs) {</span>
-<span class="lineNum">     821 </span>            :         // Return if length is 0
-<span class="lineNum">     822 </span><span class="lineCov">        118 :         if (length &lt;= 0) {</span>
-<span class="lineNum">     823 </span><span class="lineCov">          1 :                 return;</span>
-<span class="lineNum">     824 </span>            :         }
-<span class="lineNum">     825 </span>            : 
-<span class="lineNum">     826 </span><span class="lineCov">        117 :         assert(fs != NULL &amp;&amp; &quot;invalid args&quot;);</span>
-<span class="lineNum">     827 </span>            :         
-<span class="lineNum">     828 </span>            :         // Determine first and last block modified
-<span class="lineNum">     829 </span><span class="lineCov">        117 :         int64_t first_block = offset / BLOCK_LEN;</span>
-<span class="lineNum">     830 </span><span class="lineCov">        117 :         int64_t last_block = (offset + length - 1) / BLOCK_LEN;</span>
+<span class="lineNum">     803 </span>            :         // Update the leaf node hash
+<span class="lineNum">     804 </span><span class="lineCov">        133 :         fletcher(fs-&gt;file + block_offset * BLOCK_LEN, BLOCK_LEN,</span>
+<span class="lineNum">     805 </span><span class="lineCov">        133 :                         fs-&gt;hash + n_index * HASH_LEN);</span>
+<span class="lineNum">     806 </span>            :         
+<span class="lineNum">     807 </span>            :         // Update parent node hashes all the way to the root node
+<span class="lineNum">     808 </span><span class="lineCov">        133 :         uint8_t hash_cat[2 * HASH_LEN];</span>
+<span class="lineNum">     809 </span><span class="lineCov">        532 :         while ((n_index = p_index(n_index)) &gt;= 0) {</span>
+<span class="lineNum">     810 </span><span class="lineCov">        266 :                 memcpy(hash_cat, fs-&gt;hash + lc_index(n_index) * HASH_LEN, HASH_LEN);</span>
+<span class="lineNum">     811 </span><span class="lineCov">        266 :                 memcpy(hash_cat + HASH_LEN, fs-&gt;hash + rc_index(n_index) * HASH_LEN,</span>
+<span class="lineNum">     812 </span>            :                                 HASH_LEN);
+<span class="lineNum">     813 </span>            :                 
+<span class="lineNum">     814 </span><span class="lineCov">        266 :                 fletcher(hash_cat, 2 * HASH_LEN, fs-&gt;hash + n_index * HASH_LEN);</span>
+<span class="lineNum">     815 </span>            :         }
+<span class="lineNum">     816 </span><span class="lineCov">        133 : }</span>
+<span class="lineNum">     817 </span>            : 
+<span class="lineNum">     818 </span>            : /*
+<span class="lineNum">     819 </span>            :  * Update hashes for file_data blocks in the range specified
+<span class="lineNum">     820 </span>            :  *
+<span class="lineNum">     821 </span>            :  * offset: file_data offset of first byte modified
+<a name="822"><span class="lineNum">     822 </span>            :  * length: number of adjacent bytes modified</a>
+<span class="lineNum">     823 </span>            :  */
+<span class="lineNum">     824 </span><span class="lineCov">        118 : void compute_hash_block_range(int64_t offset, int64_t length, filesys_t* fs) {</span>
+<span class="lineNum">     825 </span>            :         // Return if length is 0
+<span class="lineNum">     826 </span><span class="lineCov">        118 :         if (length &lt;= 0) {</span>
+<span class="lineNum">     827 </span><span class="lineCov">          1 :                 return;</span>
+<span class="lineNum">     828 </span>            :         }
+<span class="lineNum">     829 </span>            : 
+<span class="lineNum">     830 </span><span class="lineCov">        117 :         assert(fs != NULL &amp;&amp; &quot;invalid args&quot;);</span>
 <span class="lineNum">     831 </span>            :         
-<span class="lineNum">     832 </span>            :         // Update hash tree for each block modified
-<span class="lineNum">     833 </span><span class="lineCov">        249 :         for (int64_t i = first_block; i &lt;= last_block; ++i) {</span>
-<span class="lineNum">     834 </span><span class="lineCov">        132 :                 compute_hash_block_helper(i, fs);</span>
-<span class="lineNum">     835 </span>            :         }
-<a name="836"><span class="lineNum">     836 </span>            : }</a>
-<span class="lineNum">     837 </span>            : 
-<span class="lineNum">     838 </span><span class="lineCov">          1 : void compute_hash_block(size_t block_offset, void * helper) {</span>
-<span class="lineNum">     839 </span><span class="lineCov">          1 :         filesys_t* fs = (filesys_t*)helper;</span>
-<span class="lineNum">     840 </span><span class="lineCov">          1 :         LOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     841 </span>            :         
-<span class="lineNum">     842 </span><span class="lineCov">          1 :         compute_hash_block_helper(block_offset, fs);</span>
-<span class="lineNum">     843 </span>            :         
-<span class="lineNum">     844 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     832 </span>            :         // Determine first and last block modified
+<span class="lineNum">     833 </span><span class="lineCov">        117 :         int64_t first_block = offset / BLOCK_LEN;</span>
+<span class="lineNum">     834 </span><span class="lineCov">        117 :         int64_t last_block = (offset + length - 1) / BLOCK_LEN;</span>
+<span class="lineNum">     835 </span>            :         
+<span class="lineNum">     836 </span>            :         // Update hash tree for each block modified
+<span class="lineNum">     837 </span><span class="lineCov">        249 :         for (int64_t i = first_block; i &lt;= last_block; ++i) {</span>
+<span class="lineNum">     838 </span><span class="lineCov">        132 :                 compute_hash_block_helper(i, fs);</span>
+<span class="lineNum">     839 </span>            :         }
+<a name="840"><span class="lineNum">     840 </span>            : }</a>
+<span class="lineNum">     841 </span>            : 
+<span class="lineNum">     842 </span><span class="lineCov">          1 : void compute_hash_block(size_t block_offset, void * helper) {</span>
+<span class="lineNum">     843 </span><span class="lineCov">          1 :         filesys_t* fs = (filesys_t*)helper;</span>
+<span class="lineNum">     844 </span><span class="lineCov">          1 :         LOCK(&amp;fs-&gt;lock);</span>
 <span class="lineNum">     845 </span>            :         
-<span class="lineNum">     846 </span><span class="lineCov">          1 :         UNLOCK(&amp;fs-&gt;lock);</span>
-<span class="lineNum">     847 </span><span class="lineCov">          1 : }</span>
-<span class="lineNum">     848 </span>            : 
-<span class="lineNum">     849 </span>            : /*
-<span class="lineNum">     850 </span>            :  * Compare hashes for blocks in the range specified
-<span class="lineNum">     851 </span>            :  *
-<span class="lineNum">     852 </span>            :  * offset: offset in file_data to start verification
-<span class="lineNum">     853 </span>            :  * length: number of bytes to verify
-<span class="lineNum">     854 </span>            :  *
-<a name="855"><span class="lineNum">     855 </span>            :  * return: 0 on success, -1 on failed verification</a>
-<span class="lineNum">     856 </span>            :  */
-<span class="lineNum">     857 </span><span class="lineCov">          4 : int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {</span>
-<span class="lineNum">     858 </span>            :         // Return 0 if length is 0
-<span class="lineNum">     859 </span><span class="lineCov">          4 :         if (length &lt;= 0) {</span>
-<span class="lineNum">     860 </span><span class="lineCov">          1 :                 return 0;</span>
-<span class="lineNum">     861 </span>            :         }
-<span class="lineNum">     862 </span>            : 
-<span class="lineNum">     863 </span><span class="lineCov">          3 :         assert(fs != NULL &amp;&amp; &quot;invalid args&quot;);</span>
-<span class="lineNum">     864 </span>            :         
-<span class="lineNum">     865 </span>            :         // Determine first and last block to verify
-<span class="lineNum">     866 </span><span class="lineCov">          3 :         int64_t first_block = offset / BLOCK_LEN;</span>
-<span class="lineNum">     867 </span><span class="lineCov">          3 :         int64_t last_block = (offset + length - 1) / BLOCK_LEN;</span>
+<span class="lineNum">     846 </span><span class="lineCov">          1 :         compute_hash_block_helper(block_offset, fs);</span>
+<span class="lineNum">     847 </span>            :         
+<span class="lineNum">     848 </span><span class="lineCov">          1 :         msync(fs-&gt;hash, fs-&gt;hash_data_len, MS_ASYNC);</span>
+<span class="lineNum">     849 </span>            :         
+<span class="lineNum">     850 </span><span class="lineCov">          1 :         UNLOCK(&amp;fs-&gt;lock);</span>
+<span class="lineNum">     851 </span><span class="lineCov">          1 : }</span>
+<span class="lineNum">     852 </span>            : 
+<span class="lineNum">     853 </span>            : /*
+<span class="lineNum">     854 </span>            :  * Compare hashes for blocks in the range specified
+<span class="lineNum">     855 </span>            :  *
+<span class="lineNum">     856 </span>            :  * offset: offset in file_data to start verification
+<span class="lineNum">     857 </span>            :  * length: number of bytes to verify
+<span class="lineNum">     858 </span>            :  *
+<a name="859"><span class="lineNum">     859 </span>            :  * return: 0 on success, -1 on failed verification</a>
+<span class="lineNum">     860 </span>            :  */
+<span class="lineNum">     861 </span><span class="lineCov">          4 : int32_t verify_hash_range(int64_t offset, int64_t length, filesys_t* fs) {</span>
+<span class="lineNum">     862 </span>            :         // Return 0 if length is 0
+<span class="lineNum">     863 </span><span class="lineCov">          4 :         if (length &lt;= 0) {</span>
+<span class="lineNum">     864 </span><span class="lineCov">          1 :                 return 0;</span>
+<span class="lineNum">     865 </span>            :         }
+<span class="lineNum">     866 </span>            : 
+<span class="lineNum">     867 </span><span class="lineCov">          3 :         assert(fs != NULL &amp;&amp; &quot;invalid args&quot;);</span>
 <span class="lineNum">     868 </span>            :         
-<span class="lineNum">     869 </span>            :         // Verify hashes for each block
-<span class="lineNum">     870 </span>            :         int32_t n_index;
-<span class="lineNum">     871 </span><span class="lineCov">          3 :         uint8_t curr_hash[HASH_LEN];</span>
-<span class="lineNum">     872 </span><span class="lineCov">          3 :         uint8_t hash_cat[2 * HASH_LEN];</span>
-<span class="lineNum">     873 </span><span class="lineCov">          5 :         for (int32_t i = first_block; i &lt;= last_block; ++i) {</span>
-<span class="lineNum">     874 </span>            :                 // Get leaf node index for block
-<span class="lineNum">     875 </span><span class="lineCov">          3 :                 n_index = fs-&gt;leaf_offset + i;</span>
-<span class="lineNum">     876 </span>            :                 
-<span class="lineNum">     877 </span>            :                 // Compare hashes from leaf to root
-<span class="lineNum">     878 </span><span class="lineCov">         14 :                 while (n_index &gt;= 0) {</span>
-<span class="lineNum">     879 </span><span class="lineCov">          9 :                         hash_node(n_index, hash_cat, curr_hash, fs);</span>
-<span class="lineNum">     880 </span>            : 
-<span class="lineNum">     881 </span>            :                         // Return 1 if verification failed
-<span class="lineNum">     882 </span><span class="lineCov">          9 :                         if (memcmp(curr_hash,</span>
-<span class="lineNum">     883 </span><span class="lineCov">          9 :                                         fs-&gt;hash + n_index * HASH_LEN, HASH_LEN) != 0) {</span>
-<span class="lineNum">     884 </span><span class="lineCov">          1 :                                 return 1;</span>
-<span class="lineNum">     885 </span>            :                         }
-<span class="lineNum">     886 </span><span class="lineCov">          8 :                         n_index = p_index(n_index);</span>
-<span class="lineNum">     887 </span>            :                 }
-<span class="lineNum">     888 </span>            :         }
-<span class="lineNum">     889 </span>            :         
-<span class="lineNum">     890 </span><span class="lineCov">          2 :         return 0;</span>
-<span class="lineNum">     891 </span>            : }               
+<span class="lineNum">     869 </span>            :         // Determine first and last block to verify
+<span class="lineNum">     870 </span><span class="lineCov">          3 :         int64_t first_block = offset / BLOCK_LEN;</span>
+<span class="lineNum">     871 </span><span class="lineCov">          3 :         int64_t last_block = (offset + length - 1) / BLOCK_LEN;</span>
+<span class="lineNum">     872 </span>            :         
+<span class="lineNum">     873 </span>            :         // Verify hashes for each block
+<span class="lineNum">     874 </span>            :         int32_t n_index;
+<span class="lineNum">     875 </span><span class="lineCov">          3 :         uint8_t curr_hash[HASH_LEN];</span>
+<span class="lineNum">     876 </span><span class="lineCov">          3 :         uint8_t hash_cat[2 * HASH_LEN];</span>
+<span class="lineNum">     877 </span><span class="lineCov">          5 :         for (int32_t i = first_block; i &lt;= last_block; ++i) {</span>
+<span class="lineNum">     878 </span>            :                 // Get leaf node index for block
+<span class="lineNum">     879 </span><span class="lineCov">          3 :                 n_index = fs-&gt;leaf_offset + i;</span>
+<span class="lineNum">     880 </span>            :                 
+<span class="lineNum">     881 </span>            :                 // Compare hashes from leaf to root
+<span class="lineNum">     882 </span><span class="lineCov">         14 :                 while (n_index &gt;= 0) {</span>
+<span class="lineNum">     883 </span><span class="lineCov">          9 :                         hash_node(n_index, hash_cat, curr_hash, fs);</span>
+<span class="lineNum">     884 </span>            : 
+<span class="lineNum">     885 </span>            :                         // Return 1 if verification failed
+<span class="lineNum">     886 </span><span class="lineCov">          9 :                         if (memcmp(curr_hash,</span>
+<span class="lineNum">     887 </span><span class="lineCov">          9 :                                         fs-&gt;hash + n_index * HASH_LEN, HASH_LEN) != 0) {</span>
+<span class="lineNum">     888 </span><span class="lineCov">          1 :                                 return 1;</span>
+<span class="lineNum">     889 </span>            :                         }
+<span class="lineNum">     890 </span><span class="lineCov">          8 :                         n_index = p_index(n_index);</span>
+<span class="lineNum">     891 </span>            :                 }
+<span class="lineNum">     892 </span>            :         }
+<span class="lineNum">     893 </span>            :         
+<span class="lineNum">     894 </span><span class="lineCov">          2 :         return 0;</span>
+<span class="lineNum">     895 </span>            : }               
 </pre>
       </td>
     </tr>

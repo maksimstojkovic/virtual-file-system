@@ -1,0 +1,1 @@
+/usr/bin/cc  -O0 -std=gnu11 -fsanitize=address -Wall -Werror -g -g   CMakeFiles/myfuse.dir/myfuse.c.o CMakeFiles/myfuse.dir/myfilesystem.c.o CMakeFiles/myfuse.dir/helper.c.o CMakeFiles/myfuse.dir/arr.c.o  -o myfuse -lfuse -lm -lpthread 

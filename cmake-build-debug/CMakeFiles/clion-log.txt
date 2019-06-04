@@ -1,0 +1,4 @@
+/usr/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" "/mnt/c/Users/Maksim/Google Drive/_Uni Y3S1/COMP2017/assignment/vfs-local"
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /mnt/c/Users/Maksim/Google Drive/_Uni Y3S1/COMP2017/assignment/vfs-local/cmake-build-debug

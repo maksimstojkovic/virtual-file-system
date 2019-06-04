@@ -1,0 +1,1 @@
+/usr/bin/cc  -O0 -std=gnu11 -fsanitize=address -Wall -Werror -g -g   CMakeFiles/runtest.dir/runtest.c.o CMakeFiles/runtest.dir/myfilesystem.c.o CMakeFiles/runtest.dir/helper.c.o CMakeFiles/runtest.dir/arr.c.o  -o runtest -lfuse -lm -lpthread 

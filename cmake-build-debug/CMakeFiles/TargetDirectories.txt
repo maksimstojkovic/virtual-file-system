@@ -1,0 +1,4 @@
+/mnt/c/Users/Maksim/Google Drive/_Uni Y3S1/COMP2017/assignment/vfs-local/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/Maksim/Google Drive/_Uni Y3S1/COMP2017/assignment/vfs-local/cmake-build-debug/CMakeFiles/edit_cache.dir
+/mnt/c/Users/Maksim/Google Drive/_Uni Y3S1/COMP2017/assignment/vfs-local/cmake-build-debug/CMakeFiles/runtest.dir
+/mnt/c/Users/Maksim/Google Drive/_Uni Y3S1/COMP2017/assignment/vfs-local/cmake-build-debug/CMakeFiles/myfuse.dir
